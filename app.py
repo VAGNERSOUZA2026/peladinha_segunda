@@ -35,9 +35,6 @@ if "jogadoras" not in st.session_state:
       {"nome": "Mariana", "tipo": "Mensalista", "pagou": True},
       {"nome": "Carla", "tipo": "Avulsa", "pagou": False},
       {"nome": "Juliana", "tipo": "Avulsa", "pagou": True},
-      {"nome": "Beatriz", "tipo": "Mensalista", "pagou": True},
-      {"nome": "Camila", "tipo": "Avulsa", "pagou": False},
-      {"nome": "Renata", "tipo": "Avulsa", "pagou": True},
   ]
 
 if "limite_vagas" not in st.session_state:
@@ -57,8 +54,11 @@ with st.sidebar:
   st.header("👤 ÁREA DE ACESSO")
 
   if st.session_state.usuario_logado is None:
-    aba_login, aba_cadastro = st.tabs(["🔑 Entrar", "📝 Criar Conta"])
+    aba_login, aba_cadastro, aba_esqueci = st.tabs(
+        ["🔑 Entrar", "📝 Criar Conta", "🔒 Esqueci a Senha"]
+    )
 
+    # ABA LOGIN
     with aba_login:
       user_input = st.text_input("Usuário:").strip().lower()
       senha_input = st.text_input("Senha:", type="password")
@@ -71,6 +71,7 @@ with st.sidebar:
         else:
           st.error("Usuário ou senha incorretos.")
 
+    # ABA CRIAR CONTA
     with aba_cadastro:
       novo_nome = st.text_input("Nome Completo:")
       novo_user = st.text_input("Escolha um Usuário:").strip().lower()
@@ -93,10 +94,22 @@ with st.sidebar:
         else:
           st.error("Preencha todos os campos.")
 
+    # ABA ESQUECI A SENHA (SELF-SERVICE)
+    with aba_esqueci:
+      rec_user = st.text_input("Seu Usuário registrado:").strip().lower()
+      rec_nova_senha = st.text_input("Nova Senha:", type="password")
+      if st.button("Redefinir Senha", use_container_width=True):
+        if rec_user in st.session_state.usuarios_db:
+          st.session_state.usuarios_db[rec_user]["senha"] = rec_nova_senha
+          st.success("Senha alterada com sucesso! Faça login com a nova senha.")
+        else:
+          st.error("Usuário não encontrado.")
+
   else:
     usr = st.session_state.usuario_logado
     st.success(f"Logada: **{usr['nome']}**")
 
+    # PAINEL EXCLUSIVO DO ADMIN
     if usr["perfil"] == "admin":
       st.markdown("---")
       st.subheader("⚙️ Painel da Administradora")
@@ -108,6 +121,37 @@ with st.sidebar:
       st.session_state.hora_limite = st.time_input(
           "Horário Limite de Confirmação:", value=st.session_state.hora_limite
       )
+
+      # GESTÃO DE USUÁRIOS PELO ADMIN
+      with st.expander("👥 **Gerenciar Usuários/Contas**"):
+        lista_users = list(st.session_state.usuarios_db.keys())
+        user_sel = st.selectbox("Selecione o Usuário:", lista_users)
+
+        if user_sel:
+          dados_u = st.session_state.usuarios_db[user_sel]
+          st.caption(f"Nome: {dados_u['nome']} | Perfil: {dados_u['perfil']}")
+
+          admin_nova_senha = st.text_input(
+              "Nova Senha p/ este usuário:",
+              key=f"adm_pass_{user_sel}",
+              type="password",
+          )
+          if st.button("Salvar Nova Senha", key=f"btn_pass_{user_sel}"):
+            if admin_nova_senha.strip():
+              st.session_state.usuarios_db[user_sel]["senha"] = (
+                  admin_nova_senha
+              )
+              st.success(f"Senha de {user_sel} alterada!")
+            else:
+              st.warning("Digite uma nova senha.")
+
+          if user_sel != "admin":  # Impede o admin de deletar a si mesmo
+            if st.button(
+                "❌ Excluir Esta Conta", key=f"btn_del_user_{user_sel}"
+            ):
+              del st.session_state.usuarios_db[user_sel]
+              st.toast(f"Usuário {user_sel} excluído com sucesso!")
+              st.rerun()
 
     if st.button("Sair / Trocar Usuário", use_container_width=True):
       st.session_state.usuario_logado = None
@@ -391,3 +435,4 @@ with aba_financeiro:
     )
   else:
     st.success("🎉 Todos os Pix foram pagos!")
+                    
