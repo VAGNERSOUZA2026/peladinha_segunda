@@ -16,7 +16,6 @@ st.markdown(
     .main-header { text-align: center; color: #1E3A8A; font-weight: 800; margin-bottom: 5px; }
     .card-time { background-color: #F8FAFC; border-radius: 12px; padding: 15px; border-left: 5px solid #2563EB; margin-bottom: 10px; }
     .destaque-fora { background-color: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 8px; border-radius: 6px; font-weight: bold; margin-top: 8px; }
-    .status-badge { padding: 4px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: bold; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -32,18 +31,18 @@ if "usuarios_db" not in st.session_state:
 
 if "jogadoras" not in st.session_state:
   st.session_state.jogadoras = [
-      {"nome": "Fernanda", "tipo": "Mensalista", "pagou": True, "nivel": "Craque"},
-      {"nome": "Patrícia", "tipo": "Avulsa", "pagou": False, "nivel": "Mediana"},
-      {"nome": "Mariana", "tipo": "Mensalista", "pagou": True, "nivel": "Craque"},
-      {"nome": "Carla", "tipo": "Avulsa", "pagou": False, "nivel": "Mediana"},
-      {"nome": "Juliana", "tipo": "Avulsa", "pagou": True, "nivel": "Mediana"},
+      {"nome": "Fernanda", "tipo": "Mensalista", "pagou": True},
+      {"nome": "Patrícia", "tipo": "Avulsa", "pagou": False},
+      {"nome": "Mariana", "tipo": "Mensalista", "pagou": True},
+      {"nome": "Carla", "tipo": "Avulsa", "pagou": False},
+      {"nome": "Juliana", "tipo": "Avulsa", "pagou": True},
   ]
 
 if "limite_vagas" not in st.session_state:
   st.session_state.limite_vagas = 10
 
 if "hora_limite" not in st.session_state:
-  st.session_state.hora_limite = time(18, 0)  # 18:00 padrão
+  st.session_state.hora_limite = time(18, 0)
 
 if "usuario_logado" not in st.session_state:
   st.session_state.usuario_logado = None
@@ -51,7 +50,7 @@ if "usuario_logado" not in st.session_state:
 if "resultado_sorteio" not in st.session_state:
   st.session_state.resultado_sorteio = None
 
-# --- BARRA LATERAL (LOGIN E CONFIGS DO ADMIN) ---
+# --- BARRA LATERAL (LOGIN E CONFIGURADOS DO ADMIN) ---
 with st.sidebar:
   st.header("👤 ÁREA DE ACESSO")
 
@@ -96,10 +95,9 @@ with st.sidebar:
     usr = st.session_state.usuario_logado
     st.success(f"Logada: **{usr['nome']}**")
 
-    # CONFIGURAÇÕES EXCLUSIVAS DO ADMIN
     if usr["perfil"] == "admin":
       st.markdown("---")
-      st.subheader("⚙️ Regras do Jogo (Admin)")
+      st.subheader("⚙️ Painel da Administradora")
       st.session_state.limite_vagas = st.number_input(
           "Limite de Vagas Principais:",
           value=st.session_state.limite_vagas,
@@ -117,7 +115,7 @@ with st.sidebar:
 st.markdown(
     "<h1 class='main-header'>⚽ PELADA FEMININA</h1>", unsafe_allow_html=True
 )
-st.caption("Lista de Presença, Sorteio Inteligente e Controle de Pix")
+st.caption("Organização do Jogo, Lista de Presença e Sorteio")
 st.markdown("---")
 
 aba_lista, aba_sorteio, aba_financeiro = st.tabs(
@@ -134,7 +132,6 @@ with aba_lista:
   hora_atual = datetime.now().time()
   passou_do_horario = hora_atual > st.session_state.hora_limite
 
-  # Separação entre Lista Principal e Fila de Espera
   vagas_max = st.session_state.limite_vagas
   confirmadas = st.session_state.jogadoras[:vagas_max]
   fila_espera = st.session_state.jogadoras[vagas_max:]
@@ -148,35 +145,45 @@ with aba_lista:
 
   if passou_do_horario:
     st.warning(
-        "⏰ **Horário limite atingido!** Novos cadastros irão direto para a Fila"
-        " de Espera."
+        "⏰ **Horário limite atingido!** Novos cadastros irão para a Fila de"
+        " Espera."
     )
 
-  if usr_atual is None:
+  # INCLUSÃO MANUAL PELO ADMIN OU AUTO-CONFIRMAÇÃO PELA JOGADORA
+  if usr_atual and usr_atual["perfil"] == "admin":
+    with st.expander("➕ **(ADMIN) Adicionar Jogadora Manualmente**"):
+      with st.form("form_admin_add"):
+        nome_manual = st.text_input("Nome da Jogadora:")
+        tipo_manual = st.selectbox("Tipo:", ["Mensalista", "Avulsa"])
+        pago_manual = st.checkbox("Já pagou o Pix?")
+
+        if st.form_submit_button("Confirmar Entrada"):
+          if nome_manual.strip():
+            st.session_state.jogadoras.append({
+                "nome": nome_manual.strip(),
+                "tipo": tipo_manual,
+                "pagou": pago_manual,
+            })
+            st.success(f"{nome_manual} adicionada à lista!")
+            st.rerun()
+
+  elif usr_atual is None:
     st.info("⚠️ Faça login na barra lateral para se colocar na lista.")
   else:
     nomes_na_lista = [j["nome"] for j in st.session_state.jogadoras]
     if usr_atual["nome"] not in nomes_na_lista:
       with st.form("form_presenca"):
         tipo = st.selectbox("Tipo de Participação:", ["Avulsa", "Mensalista"])
-        nivel = st.selectbox(
-            "Nível de Jogo:", ["Mediana", "Craque", "Iniciante"]
-        )
-
         if st.form_submit_button(
             "✅ Confirmar Minha Presença", use_container_width=True
         ):
-          nova_jogadora = {
-              "nome": usr_atual["nome"],
-              "tipo": tipo,
-              "pagou": False,
-              "nivel": nivel,
-          }
-          st.session_state.jogadoras.append(nova_jogadora)
+          st.session_state.jogadoras.append(
+              {"nome": usr_atual["nome"], "tipo": tipo, "pagou": False}
+          )
           st.success("Presença adicionada!")
           st.rerun()
     else:
-      st.info(f"✅ **{usr_atual['nome']}**, você já está inscrita na lista!")
+      st.info(f"✅ **{usr_atual['nome']}**, você já está na lista de presença!")
 
   st.markdown("---")
   st.write("### 🟢 Lista Principal (Confirmadas)")
@@ -190,9 +197,9 @@ with aba_lista:
       with col_num:
         st.write(f"**{idx + 1}.**")
       with col_nome:
-        st.write(f"**{j['nome']}** *({j.get('nivel', 'Mediana')})*")
+        st.write(f"**{j['nome']}**")
 
-      # EDIÇÃO PELO ADMIN OU VISUALIZAÇÃO
+      # EDIÇÃO EXCLUSIVA DO ADMIN OU VISUALIZAÇÃO
       with col_tipo:
         if usr_atual and usr_atual["perfil"] == "admin":
           novo_tipo = st.selectbox(
@@ -224,56 +231,55 @@ with aba_lista:
         ):
           if st.button("🗑️ Sair", key=f"del_{idx}"):
             st.session_state.jogadoras.pop(idx)
-            st.toast("Lista atualizada! Se havia fila de espera, a 1ª subiu.")
+            st.toast("Nome removido! Caso houvesse fila, a 1ª da fila subiu.")
             st.rerun()
 
-  # EXIBIÇÃO DA FILA DE ESPERA (CASO EXISTA)
+  # FILA DE ESPERA (CASO A LISTA EXCEDA O LIMITE DE VAGAS)
   if fila_espera:
     st.markdown("---")
     st.write("### ⏳ Fila de Espera (Suplentes)")
     for idx_f, j_f in enumerate(fila_espera):
-      st.write(
-          f"**{idx_f + 1}º Suplente:** {j_f['nome']} ({j_f['tipo']}) - *Aguardando"
-          " vaga*"
+      col_f_num, col_f_nome, col_f_tipo, col_f_acao = st.columns(
+          [0.5, 3, 2, 1.5]
       )
+      with col_f_num:
+        st.write(f"**{idx_f + 1}º**")
+      with col_f_nome:
+        st.write(f"{j_f['nome']}")
+      with col_f_tipo:
+        st.write(f"{j_f['tipo']}")
+      with col_f_acao:
+        pos_real = vagas_max + idx_f
+        if (
+            usr_atual
+            and (usr_atual["nome"] == j_f["nome"] or usr_atual["perfil"] == "admin")
+        ):
+          if st.button("🗑️ Sair", key=f"del_f_{pos_real}"):
+            st.session_state.jogadoras.pop(pos_real)
+            st.rerun()
 
 # -------------------------------------------------------------
-# ABA 2: SORTEADOR DE TIMES
+# ABA 2: SORTEADOR DE TIMES (100% ALEATÓRIO)
 # -------------------------------------------------------------
 with aba_sorteio:
-  st.subheader("🎲 Divisão Automática de Times")
+  st.subheader("🎲 Sorteio Totalmente Aleatório")
 
   jogadoras_validas = st.session_state.jogadoras[
       : st.session_state.limite_vagas
   ]
 
   if len(jogadoras_validas) < 4:
-    st.info("Necessário pelo menos 4 jogadoras confirmadas na lista principal.")
+    st.info("Necessário pelo menos 4 jogadoras na lista principal.")
   else:
     num_times = st.radio("Quantidade de Times:", [2, 3], horizontal=True)
-    equilibrar_niv = st.checkbox(
-        "⚖️ Tentar equilibrar por nível (Craques vs Medianas)", value=True
-    )
 
-    if st.button("🔄 Sortear Times Agora!", use_container_width=True):
-      lista_temp = list(jogadoras_validas)
-
-      if equilibrar_niv:
-        # Separa por nível e embaralha cada grupo
-        craques = [j for j in lista_temp if j.get("nivel") == "Craque"]
-        outras = [j for j in lista_temp if j.get("nivel") != "Craque"]
-        random.shuffle(craques)
-        random.shuffle(outras)
-        lista_ordenada = craques + outras
-      else:
-        random.shuffle(lista_temp)
-        lista_ordenada = lista_temp
+    if st.button("🔄 Sortear Coletes na Sorte", use_container_width=True):
+      lista_temp = [j["nome"] for j in jogadoras_validas]
+      random.shuffle(lista_temp)
 
       times_dict = {}
       for i in range(num_times):
-        time_jogadores = [
-            j["nome"] for j in lista_ordenada[i::num_times]
-        ]
+        time_jogadores = lista_temp[i::num_times]
         fora = (
             random.choice(time_jogadores)
             if len(time_jogadores) > 5
@@ -344,7 +350,6 @@ with aba_financeiro:
   if pendentes:
     st.warning(f"⚠️ Existem **{len(pendentes)} pagamentos pendentes**.")
 
-    # Gerador de Cobrança Automática
     msg_cobranca = (
         "📢 *LEMBRETE DE PIX DA PELADA* ⚽\n\nMeninas, segue a lista de quem"
         " ainda não confirmou o Pix:\n"
