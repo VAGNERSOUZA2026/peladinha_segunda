@@ -40,26 +40,19 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- USUÁRIOS E SENHAS PARA TESTE ---
-# Cada jogadora tem seu usuário e senha. A administradora é a "admin".
-USUARIOS = {
-    "admin": {"senha": "123", "nome": "Esposa (Admin)", "perfil": "admin"},
-    "fernanda": {
-        "senha": "123",
-        "nome": "Fernanda (Capitã)",
-        "perfil": "jogadora",
-    },
-    "mariana": {"senha": "123", "nome": "Mariana", "perfil": "jogadora"},
-    "carla": {"senha": "123", "nome": "Carla", "perfil": "jogadora"},
-    "juliana": {"senha": "123", "nome": "Juliana", "perfil": "jogadora"},
-    "patricia": {"senha": "123", "nome": "Patrícia", "perfil": "jogadora"},
-    "camila": {"senha": "123", "nome": "Camila", "perfil": "jogadora"},
-}
+# --- BASE DE USUÁRIOS E MENSALISTAS PADRÃO ---
+if "usuarios_db" not in st.session_state:
+  st.session_state.usuarios_db = {
+      "admin": {"senha": "123", "nome": "Esposa (Admin)", "perfil": "admin"},
+      "fernanda": {
+          "senha": "123",
+          "nome": "Fernanda (Capitã)",
+          "perfil": "jogadora",
+      },
+      "mariana": {"senha": "123", "nome": "Mariana", "perfil": "jogadora"},
+  }
 
-# --- ESTADO DE SESSÃO ---
-if "usuario_logado" not in st.session_state:
-  st.session_state.usuario_logado = None
-
+# --- LISTA PADRÃO DE JOGADORAS (MENSALISTAS E CONFIRMADAS) ---
 if "jogadoras" not in st.session_state:
   st.session_state.jogadoras = [
       {
@@ -80,30 +73,63 @@ if "jogadoras" not in st.session_state:
       {"nome": "Camila", "posicao": "Linha", "tipo": "Avulsa", "pagou": False},
   ]
 
+if "usuario_logado" not in st.session_state:
+  st.session_state.usuario_logado = None
+
 if "resultado_sorteio" not in st.session_state:
   st.session_state.resultado_sorteio = None
 
-# --- BARRA LATERAL (LOGIN / PERFIL) ---
+# --- BARRA LATERAL (LOGIN E CADASTRO DE USUÁRIO) ---
 with st.sidebar:
   st.header("👤 ÁREA DE ACESSO")
 
   if st.session_state.usuario_logado is None:
-    st.subheader("Fazer Login")
-    user_input = (
-        st.text_input("Usuário:").strip().lower()
-    )  # ex: fernanda ou admin
-    senha_input = st.text_input("Senha:", type="password")
+    aba_login, aba_cadastro = st.tabs(["🔑 Entrar", "📝 Criar Conta"])
 
-    if st.button("Entrar", use_container_width=True):
-      if user_input in USUARIOS and USUARIOS[user_input]["senha"] == senha_input:
-        st.session_state.usuario_logado = USUARIOS[user_input]
-        st.success(f"Bem-vinda, {USUARIOS[user_input]['nome']}!")
-        st.rerun()
-      else:
-        st.error("Usuário ou senha incorretos.")
+    # Aba de Login
+    with aba_login:
+      user_input = st.text_input("Usuário:").strip().lower()
+      senha_input = st.text_input("Senha:", type="password")
+
+      if st.button("Entrar", use_container_width=True):
+        db = st.session_state.usuarios_db
+        if user_input in db and db[user_input]["senha"] == senha_input:
+          st.session_state.usuario_logado = db[user_input]
+          st.success(f"Bem-vinda, {db[user_input]['nome']}!")
+          st.rerun()
+        else:
+          st.error("Usuário ou senha incorretos.")
+
+    # Aba de Cadastro
+    with aba_cadastro:
+      novo_nome = st.text_input("Seu Nome Completo:")
+      novo_user = st.text_input("Escolha um Usuário:").strip().lower()
+      nova_senha = st.text_input("Escolha uma Senha:", type="password")
+
+      if st.button("Cadastrar", use_container_width=True):
+        if (
+            novo_nome.strip()
+            and novo_user.strip()
+            and nova_senha.strip()
+        ):
+          if novo_user in st.session_state.usuarios_db:
+            st.error("Este usuário já existe! Escolha outro.")
+          else:
+            st.session_state.usuarios_db[novo_user] = {
+                "senha": nova_senha,
+                "nome": novo_nome,
+                "perfil": "jogadora",
+            }
+            st.success(
+                "Conta criada com sucesso! Volte na aba 'Entrar' para fazer"
+                " login."
+            )
+        else:
+          st.error("Preencha todos os campos do cadastro.")
+
   else:
     usr = st.session_state.usuario_logado
-    st.success(f"Logged in: **{usr['nome']}**")
+    st.success(f"Logada como: **{usr['nome']}**")
     if usr["perfil"] == "admin":
       st.info("⭐ Acesso de Administradora")
     else:
@@ -136,9 +162,11 @@ with aba_lista:
   usr_atual = st.session_state.usuario_logado
 
   if usr_atual is None:
-    st.warning("⚠️ Faça login no menu lateral para confirmar sua presença.")
+    st.warning(
+        "⚠️ Faça login ou crie sua conta na barra lateral para confirmar"
+        " presença."
+    )
   else:
-    # Verifica se o usuário logado já está na lista
     nomes_na_lista = [j["nome"] for j in st.session_state.jogadoras]
     ja_na_lista = usr_atual["nome"] in nomes_na_lista
 
@@ -163,7 +191,7 @@ with aba_lista:
           st.success("Sua presença foi confirmada!")
           st.rerun()
     else:
-      st.info(f"✅ **{usr_atual['nome']}**, você já está confirmada na lista!")
+      st.info(f"✅ **{usr_atual['nome']}**, você já está na lista de presença!")
 
   st.markdown("---")
   st.write("### Lista Atual de Confirmadas:")
@@ -180,7 +208,6 @@ with aba_lista:
         st.write(f"{j['tipo']} | {status_pag}")
 
       with col_acao:
-        # A jogadora pode remover a SI MESMA, ou o ADMIN pode remover QUALQUER UMA
         e_o_proprio_usuario = (
             usr_atual is not None and usr_atual["nome"] == j["nome"]
         )
@@ -214,7 +241,6 @@ with aba_sorteio:
       lista_nomes = [j["nome"] for j in jogadoras_confirmadas]
       random.shuffle(lista_nomes)
 
-      # Distribui entre os times
       times_estruturados = {}
       for i in range(num_times):
         times_estruturados[f"Time {i+1}"] = {
@@ -222,15 +248,12 @@ with aba_sorteio:
             "fora_primeira_rodada": None,
         }
 
-      # Regra de Justiça: Se o time tiver mais de 5 jogadoras de linha, sorteia quem fica de fora primeiro
       for nome_time, dados in times_estruturados.items():
         if len(dados["jogadores"]) > 5:
-          # Sorteia aleatoriamente 1 pessoa deste time para começar fora
           dados["fora_primeira_rodada"] = random.choice(dados["jogadores"])
 
       st.session_state.resultado_sorteio = times_estruturados
 
-    # EXIBIÇÃO DOS RESULTADOS
     if st.session_state.resultado_sorteio:
       st.markdown("---")
       cols_times = st.columns(len(st.session_state.resultado_sorteio))
@@ -280,7 +303,6 @@ with aba_sorteio:
 
       texto_zap += "📢 *REGRA DO RODÍZIO:* No time com 6 jogadoras, quem perde/sai faz o rodízio na ordem do sorteio sem injustiça!\n"
 
-      # Botão WhatsApp
       texto_encoded = urllib.parse.quote(texto_zap)
       url_whatsapp = f"https://api.whatsapp.com/send?text={texto_encoded}"
 
