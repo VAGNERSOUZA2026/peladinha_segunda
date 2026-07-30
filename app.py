@@ -1,6 +1,6 @@
+import random
 import urllib.parse
 import pandas as pd
-import random
 import streamlit as st
 
 # Configuração da Página
@@ -26,15 +26,40 @@ st.markdown(
         margin-bottom: 10px;
         box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
     }
+    .destaque-fora {
+        background-color: #FEF2F2;
+        border: 1px solid #FECACA;
+        color: #991B1B;
+        padding: 8px;
+        border-radius: 6px;
+        font-weight: bold;
+        margin-top: 8px;
+    }
     </style>
 """,
     unsafe_allow_html=True,
 )
 
-# --- SENHA DO ADMINISTRADOR ---
-SENHA_ADMIN = "1234"  # 👈 Altere para a senha que a sua esposa desejar
+# --- USUÁRIOS E SENHAS PARA TESTE ---
+# Cada jogadora tem seu usuário e senha. A administradora é a "admin".
+USUARIOS = {
+    "admin": {"senha": "123", "nome": "Esposa (Admin)", "perfil": "admin"},
+    "fernanda": {
+        "senha": "123",
+        "nome": "Fernanda (Capitã)",
+        "perfil": "jogadora",
+    },
+    "mariana": {"senha": "123", "nome": "Mariana", "perfil": "jogadora"},
+    "carla": {"senha": "123", "nome": "Carla", "perfil": "jogadora"},
+    "juliana": {"senha": "123", "nome": "Juliana", "perfil": "jogadora"},
+    "patricia": {"senha": "123", "nome": "Patrícia", "perfil": "jogadora"},
+    "camila": {"senha": "123", "nome": "Camila", "perfil": "jogadora"},
+}
 
-# Estado de Sessão
+# --- ESTADO DE SESSÃO ---
+if "usuario_logado" not in st.session_state:
+  st.session_state.usuario_logado = None
+
 if "jogadoras" not in st.session_state:
   st.session_state.jogadoras = [
       {
@@ -51,44 +76,55 @@ if "jogadoras" not in st.session_state:
       },
       {"nome": "Carla", "posicao": "Linha", "tipo": "Avulsa", "pagou": False},
       {"nome": "Juliana", "posicao": "Linha", "tipo": "Avulsa", "pagou": True},
+      {"nome": "Patrícia", "posicao": "Linha", "tipo": "Avulsa", "pagou": True},
+      {"nome": "Camila", "posicao": "Linha", "tipo": "Avulsa", "pagou": False},
   ]
 
-if "admin_logado" not in st.session_state:
-  st.session_state.admin_logado = False
+if "resultado_sorteio" not in st.session_state:
+  st.session_state.resultado_sorteio = None
 
-if "times_sorteados" not in st.session_state:
-  st.session_state.times_sorteados = None
-
-# --- MENU LATERAL (LOGIN ADMIN) ---
+# --- BARRA LATERAL (LOGIN / PERFIL) ---
 with st.sidebar:
-  st.header("🔑 Área Administrativa")
-  if not st.session_state.admin_logado:
-    senha_input = st.text_input("Senha do Admin:", type="password")
-    if st.button("Entrar como Admin", use_container_width=True):
-      if senha_input == SENHA_ADMIN:
-        st.session_state.admin_logado = True
-        st.success("Logado como Admin!")
+  st.header("👤 ÁREA DE ACESSO")
+
+  if st.session_state.usuario_logado is None:
+    st.subheader("Fazer Login")
+    user_input = (
+        st.text_input("Usuário:").strip().lower()
+    )  # ex: fernanda ou admin
+    senha_input = st.text_input("Senha:", type="password")
+
+    if st.button("Entrar", use_container_width=True):
+      if user_input in USUARIOS and USUARIOS[user_input]["senha"] == senha_input:
+        st.session_state.usuario_logado = USUARIOS[user_input]
+        st.success(f"Bem-vinda, {USUARIOS[user_input]['nome']}!")
         st.rerun()
       else:
-        st.error("Senha incorreta!")
+        st.error("Usuário ou senha incorretos.")
   else:
-    st.success("🟢 Modo Admin Ativo")
-    if st.button("Sair do Modo Admin", use_container_width=True):
-      st.session_state.admin_logado = False
+    usr = st.session_state.usuario_logado
+    st.success(f"Logged in: **{usr['nome']}**")
+    if usr["perfil"] == "admin":
+      st.info("⭐ Acesso de Administradora")
+    else:
+      st.caption("Acesso Jogadora")
+
+    if st.button("Sair / Trocar Usuário", use_container_width=True):
+      st.session_state.usuario_logado = None
       st.rerun()
 
 st.markdown(
     "<h1 class='main-header'>⚽ PELADA DA GALERA</h1>", unsafe_allow_html=True
 )
 st.caption(
-    "Organização de Jogos, Lista de Presença e Sorteio de Times",
+    "Organização de Jogos, Presença e Divisão Justa de Times",
     unsafe_allow_html=True,
 )
 st.markdown("---")
 
 # Abas Principais
 aba_lista, aba_sorteio, aba_financeiro = st.tabs(
-    ["📋 Lista de Presença", "🎲 Sorteio de Times", "💰 Pix / Financeiro"]
+    ["📋 Lista de Presença", "🎲 Sorteio & Rodízio", "💰 Pix / Financeiro"]
 )
 
 # -------------------------------------------------------------
@@ -97,47 +133,37 @@ aba_lista, aba_sorteio, aba_financeiro = st.tabs(
 with aba_lista:
   st.subheader("📌 Confirmar Presença no Próximo Jogo")
 
-  LIMITE_VAGAS = 14
-  confirmadas = len(st.session_state.jogadoras)
-  vagas_restantes = LIMITE_VAGAS - confirmadas
+  usr_atual = st.session_state.usuario_logado
 
-  col_metric1, col_metric2 = st.columns(2)
-  col_metric1.metric("Confirmadas", f"{confirmadas} / {LIMITE_VAGAS}")
-  col_metric2.metric("Vagas Restantes", f"{max(0, vagas_restantes)}")
+  if usr_atual is None:
+    st.warning("⚠️ Faça login no menu lateral para confirmar sua presença.")
+  else:
+    # Verifica se o usuário logado já está na lista
+    nomes_na_lista = [j["nome"] for j in st.session_state.jogadoras]
+    ja_na_lista = usr_atual["nome"] in nomes_na_lista
 
-  if vagas_restantes <= 0:
-    st.warning(
-        "⚠️ Lista Cheia! Os próximos cadastros entrarão na Fila de Espera."
-    )
+    if not ja_na_lista:
+      st.write(f"Olá, **{usr_atual['nome']}**! Confirme sua vaga abaixo:")
+      with st.form("form_minha_presenca"):
+        c1, c2 = st.columns(2)
+        with c1:
+          posicao = st.selectbox("Sua Posição:", ["Linha", "Goleira"])
+        with c2:
+          tipo = st.selectbox("Tipo:", ["Avulsa", "Mensalista"])
 
-  # Form de Confirmação
-  with st.form("form_presenca"):
-    st.write("### Colocar nome na lista:")
-    c1, c2 = st.columns(2)
-    with c1:
-      nome = st.text_input("Nome da Jogadora:")
-      posicao = st.selectbox("Posição:", ["Linha", "Goleira"])
-    with c2:
-      tipo = st.selectbox("Tipo:", ["Mensalista", "Avulsa"])
-      pagou = st.checkbox("Já pagou o Pix?")
-
-    btn_confirmar = st.form_submit_button(
-        "✅ Confirmar Presença", use_container_width=True
-    )
-
-    if btn_confirmar:
-      if nome.strip():
-        nova = {
-            "nome": nome.strip(),
-            "posicao": posicao,
-            "tipo": tipo,
-            "pagou": pagou,
-        }
-        st.session_state.jogadoras.append(nova)
-        st.success(f"✅ {nome} adicionada à lista!")
-        st.rerun()
-      else:
-        st.error("Digite o nome para confirmar.")
+        if st.form_submit_button(
+            "✅ Confirmar Minha Presença", use_container_width=True
+        ):
+          st.session_state.jogadoras.append({
+              "nome": usr_atual["nome"],
+              "posicao": posicao,
+              "tipo": tipo,
+              "pagou": False,
+          })
+          st.success("Sua presença foi confirmada!")
+          st.rerun()
+    else:
+      st.info(f"✅ **{usr_atual['nome']}**, você já está confirmada na lista!")
 
   st.markdown("---")
   st.write("### Lista Atual de Confirmadas:")
@@ -154,65 +180,107 @@ with aba_lista:
         st.write(f"{j['tipo']} | {status_pag}")
 
       with col_acao:
-        # Apenas o Admin pode excluir
-        if st.session_state.admin_logado:
-          if st.button("🗑️ Excluir", key=f"del_{idx}"):
-            st.session_state.jogadoras.pop(idx)
-            st.toast("Jogadora removida com sucesso!")
-            st.rerun()
+        # A jogadora pode remover a SI MESMA, ou o ADMIN pode remover QUALQUER UMA
+        e_o_proprio_usuario = (
+            usr_atual is not None and usr_atual["nome"] == j["nome"]
+        )
+        e_admin = usr_atual is not None and usr_atual["perfil"] == "admin"
 
+        if e_o_proprio_usuario or e_admin:
+          if st.button("🗑️ Sair", key=f"del_{idx}"):
+            st.session_state.jogadoras.pop(idx)
+            st.toast("Nome removido da lista!")
+            st.rerun()
   else:
     st.info("Nenhuma jogadora confirmada ainda.")
 
 # -------------------------------------------------------------
-# ABA 2: SORTEADOR DE TIMES
+# ABA 2: SORTEADOR E RODÍZIO DE TIMES
 # -------------------------------------------------------------
 with aba_sorteio:
-  st.subheader("🎲 Divisão Automática de Times")
+  st.subheader("🎲 Divisão Automática e Sorteio de Rodízio")
 
-  if len(st.session_state.jogadoras) < 4:
-    st.info("Cadastre pelo menos 4 jogadoras para poder sortear os times.")
+  jogadoras_confirmadas = st.session_state.jogadoras
+  qtd_confirmadas = len(jogadoras_confirmadas)
+
+  st.write(f"Total de confirmadas: **{qtd_confirmadas} jogadoras**")
+
+  if qtd_confirmadas < 4:
+    st.info("Cadastre pelo menos 4 jogadoras para sorteio.")
   else:
     num_times = st.radio("Quantidade de Times:", [2, 3], horizontal=True)
 
-    if st.button("🔄 Sortear Coletes Agora!", use_container_width=True):
-      lista_copia = [j["nome"] for j in st.session_state.jogadoras]
-      random.shuffle(lista_copia)
+    if st.button("🔄 Sortear Times e Reserva Justa", use_container_width=True):
+      lista_nomes = [j["nome"] for j in jogadoras_confirmadas]
+      random.shuffle(lista_nomes)
 
-      times_dict = {}
+      # Distribui entre os times
+      times_estruturados = {}
       for i in range(num_times):
-        times_dict[f"Time {i+1}"] = lista_copia[i::num_times]
+        times_estruturados[f"Time {i+1}"] = {
+            "jogadores": lista_nomes[i::num_times],
+            "fora_primeira_rodada": None,
+        }
 
-      st.session_state.times_sorteados = times_dict
+      # Regra de Justiça: Se o time tiver mais de 5 jogadoras de linha, sorteia quem fica de fora primeiro
+      for nome_time, dados in times_estruturados.items():
+        if len(dados["jogadores"]) > 5:
+          # Sorteia aleatoriamente 1 pessoa deste time para começar fora
+          dados["fora_primeira_rodada"] = random.choice(dados["jogadores"])
 
-    # Exibição dos Times Sorteados
-    if st.session_state.times_sorteados:
+      st.session_state.resultado_sorteio = times_estruturados
+
+    # EXIBIÇÃO DOS RESULTADOS
+    if st.session_state.resultado_sorteio:
       st.markdown("---")
-      cols_times = st.columns(len(st.session_state.times_sorteados))
+      cols_times = st.columns(len(st.session_state.resultado_sorteio))
 
-      texto_zap = "⚽ *TIMES SORTEADOS DA PELADA* ⚽\n\n"
+      texto_zap = "⚽ *PELADA - TIMES E SORTEIO DO RODÍZIO* ⚽\n\n"
 
-      for idx, (nome_time, jogadoras_time) in enumerate(
-          st.session_state.times_sorteados.items()
+      for idx, (nome_time, dados) in enumerate(
+          st.session_state.resultado_sorteio.items()
       ):
-        texto_zap += f"👕 *{nome_time.upper()}*\n"
+        jogadores = dados["jogadores"]
+        fora = dados["fora_primeira_rodada"]
+
+        texto_zap += f"👕 *{nome_time.upper()}* ({len(jogadores)} jogadoras)\n"
+
         with cols_times[idx]:
+          html_jogadores = ""
+          for nome_j in jogadores:
+            if nome_j == fora:
+              html_jogadores += f"<p style='margin:4px 0;'>• <b>{nome_j}</b> (⚠️ Res. 1º jogo)</p>"
+            else:
+              html_jogadores += f"<p style='margin:4px 0;'>• <b>{nome_j}</b></p>"
+
           st.markdown(
               f"""
                         <div class='card-time'>
                             <h3 style='color:#1E3A8A; margin:0;'>👕 {nome_time}</h3>
                             <hr style='margin: 8px 0;'>
-                            {"".join([f"<p style='margin:4px 0;'>• <b>{nome}</b></p>" for nome in jogadoras_time])}
+                            {html_jogadores}
                         </div>
                     """,
               unsafe_allow_html=True,
           )
 
-        for nome_j in jogadoras_time:
-          texto_zap += f"• {nome_j}\n"
+          if fora:
+            st.markdown(
+                f"<div class='destaque-fora'>🎲 **Sorteio do Banco:** {fora} começa fora na 1ª partida desse time!</div>",
+                unsafe_allow_html=True,
+            )
+
+        for nome_j in jogadores:
+          if nome_j == fora:
+            texto_zap += f"• {nome_j} *(⚠️ Começa fora no rodízio)*\n"
+          else:
+            texto_zap += f"• {nome_j}\n"
+
         texto_zap += "\n"
 
-      # Botão para Publicar no WhatsApp
+      texto_zap += "📢 *REGRA DO RODÍZIO:* No time com 6 jogadoras, quem perde/sai faz o rodízio na ordem do sorteio sem injustiça!\n"
+
+      # Botão WhatsApp
       texto_encoded = urllib.parse.quote(texto_zap)
       url_whatsapp = f"https://api.whatsapp.com/send?text={texto_encoded}"
 
@@ -231,7 +299,7 @@ with aba_sorteio:
                 font-weight: bold;
                 border-radius: 8px;
                 box-shadow: 0px 3px 6px rgba(0,0,0,0.16);
-            ">📲 Publicar Times no WhatsApp</a>
+            ">📲 Compartilhar Divisão no WhatsApp</a>
         """,
           unsafe_allow_html=True,
       )
@@ -241,13 +309,9 @@ with aba_sorteio:
 # -------------------------------------------------------------
 with aba_financeiro:
   st.subheader("💰 Pagamentos do Pix")
-  st.write("Chave Pix da Quadra: **(31) 99999-9999** (Sua Esposa)")
+  st.write("Chave Pix da Quadra: **(31) 99999-9999**")
 
   if st.session_state.jogadoras:
-    pagas = sum(1 for j in st.session_state.jogadoras if j["pagou"])
-    pendentes = len(st.session_state.jogadoras) - pagas
-
-    st.write(f"• **Pagas:** {pagas}")
-    st.write(f"• **Pendentes:** {pendentes}")
-  else:
-    st.write("Sem registros no momento.")
+    df_fin = pd.DataFrame(st.session_state.jogadoras)
+    df_fin["pagou"] = df_fin["pagou"].map({True: "✅ Pago", False: "❌ Pendente"})
+    st.dataframe(df_fin[["nome", "tipo", "pagou"]], use_container_width=True)
