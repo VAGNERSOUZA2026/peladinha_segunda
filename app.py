@@ -15,7 +15,6 @@ st.markdown(
     <style>
     .main-header { text-align: center; color: #1E3A8A; font-weight: 800; margin-bottom: 5px; }
     .card-time { background-color: #F8FAFC; border-radius: 12px; padding: 15px; border-left: 5px solid #2563EB; margin-bottom: 10px; }
-    .destaque-fora { background-color: #FEF2F2; border: 1px solid #FECACA; color: #991B1B; padding: 8px; border-radius: 6px; font-weight: bold; margin-top: 8px; }
     </style>
 """,
     unsafe_allow_html=True,
@@ -36,6 +35,9 @@ if "jogadoras" not in st.session_state:
       {"nome": "Mariana", "tipo": "Mensalista", "pagou": True},
       {"nome": "Carla", "tipo": "Avulsa", "pagou": False},
       {"nome": "Juliana", "tipo": "Avulsa", "pagou": True},
+      {"nome": "Beatriz", "tipo": "Mensalista", "pagou": True},
+      {"nome": "Camila", "tipo": "Avulsa", "pagou": False},
+      {"nome": "Renata", "tipo": "Avulsa", "pagou": True},
   ]
 
 if "limite_vagas" not in st.session_state:
@@ -50,7 +52,7 @@ if "usuario_logado" not in st.session_state:
 if "resultado_sorteio" not in st.session_state:
   st.session_state.resultado_sorteio = None
 
-# --- BARRA LATERAL (LOGIN E CONFIGURADOS DO ADMIN) ---
+# --- BARRA LATERAL ---
 with st.sidebar:
   st.header("👤 ÁREA DE ACESSO")
 
@@ -149,7 +151,6 @@ with aba_lista:
         " Espera."
     )
 
-  # INCLUSÃO MANUAL PELO ADMIN OU AUTO-CONFIRMAÇÃO PELA JOGADORA
   if usr_atual and usr_atual["perfil"] == "admin":
     with st.expander("➕ **(ADMIN) Adicionar Jogadora Manualmente**"):
       with st.form("form_admin_add"):
@@ -199,7 +200,6 @@ with aba_lista:
       with col_nome:
         st.write(f"**{j['nome']}**")
 
-      # EDIÇÃO EXCLUSIVA DO ADMIN OU VISUALIZAÇÃO
       with col_tipo:
         if usr_atual and usr_atual["perfil"] == "admin":
           novo_tipo = st.selectbox(
@@ -231,10 +231,9 @@ with aba_lista:
         ):
           if st.button("🗑️ Sair", key=f"del_{idx}"):
             st.session_state.jogadoras.pop(idx)
-            st.toast("Nome removido! Caso houvesse fila, a 1ª da fila subiu.")
+            st.toast("Nome removido!")
             st.rerun()
 
-  # FILA DE ESPERA (CASO A LISTA EXCEDA O LIMITE DE VAGAS)
   if fila_espera:
     st.markdown("---")
     st.write("### ⏳ Fila de Espera (Suplentes)")
@@ -259,22 +258,44 @@ with aba_lista:
             st.rerun()
 
 # -------------------------------------------------------------
-# ABA 2: SORTEADOR DE TIMES (100% ALEATÓRIO)
+# ABA 2: SORTEADOR DE TIMES (GERAL OU NA QUADRA)
 # -------------------------------------------------------------
 with aba_sorteio:
-  st.subheader("🎲 Sorteio Totalmente Aleatório")
+  st.subheader("🎲 Sorteador de Times")
 
   jogadoras_validas = st.session_state.jogadoras[
       : st.session_state.limite_vagas
   ]
+  nomes_confirmados = [j["nome"] for j in jogadoras_validas]
 
-  if len(jogadoras_validas) < 4:
-    st.info("Necessário pelo menos 4 jogadoras na lista principal.")
+  modo_sorteio = st.radio(
+      "Selecione o tipo de sorteio:",
+      ["📋 Sorteio Completo (Lista Geral)", "⚡ Sorteio Rápido na Quadra (Já presentes)"],
+      horizontal=True,
+  )
+
+  jogadoras_para_sorteio = []
+
+  if modo_sorteio == "📋 Sorteio Completo (Lista Geral)":
+    jogadoras_para_sorteio = nomes_confirmados
+  else:
+    st.info(
+        "⚡ **Sorteio Rápido:** Marque abaixo apenas quem **já está presente na"
+        " quadra** para começar o jogo sem esperar por atrasadas!"
+    )
+    jogadoras_para_sorteio = st.multiselect(
+        "Quem já chegou na quadra?",
+        options=nomes_confirmados,
+        default=nomes_confirmados,
+    )
+
+  if len(jogadoras_para_sorteio) < 4:
+    st.warning("É necessário pelo menos 4 jogadoras selecionadas para sortear.")
   else:
     num_times = st.radio("Quantidade de Times:", [2, 3], horizontal=True)
 
-    if st.button("🔄 Sortear Coletes na Sorte", use_container_width=True):
-      lista_temp = [j["nome"] for j in jogadoras_validas]
+    if st.button("🔄 Realizar Sorteio Agora", use_container_width=True):
+      lista_temp = list(jogadoras_para_sorteio)
       random.shuffle(lista_temp)
 
       times_dict = {}
