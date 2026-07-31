@@ -160,7 +160,10 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 # VERIFICAÇÃO DE ANIVERSÁRIO DO DIA
 # -----------------------------------------------------------------------------
-hoje_str = datetime.now().strftime("%d/%m")
+hoje_dt = datetime.now()
+hoje_str = hoje_dt.strftime("%d/%m")
+mes_vigente_str = hoje_dt.strftime("%m/%Y")
+
 aniversariantes_hoje = [
     j["nome"] for j in st.session_state.jogadoras 
     if j.get("nascimento", "").strip() == hoje_str
@@ -230,6 +233,7 @@ else:
                     "login": c_user.strip(), 
                     "senha": c_pass.strip(),
                     "tipo": "Avulso", 
+                    "mes_vigente": mes_vigente_str,
                     "contato": "", 
                     "status": "Ativo"
                 })
@@ -381,7 +385,7 @@ elif menu == "🔀 Sorteio de Times (Admin)":
 
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FLUXO DE CAIXA (EXCLUSIVO ADMIN)
+# PÁGINA 3: FLUXO DE CAIXA COM EDIÇÃO E EXCLUSÃO (EXCLUSIVO ADMIN)
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
     if not st.session_state.admin_logged:
@@ -400,17 +404,16 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         m3.metric("💰 Saldo", f"R$ {total_in - total_out:.2f}")
 
         st.markdown("---")
-        col_f1, col_f2 = st.columns([2, 1])
+        
+        tab_list_fin, tab_add_fin, tab_edit_fin = st.tabs(["📜 Extrato Lançamentos", "➕ Novo Lançamento", "✏️ Editar / Excluir Lançamentos"])
 
-        with col_f1:
-            st.write("### 📜 Lançamentos")
+        with tab_list_fin:
             if not df_fin.empty:
                 st.dataframe(df_fin, use_container_width=True)
             else:
-                st.info("Nenum registro até o momento.")
+                st.info("Nenhum registro até o momento.")
 
-        with col_f2:
-            st.write("### ➕ Novo Lançamento")
+        with tab_add_fin:
             with st.form("form_fin", clear_on_submit=True):
                 f_data = st.text_input("Data (DD/MM/AAAA)", value=datetime.now().strftime("%d/%m/%Y"))
                 f_desc = st.text_input("Descrição")
@@ -423,6 +426,38 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                     })
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                     st.success("Lançamento salvo!")
+                    st.rerun()
+
+        with tab_edit_fin:
+            if not st.session_state.financeiro:
+                st.info("Nenhum lançamento para editar.")
+            else:
+                st.write("### Select a despesa/receita para gerenciar:")
+                opcoes_fin = [f"{i+1}. {item['data']} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
+                idx_sel = st.selectbox("Escolha o registro:", range(len(opcoes_fin)), format_func=lambda x: opcoes_fin[x])
+                
+                reg_sel = st.session_state.financeiro[idx_sel]
+
+                with st.form("form_edit_fin"):
+                    ef_data = st.text_input("Data", value=reg_sel.get("data", ""))
+                    ef_desc = st.text_input("Descrição", value=reg_sel.get("descricao", ""))
+                    ef_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_sel.get("tipo") == "Entrada" else 1)
+                    ef_valor = st.number_input("Valor (R$)", value=float(reg_sel.get("valor", 0.0)), min_value=0.01)
+
+                    c_salv, c_exc = st.columns(2)
+                    with c_salv:
+                        if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                            st.session_state.financeiro[idx_sel] = {
+                                "data": ef_data, "descricao": ef_desc, "tipo": ef_tipo, "valor": float(ef_valor)
+                            }
+                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                            st.success("Lançamento atualizado!")
+                            st.rerun()
+
+                if st.button("🗑️ Excluir Lançamento", type="primary", use_container_width=True):
+                    st.session_state.financeiro.pop(idx_sel)
+                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                    st.success("Lançamento excluído com sucesso!")
                     st.rerun()
 
 
@@ -456,8 +491,14 @@ elif menu == "📋 Elenco de Jogadoras":
     st.subheader("🏃‍♀️ Jogadoras Cadastradas")
     if st.session_state.jogadoras:
         df = pd.DataFrame(st.session_state.jogadoras)
-        colunas_mostrar = [c for c in ["nome", "nascimento", "tipo", "status"] if c in df.columns]
-        st.dataframe(df[colunas_mostrar], use_container_width=True, hide_index=True)
+        
+        # Garante a coluna mes_vigente exibida
+        for j in st.session_state.jogadoras:
+            if "mes_vigente" not in j:
+                j["mes_vigente"] = mes_vigente_str
+
+        cols_visiveis = [c for c in ["nome", "tipo", "mes_vigente", "nascimento", "status"] if c in df.columns]
+        st.dataframe(df[cols_visiveis], use_container_width=True, hide_index=True)
     else:
         st.info("Nenhuma jogadora cadastrada.")
 
@@ -470,7 +511,13 @@ elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
         st.error("🔒 Faça login como Admin na barra lateral para acessar esta área!")
     else:
-        t_conf, t_cad, t_admins, t_reg = st.tabs(["⚙️ Configurações Gerais", "➕ Cadastrar Jogadora", "👥 Gerenciar Admins", "📜 Editar Regulamento"])
+        t_conf, t_cad, t_ger_jog, t_admins, t_reg = st.tabs([
+            "⚙️ Configurações Gerais", 
+            "➕ Cadastrar Jogadora", 
+            "📋 Gerenciar Elenco", 
+            "👥 Gerenciar Admins", 
+            "📜 Editar Regulamento"
+        ])
         
         with t_conf:
             limite_v = st.number_input("Limite de Vagas do Jogo:", value=st.session_state.avisos.get("limite_vagas", 10))
@@ -493,7 +540,7 @@ elif menu == "⚙️ Painel Admin":
             with st.form("form_adm_cad", clear_on_submit=True):
                 a_nome = st.text_input("Nome Completo *")
                 a_nasc = st.text_input("Data de Nascimento (DD/MM)", placeholder="Ex: 22/08")
-                a_tipo = st.selectbox("Categoria", ["Mensalista", "Avulso"])
+                a_tipo = st.selectbox("Categoria Inicial", ["Mensalista", "Avulso"])
                 a_user = st.text_input("Login")
                 a_pass = st.text_input("Senha", type="password")
                 a_cont = st.text_input("WhatsApp")
@@ -504,6 +551,7 @@ elif menu == "⚙️ Painel Admin":
                             "nome": a_nome.strip(),
                             "nascimento": a_nasc.strip(),
                             "tipo": a_tipo,
+                            "mes_vigente": mes_vigente_str,
                             "login": a_user.strip(),
                             "senha": a_pass.strip(),
                             "contato": a_cont.strip(),
@@ -512,6 +560,48 @@ elif menu == "⚙️ Painel Admin":
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success(f"Jogadora {a_nome} cadastrada com sucesso!")
                         st.rerun()
+
+        with t_ger_jog:
+            st.write("### ✏️ Editar ou Excluir Jogadoras")
+            if not st.session_state.jogadoras:
+                st.info("Nenhuma jogadora no elenco.")
+            else:
+                nomes_jog = [f"{j['nome']} ({j.get('tipo', 'Avulso')})" for j in st.session_state.jogadoras]
+                idx_j_sel = st.selectbox("Selecione a jogadora para gerenciar:", range(len(nomes_jog)), format_func=lambda x: nomes_jog[x])
+                
+                j_obj = st.session_state.jogadoras[idx_j_sel]
+
+                st.markdown("---")
+                st.info(f"📅 **Mês Vigente Aplicado:** {mes_vigente_str}")
+
+                with st.form("form_edit_jog"):
+                    ej_nome = st.text_input("Nome Completo", value=j_obj.get("nome", ""))
+                    ej_tipo = st.selectbox("Categoria no Mês Vigente", ["Mensalista", "Avulso"], index=0 if j_obj.get("tipo") == "Mensalista" else 1)
+                    ej_nasc = st.text_input("Data Nascimento (DD/MM)", value=j_obj.get("nascimento", ""))
+                    ej_user = st.text_input("Login", value=j_obj.get("login", ""))
+                    ej_pass = st.text_input("Senha", value=j_obj.get("senha", ""), type="password")
+                    ej_cont = st.text_input("WhatsApp", value=j_obj.get("contato", ""))
+
+                    if st.form_submit_button("💾 Salvar Alterações da Jogadora", use_container_width=True):
+                        st.session_state.jogadoras[idx_j_sel] = {
+                            "nome": ej_nome.strip(),
+                            "nascimento": ej_nasc.strip(),
+                            "tipo": ej_tipo,
+                            "mes_vigente": mes_vigente_str,
+                            "login": ej_user.strip(),
+                            "senha": ej_pass.strip(),
+                            "contato": ej_cont.strip(),
+                            "status": "Ativo"
+                        }
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success(f"Dados de {ej_nome} salvos para o mês {mes_vigente_str}!")
+                        st.rerun()
+
+                if st.button("🗑️ Excluir Jogadora do Elenco", type="primary", use_container_width=True):
+                    jog_removida = st.session_state.jogadoras.pop(idx_j_sel)
+                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                    st.success(f"Jogadora {jog_removida['nome']} removida permanentemente!")
+                    st.rerun()
 
         with t_admins:
             st.write("### 👥 Administradores Cadastrados")
