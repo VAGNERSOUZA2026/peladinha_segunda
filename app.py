@@ -113,6 +113,9 @@ def obter_nome_p(p):
 def obter_hora_p(p):
     return p.get("hora", "") if isinstance(p, dict) else ""
 
+def obter_tipo_p(p):
+    return p.get("tipo", "Avulso") if isinstance(p, dict) else "Avulso"
+
 if "jogadoras" not in st.session_state:
     st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
 
@@ -331,6 +334,7 @@ if menu == "📌 Presença no Jogo":
     st.markdown(f"""
     <div class='card-notice'>
         📢 <b>AVISOS:</b> Limitado a <b>{limite} vagas</b>. <br>
+        ⭐ <b>Mensalistas têm prioridade nas vagas principais!</b><br>
         💡 <i>{st.session_state.avisos.get('recado')}</i><br>
         ⏰ <i>Sorteio oficial automático realizado diariamente às <b>18:00</b>.</i>
     </div>
@@ -338,22 +342,32 @@ if menu == "📌 Presença no Jogo":
 
     col_lista, col_acoes = st.columns([1, 1])
 
+    # ORGANIZAÇÃO DA LISTA DE PRESENÇA COM PRIORIDADE MENSALISTA
+    lista_atual = st.session_state.presencas
+    
+    # Separa mensalistas e avulsas mantendo a ordem de chegada
+    mensalistas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
+    avulsas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
+    
+    # As vagas do jogo são preenchidas pelas mensalistas e depois pelas avulsas
+    ordenadas = mensalistas_lista + avulsas_lista
+    confirmadas = ordenadas[:limite]
+    espera = ordenadas[limite:]
+
     with col_lista:
         st.subheader("📋 Lista de Presença")
-        
-        lista_atual = st.session_state.presencas
-        confirmadas = lista_atual[:limite]
-        espera = lista_atual[limite:]
 
-        st.markdown(f"### 🟢 Confirmadas ({len(confirmadas)}/{limite})")
+        st.markdown(f"### 🟢 Confirmadas no Jogo ({len(confirmadas)}/{limite})")
         if not confirmadas:
             st.info("Nenhuma presença confirmada ainda.")
         else:
             for i, p in enumerate(confirmadas, 1):
                 nome_p = obter_nome_p(p)
                 hora_p = obter_hora_p(p)
+                tipo_p = obter_tipo_p(p)
+                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa"
                 txt_hora = f" — *(às {hora_p})*" if hora_p else ""
-                st.write(f"**{i}.** {nome_p}{txt_hora}")
+                st.write(f"**{i}.** {nome_p} `[{badge}]`{txt_hora}")
 
         if espera:
             st.markdown("---")
@@ -361,8 +375,10 @@ if menu == "📌 Presença no Jogo":
             for i, p in enumerate(espera, 1):
                 nome_p = obter_nome_p(p)
                 hora_p = obter_hora_p(p)
+                tipo_p = obter_tipo_p(p)
+                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa"
                 txt_hora = f" — *(às {hora_p})*" if hora_p else ""
-                st.write(f"**{i}.** {nome_p}{txt_hora}")
+                st.write(f"**{i}º na espera:** {nome_p} `[{badge}]`{txt_hora}")
 
     with col_acoes:
         st.subheader("✍️ Marcar Minha Presença")
@@ -381,23 +397,39 @@ if menu == "📌 Presença no Jogo":
                 st.success(f"Conectada como: **{jogadora_sel}**")
 
             if jogadora_sel:
-                ja_na_lista = any(obter_nome_p(p) == jogadora_sel for p in st.session_state.presencas)
+                # Busca os dados cadastrais da jogadora logada
+                dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == jogadora_sel), None)
+                tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
+
+                pos_confirmada = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == jogadora_sel), None)
+                pos_espera = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == jogadora_sel), None)
+
+                # NOTIFICAÇÕES AUTOMÁTICAS DE STATUS DA JOGADORA
+                if pos_confirmada:
+                    st.success(f"🎉 **VOCÊ ESTÁ NO JOGO!** Posição **{pos_confirmada}** entre as confirmadas.")
+                elif pos_espera:
+                    st.warning(f"⏳ **VOCÊ ESTÁ NA FILA DE ESPERA!** Posição **{pos_espera}º** na fila. Se alguém desistir, você entra automaticamente!")
+
+                ja_na_lista = pos_confirmada is not None or pos_espera is not None
 
                 if st.button("👍 Confirmar Presença", use_container_width=True):
                     if ja_na_lista:
                         st.warning("Seu nome já está na lista!")
                     else:
                         hora_agora = datetime.now().strftime("%H:%M")
-                        st.session_state.presencas.append({"nome": jogadora_sel, "hora": hora_agora})
+                        st.session_state.presencas.append({
+                            "nome": jogadora_sel, 
+                            "hora": hora_agora,
+                            "tipo": tipo_j
+                        })
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success(f"Presença confirmada às {hora_agora}!")
                         st.rerun()
 
                 if st.button("❌ Cancelar Presença", use_container_width=True):
                     if ja_na_lista:
                         st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != jogadora_sel]
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.info("Presença cancelada.")
+                        st.info("Presença cancelada. A fila de espera foi atualizada automaticamente!")
                         st.rerun()
                     else:
                         st.error("Seu nome não está na lista.")
@@ -440,7 +472,11 @@ elif menu == "🔀 Sorteio de Times":
             st.markdown("---")
             st.write("#### 🛠️ Forçar Novo Sorteio Oficial (Admin)")
             limite = st.session_state.avisos.get("limite_vagas", 10)
-            confirmadas = [obter_nome_p(p) for p in st.session_state.presencas[:limite]]
+            
+            mensalistas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Mensalista"]
+            avulsas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Avulso"]
+            confirmadas = [obter_nome_p(p) for p in (mensalistas_l + avulsas_l)[:limite]]
+
             qtd_t = st.slider("Dividir em quantos times?", 2, 4, 2, key="slider_oficial")
             
             if st.button("🎲 Executar Sorteio Agora", use_container_width=True):
@@ -467,7 +503,9 @@ elif menu == "🔀 Sorteio de Times":
         st.caption("Use esta opção no momento do apito inicial caso faltem jogadoras do sorteio oficial.")
         
         limite = st.session_state.avisos.get("limite_vagas", 10)
-        todas_conf = [obter_nome_p(p) for p in st.session_state.presencas[:limite]]
+        mensalistas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Mensalista"]
+        avulsas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Avulso"]
+        todas_conf = [obter_nome_p(p) for p in (mensalistas_l + avulsas_l)[:limite]]
 
         if not todas_conf:
             st.info("Nenhuma jogadora confirmada na lista.")
@@ -738,7 +776,6 @@ elif menu == "⚙️ Painel Admin":
                             st.success("Admin adicionado!")
                             st.rerun()
 
-        # ABAS INTERNAS NO REGULAMENTO (EDITAR, ADICIONAR, EXCLUIR)
         with t_reg:
             st.write("### 📜 Gerenciar Tópicos do Regulamento")
             
@@ -751,7 +788,6 @@ elif menu == "⚙️ Painel Admin":
                 "🗑️ Excluir Tópico"
             ])
 
-            # 1. EDITAR REGRA EXISTENTE
             with sub_t_edit:
                 if st.session_state.regulamento:
                     lista_topicos = [r["topico"] for r in st.session_state.regulamento]
@@ -772,7 +808,6 @@ elif menu == "⚙️ Painel Admin":
                             st.success("Regra atualizada com sucesso!")
                             st.rerun()
 
-            # 2. ADICIONAR NOVO TÓPICO
             with sub_t_add:
                 with st.form("form_novo_reg", clear_on_submit=True):
                     r_topico = st.text_input("Título do Novo Tópico", placeholder="Ex: 📌 7. Uniformes e Chuteiras")
@@ -790,7 +825,6 @@ elif menu == "⚙️ Painel Admin":
                         else:
                             st.error("Preencha o título e a descrição da regra.")
 
-            # 3. EXCLUIR TÓPICO
             with sub_t_del:
                 if st.session_state.regulamento:
                     lista_topicos_del = [r["topico"] for r in st.session_state.regulamento]
