@@ -136,18 +136,16 @@ if menu == "📌 Presença no Jogo":
             with c_btn2:
                 if st.button("❌ Cancelar Minha Presença", use_container_width=True):
                     if jogadora_sel in st.session_state.presencas:
-                        # Verifica se quem tá saindo estava no grupo principal
                         estava_no_principal = st.session_state.presencas.index(jogadora_sel) < limite
                         
                         st.session_state.presencas.remove(jogadora_sel)
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.info(f"{jogadora_sel} foi removida da lista.")
 
-                        # Se subiu alguém da fila de espera
                         if estava_no_principal and len(st.session_state.presencas) >= limite:
                             promovida = st.session_state.presencas[limite - 1]
                             st.balloons()
-                            st.success(f"🚀 **{promovida}** subiu automaticamente da fila de espera para a lista principal!")
+                            st.success(f"🚀 **{promovida}** subiu automaticamente para a lista principal!")
                         
                         st.rerun()
                     else:
@@ -157,7 +155,7 @@ if menu == "📌 Presença no Jogo":
         if st.session_state.admin_logged:
             st.markdown("---")
             st.subheader("🛠️ Gestão de Presença (Admin)")
-            st.caption("Adicione ou remova qualquer jogadora que pediu pelo WhatsApp.")
+            st.caption("Adicione ou remova qualquer jogadora da lista do jogo.")
             
             jogadora_admin_sel = st.selectbox("Selecionar Jogadora (Admin):", jogadoras_ativas, key="admin_presence")
             ca1, ca2 = st.columns(2)
@@ -174,7 +172,7 @@ if menu == "📌 Presença no Jogo":
                         estava_no_principal = st.session_state.presencas.index(jogadora_admin_sel) < limite
                         st.session_state.presencas.remove(jogadora_admin_sel)
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.warning(f"{jogadora_admin_sel} removida pelo admin!")
+                        st.warning(f"{jogadora_admin_sel} removida da lista de presença!")
                         
                         if estava_no_principal and len(st.session_state.presencas) >= limite:
                             promovida = st.session_state.presencas[limite - 1]
@@ -337,7 +335,7 @@ elif menu == "⚙️ Painel Admin":
                         st.success(f"**{nome}** cadastrada com sucesso!")
                         st.rerun()
 
-        # EDITAR / EXCLUIR JOGADORA
+        # EDITAR / EXCLUIR JOGADORA DO CADASTRO (COM LIMPEZA AUTOMÁTICA DE PRESENÇA)
         with t_ger:
             st.subheader("Editar ou Excluir Jogadora")
             if st.session_state.jogadoras:
@@ -355,21 +353,46 @@ elif menu == "⚙️ Painel Admin":
                     
                     b1, b2 = st.columns(2)
                     if b1.form_submit_button("🔄 Atualizar Dados", use_container_width=True):
+                        nome_antigo = j_atual["nome"]
+                        novo_nome = e_nome.strip()
+
+                        # Se mudou o nome, atualiza também na lista de presença
+                        if nome_antigo in st.session_state.presencas:
+                            p_idx = st.session_state.presencas.index(nome_antigo)
+                            st.session_state.presencas[p_idx] = novo_nome
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+
                         st.session_state.jogadoras[idx] = {
-                            "nome": e_nome.strip(),
+                            "nome": novo_nome,
                             "posicao": "Jogadora",
                             "tipo": e_tipo,
                             "contato": e_contato.strip(),
                             "status": e_status
                         }
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Dados atualizados!")
+                        st.success("Dados atualizados com sucesso!")
                         st.rerun()
                         
-                    if b2.form_submit_button("❌ Excluir do Cadastro", use_container_width=True):
+                    if b2.form_submit_button("❌ Excluir do Cadastro Definitivamente", use_container_width=True):
+                        nome_deletado = j_atual["nome"]
+                        limite = st.session_state.avisos.get("limite_vagas", 15)
+                        
+                        # Remove do cadastro geral
                         del st.session_state.jogadoras[idx]
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.warning("Jogadora excluída!")
+
+                        # Remove da lista de presença se ela estiver lá
+                        if nome_deletado in st.session_state.presencas:
+                            estava_no_principal = st.session_state.presencas.index(nome_deletado) < limite
+                            st.session_state.presencas.remove(nome_deletado)
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            
+                            # Se abriu vaga no principal, sobe o próximo da fila
+                            if estava_no_principal and len(st.session_state.presencas) >= limite:
+                                promovida = st.session_state.presencas[limite - 1]
+                                st.info(f"🚀 **{promovida}** subiu automaticamente para a lista principal!")
+
+                        st.warning(f"**{nome_deletado}** foi excluída do cadastro e removida das presenças!")
                         st.rerun()
 
         # GERENCIAR MURAL DE AVISOS, LIMITE DE VAGAS E PIX
