@@ -242,7 +242,7 @@ st.sidebar.markdown("""
 
 
 # -----------------------------------------------------------------------------
-# PÁGINA 1: CONFIRMAR PRESENÇA
+# PÁGINA 1: CONFIRMAR PRESENÇA (RESTRINGIDA POR LOGIN)
 # -----------------------------------------------------------------------------
 if menu == "📌 Presença no Jogo":
     limite = st.session_state.avisos.get("limite_vagas", 10)
@@ -261,21 +261,24 @@ if menu == "📌 Presença no Jogo":
     with col_c1:
         st.subheader("✅ Marcar ou Desmarcar Presença")
         
-        if not st.session_state.usuario_logado and not st.session_state.admin_logged:
-            st.info("💡 **Faça login na barra lateral para gerenciar sua presença.**")
-            
-        jogadora_sel = st.selectbox("Selecione a jogadora:", jogadoras_cadastradas_ativas, index=jogadoras_cadastradas_ativas.index(st.session_state.usuario_logado) if st.session_state.usuario_logado in jogadoras_cadastradas_ativas else 0) if jogadoras_cadastradas_ativas else None
+        # VERIFICAÇÃO DE PERMISSÃO: Precisa ser Usuário Logado ou Admin
+        pode_alterar = st.session_state.usuario_logado is not None or st.session_state.admin_logged
 
-        if jogadora_sel:
-            c_btn1, c_btn2 = st.columns(2)
-            
-            # CONFIRMAR PRESENÇA
-            with c_btn1:
-                if st.button("👍 Confirmar Presença", use_container_width=True):
-                    # Validação de Permissão para Marcar
-                    if not st.session_state.admin_logged and st.session_state.usuario_logado != jogadora_sel:
-                        st.error("⚠️ Você só pode confirmar a presença da sua própria conta!")
-                    else:
+        if not pode_alterar:
+            st.warning("🔒 **Acesso restrito:** Para confirmar ou desmarcar sua presença na lista, você precisa **fazer login no menu lateral** ou ser um Administrador.")
+        else:
+            # Se for Admin, pode selecionar qualquer jogadora. Se for jogadora comum, altera apenas o próprio perfil.
+            if st.session_state.admin_logged and not st.session_state.usuario_logado:
+                st.info("🔑 **Modo Admin:** Selecione a jogadora que deseja gerenciar.")
+                jogadora_sel = st.selectbox("Selecione a jogadora:", jogadoras_cadastradas_ativas) if jogadoras_cadastradas_ativas else None
+            else:
+                jogadora_sel = st.session_state.usuario_logado
+                st.success(f"Gerenciando presença de: **{jogadora_sel}**")
+
+            if jogadora_sel:
+                c_btn1, c_btn2 = st.columns(2)
+                with c_btn1:
+                    if st.button("👍 Confirmar Presença", use_container_width=True):
                         if jogadora_sel in presencas_validas:
                             st.warning("Já está na lista de presença!")
                         else:
@@ -289,13 +292,8 @@ if menu == "📌 Presença no Jogo":
                                 st.warning(f"⚠️ Vagas esgotadas! {jogadora_sel} entrou na **Fila de Espera**.")
                             st.rerun()
 
-            # CANCELAR PRESENÇA (VALIDADO)
-            with c_btn2:
-                if st.button("❌ Cancelar Presença", use_container_width=True):
-                    # Validação de Permissão para Cancelar/Excluir
-                    if not st.session_state.admin_logged and st.session_state.usuario_logado != jogadora_sel:
-                        st.error("⚠️ Permissão negada! Você só pode remover o seu próprio nome ou ser Administrador.")
-                    else:
+                with c_btn2:
+                    if st.button("❌ Cancelar Presença", use_container_width=True):
                         if jogadora_sel in presencas_validas:
                             estava_no_principal = presencas_validas.index(jogadora_sel) < limite
                             
@@ -311,7 +309,7 @@ if menu == "📌 Presença no Jogo":
                             
                             st.rerun()
                         else:
-                            st.error("Seu nome não está na lista de presença.")
+                            st.error("O nome não está na lista de presença.")
 
         if st.session_state.admin_logged:
             st.markdown("---")
@@ -462,7 +460,7 @@ elif menu == "📊 Fluxo de Caixa":
             with tab_novo:
                 st.write("#### Novo Lançamento")
                 with st.form("form_fin_novo", clear_on_submit=True):
-                    f_data = st.text_input("Data (DD/MM/AAAA)", value="31/07/2026")
+                    f_data = st.text_input("Data (DD/MM/AAAA)", value="30/07/2026")
                     f_desc = st.text_input("Descrição (ex: Mensalidade Fulana)")
                     f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
                     f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
@@ -471,4 +469,7 @@ elif menu == "📊 Fluxo de Caixa":
                         st.session_state.financeiro.append({
                             "data": f_data,
                             "descricao": f_desc,
-                     
+                            "tipo": f_tipo,
+                            "valor": float(f_valor)
+                        })
+                        salvar_dados(FINAN
