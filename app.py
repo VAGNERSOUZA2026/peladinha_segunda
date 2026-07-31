@@ -89,6 +89,7 @@ AVISOS_FILE = "avisos.json"
 FINANCE_FILE = "financeiro.json"
 ADMINS_FILE = "administradores.json"
 REGULAMENTO_FILE = "regulamento.json"
+SORTEIO_FILE = "sorteio.json"
 
 def carregar_dados(filename, default):
     if os.path.exists(filename):
@@ -105,6 +106,12 @@ def salvar_dados(filename, data):
             json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception:
         pass
+
+def obter_nome_p(p):
+    return p["nome"] if isinstance(p, dict) else p
+
+def obter_hora_p(p):
+    return p.get("hora", "") if isinstance(p, dict) else ""
 
 if "jogadoras" not in st.session_state:
     st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
@@ -131,12 +138,16 @@ if "avisos" not in st.session_state:
 
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
-        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "As jogadoras MENSALISTAS têm prioridade na confirmação de presença até 24 horas antes da partida. Após esse prazo, as vagas restantes ficam liberadas para as jogadoras AVULSAS."},
-        {"topico": "⏳ 2. Fila de Espera e Horários", "regrinha": "Atingido o limite de vagas, as confirmações adicionais entram automaticamente na fila de espera. Chegar com pelo menos 10 minutos de antecedência."},
-        {"topico": "❌ 3. Desistências e Faltas", "regrinha": "Desistências devem ser avisadas com no mínimo 4 horas de antecedência pelo aplicativo. Faltas sem aviso prévio sujeitam a jogadora ao pagamento da taxa avulsa."},
-        {"topico": "💸 4. Mensalidades e Pagamento", "regrinha": "As mensalidades devem ser pagas impreterivelmente até a data de vencimento estipulada via Pix. O não pagamento impede a prioridade na lista de confirmação."},
-        {"topico": "🤝 5. Fair Play e Respeito", "regrinha": "Respeito mútuo entre todas as jogadoras e administradores. Discussões ríspidas ou faltas desleais não serão toleradas."}
+        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "As jogadoras MENSALISTAS têm prioridade na confirmação de presença até 24 horas antes da partida."},
+        {"topico": "⏳ 2. Fila de Espera e Horários", "regrinha": "Atingido o limite de vagas, as confirmações adicionais entram automaticamente na fila de espera."},
+        {"topico": "❌ 3. Desistências e Faltas", "regrinha": "Desistências devem ser avisadas com antecedência pelo aplicativo. Faltas sem aviso sujeitam à taxa avulsa."},
+        {"topico": "💸 4. Mensalidades e Pagamento", "regrinha": "As mensalidades devem ser pagas via Pix até a data estipulada de vencimento."},
+        {"topico": "🤝 5. Fair Play e Respeito", "regrinha": "Respeito mútuo entre todas as jogadoras e administradores. Jogamos pela diversão e saúde!"},
+        {"topico": "📌 6. Sorteio Oficial e Ajuste de Quadra", "regrinha": "• Sorteio Oficial: Feito automaticamente pelo aplicativo às 18:00.\n• Ajuste na Quadra: No início do jogo, se faltar alguém do sorteio oficial, é feito um sorteio rápido na quadra apenas entre as presentes para não atrasar a partida."}
     ])
+
+if "sorteio_oficial" not in st.session_state:
+    st.session_state.sorteio_oficial = carregar_dados(SORTEIO_FILE, {})
 
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
@@ -146,6 +157,43 @@ if "admin_logged" not in st.session_state:
 
 if "admin_nome" not in st.session_state:
     st.session_state.admin_nome = ""
+
+# -----------------------------------------------------------------------------
+# AUTOMAÇÕES POR HORÁRIO (18:00 SORTEIO AUTOMÁTICO | 20:00 ZERAR LISTA)
+# -----------------------------------------------------------------------------
+hoje_dt = datetime.now()
+hoje_str = hoje_dt.strftime("%d/%m")
+mes_vigente_str = hoje_dt.strftime("%m/%Y")
+data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
+
+limite_vagas_at = st.session_state.avisos.get("limite_vagas", 10)
+
+# 1. SORTEIO AUTOMÁTICO ÀS 18:00
+if hoje_dt.hour >= 18 and st.session_state.get("sorteio_auto_dia") != data_hoje_id:
+    confirmadas_nomes = [obter_nome_p(p) for p in st.session_state.presencas[:limite_vagas_at]]
+    if len(confirmadas_nomes) >= 2:
+        temp = confirmadas_nomes.copy()
+        random.shuffle(temp)
+        
+        # Divide em 2 times automaticamente
+        t1 = temp[::2]
+        t2 = temp[1::2]
+        
+        st.session_state.sorteio_oficial = {
+            "data": data_hoje_id,
+            "hora": "18:00 (Automático)",
+            "times": {"Time 1": t1, "Time 2": t2}
+        }
+        salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
+        st.session_state.sorteio_auto_dia = data_hoje_id
+
+# 2. ZERAR LISTA AUTOMATICAMENTE APÓS AS 20:00
+if hoje_dt.hour >= 20 and st.session_state.get("ultima_zeragem") != data_hoje_id:
+    st.session_state.presencas = []
+    salvar_dados(PRESENCAS_FILE, [])
+    st.session_state.sorteio_oficial = {}
+    salvar_dados(SORTEIO_FILE, {})
+    st.session_state.ultima_zeragem = data_hoje_id
 
 # -----------------------------------------------------------------------------
 # BANNER DA APLICAÇÃO
@@ -158,12 +206,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# VERIFICAÇÃO DE ANIVERSÁRIO DO DIA
+# ANIVERSARIANTES DO DIA
 # -----------------------------------------------------------------------------
-hoje_dt = datetime.now()
-hoje_str = hoje_dt.strftime("%d/%m")
-mes_vigente_str = hoje_dt.strftime("%m/%Y")
-
 aniversariantes_hoje = [
     j["nome"] for j in st.session_state.jogadoras 
     if j.get("nascimento", "").strip() == hoje_str
@@ -175,7 +219,7 @@ if aniversariantes_hoje:
     st.markdown(f"""
     <div class='card-bday'>
         🎂 🎉 <b>PARABÉNS, {nomes_aniver.upper()}!</b> 🎉 🎂<br>
-        O Peladinha FC deseja a você um FELIZ ANIVERSÁRIO! Muita saúde, alegria e gols hoje e sempre! ⚽🎈
+        O Peladinha FC deseja a você um FELIZ ANIVERSÁRIO! Muita saúde e gols! ⚽🎈
     </div>
     """, unsafe_allow_html=True)
 
@@ -186,13 +230,13 @@ st.sidebar.title("📌 Navegação")
 
 lista_menu = [
     "📌 Presença no Jogo", 
+    "🔀 Sorteio de Times",
     "💸 Pagamento & Pix",
     "📜 Regulamento",
     "📋 Elenco de Jogadoras"
 ]
 
 if st.session_state.admin_logged:
-    lista_menu.insert(1, "🔀 Sorteio de Times (Admin)")
     lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
 
 lista_menu.append("⚙️ Painel Admin")
@@ -204,63 +248,75 @@ st.sidebar.title("👤 Área da Jogadora")
 
 if st.session_state.usuario_logado:
     st.sidebar.success(f"Logada: **{st.session_state.usuario_logado}**")
-    if st.sidebar.button("🚪 Sair"):
+    if st.sidebar.button("🚪 Sair da Conta"):
         st.session_state.usuario_logado = None
         st.rerun()
 else:
     tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"])
+    
+    # FORMULÁRIO DE LOGIN (PERMITE ENTER DIRETO)
     with tab_log:
-        l_user = st.text_input("Login", key="l_user")
-        l_pass = st.text_input("Senha", type="password", key="l_pass")
-        if st.button("🔑 Entrar"):
-            user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
-            if user_found:
-                st.session_state.usuario_logado = user_found["nome"]
-                st.rerun()
-            else:
-                st.sidebar.error("Login incorreto!")
+        with st.form("form_login_player"):
+            l_user = st.text_input("Login")
+            l_pass = st.text_input("Senha", type="password")
+            btn_log = st.form_submit_button("🔑 Entrar", use_container_width=True)
+            
+            if btn_log:
+                user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
+                if user_found:
+                    st.session_state.usuario_logado = user_found["nome"]
+                    st.rerun()
+                else:
+                    st.error("Login ou senha incorretos!")
 
     with tab_cad:
-        c_nome = st.text_input("Seu Nome *")
-        c_nasc = st.text_input("Data de Nascimento (DD/MM) *", placeholder="Ex: 15/05")
-        c_user = st.text_input("Escolha um Login *")
-        c_pass = st.text_input("Escolha uma Senha *", type="password")
-        if st.button("📝 Criar Conta"):
-            if c_nome and c_user and c_pass:
-                st.session_state.jogadoras.append({
-                    "nome": c_nome.strip(), 
-                    "nascimento": c_nasc.strip(),
-                    "login": c_user.strip(), 
-                    "senha": c_pass.strip(),
-                    "tipo": "Avulso", 
-                    "mes_vigente": mes_vigente_str,
-                    "contato": "", 
-                    "status": "Ativo"
-                })
-                salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                st.sidebar.success("Conta criada! Faça login.")
-                st.rerun()
-            else:
-                st.sidebar.error("Preencha Nome, Login e Senha!")
+        with st.form("form_cad_player"):
+            c_nome = st.text_input("Seu Nome *")
+            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+            c_user = st.text_input("Escolha um Login *")
+            c_pass = st.text_input("Escolha uma Senha *", type="password")
+            btn_cad = st.form_submit_button("📝 Criar Conta", use_container_width=True)
+            
+            if btn_cad:
+                if c_nome and c_user and c_pass:
+                    st.session_state.jogadoras.append({
+                        "nome": c_nome.strip(), 
+                        "nascimento": c_nasc.strip(),
+                        "login": c_user.strip(), 
+                        "senha": c_pass.strip(),
+                        "tipo": "Avulso", 
+                        "mes_vigente": mes_vigente_str,
+                        "contato": "", 
+                        "status": "Ativo"
+                    })
+                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                    st.success("Conta criada! Agora faça seu login.")
+                    st.rerun()
+                else:
+                    st.error("Preencha Nome, Login e Senha!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔒 Área do Administrador")
 
 if not st.session_state.admin_logged:
-    adm_input = st.sidebar.text_input("Login ou Senha Admin", type="password")
-    if st.sidebar.button("Acessar Como Admin"):
-        admin_encontrado = None
-        for adm in st.session_state.administradores:
-            if adm_input == adm.get("senha") or adm_input == adm.get("login"):
-                admin_encontrado = adm
-                break
+    # FORMULÁRIO DE LOGIN ADMIN (PERMITE ENTER DIRETO)
+    with st.sidebar.form("form_login_admin"):
+        adm_input = st.text_input("Login ou Senha Admin", type="password")
+        btn_adm = st.form_submit_button("Acessar Como Admin", use_container_width=True)
         
-        if admin_encontrado or adm_input == "1980":
-            st.session_state.admin_logged = True
-            st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Admin Principal"
-            st.rerun()
-        else:
-            st.sidebar.error("Senha/Login Admin incorreto!")
+        if btn_adm:
+            admin_encontrado = None
+            for adm in st.session_state.administradores:
+                if adm_input == adm.get("senha") or adm_input == adm.get("login"):
+                    admin_encontrado = adm
+                    break
+            
+            if admin_encontrado or adm_input == "1980":
+                st.session_state.admin_logged = True
+                st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Admin Principal"
+                st.rerun()
+            else:
+                st.error("Senha/Login Admin incorreto!")
 else:
     st.sidebar.info(f"🔑 Admin: **{st.session_state.admin_nome}**")
     if st.sidebar.button("Sair do Admin"):
@@ -270,7 +326,7 @@ else:
 
 
 # -----------------------------------------------------------------------------
-# PÁGINA 1: PRESENÇA NO JOGO (PÚBLICA)
+# PÁGINA 1: PRESENÇA NO JOGO
 # -----------------------------------------------------------------------------
 if menu == "📌 Presença no Jogo":
     limite = st.session_state.avisos.get("limite_vagas", 10)
@@ -278,7 +334,8 @@ if menu == "📌 Presença no Jogo":
     st.markdown(f"""
     <div class='card-notice'>
         📢 <b>AVISOS:</b> Limitado a <b>{limite} vagas</b>. <br>
-        💡 <i>{st.session_state.avisos.get('recado')}</i>
+        💡 <i>{st.session_state.avisos.get('recado')}</i><br>
+        ⏰ <i>Sorteio oficial automático realizado diariamente às <b>18:00</b>.</i>
     </div>
     """, unsafe_allow_html=True)
 
@@ -295,14 +352,20 @@ if menu == "📌 Presença no Jogo":
         if not confirmadas:
             st.info("Nenhuma presença confirmada ainda.")
         else:
-            for i, nome in enumerate(confirmadas, 1):
-                st.write(f"**{i}.** {nome}")
+            for i, p in enumerate(confirmadas, 1):
+                nome_p = obter_nome_p(p)
+                hora_p = obter_hora_p(p)
+                txt_hora = f" — *(às {hora_p})*" if hora_p else ""
+                st.write(f"**{i}.** {nome_p}{txt_hora}")
 
         if espera:
             st.markdown("---")
             st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
-            for i, nome in enumerate(espera, 1):
-                st.write(f"**{i}.** {nome} *(Aguardando vaga)*")
+            for i, p in enumerate(espera, 1):
+                nome_p = obter_nome_p(p)
+                hora_p = obter_hora_p(p)
+                txt_hora = f" — *(às {hora_p})*" if hora_p else ""
+                st.write(f"**{i}.** {nome_p}{txt_hora}")
 
     with col_acoes:
         st.subheader("✍️ Marcar Minha Presença")
@@ -310,8 +373,8 @@ if menu == "📌 Presença no Jogo":
         pode_mexer = st.session_state.usuario_logado or st.session_state.admin_logged
 
         if not pode_mexer:
-            st.warning("⚠️ **Você precisa estar logado para confirmar presença!**")
-            st.info("👈 Acesse a **Área da Jogadora** na barra lateral para fazer Login ou Criar Conta.")
+            st.warning("⚠️ **Você precisa estar logada para confirmar presença!**")
+            st.info("👈 Faça Login na **Área da Jogadora** no menu lateral.")
         else:
             if st.session_state.admin_logged and not st.session_state.usuario_logado:
                 nomes_cad = [j["nome"] for j in st.session_state.jogadoras]
@@ -321,18 +384,21 @@ if menu == "📌 Presença no Jogo":
                 st.success(f"Conectada como: **{jogadora_sel}**")
 
             if jogadora_sel:
+                ja_na_lista = any(obter_nome_p(p) == jogadora_sel for p in st.session_state.presencas)
+
                 if st.button("👍 Confirmar Presença", use_container_width=True):
-                    if jogadora_sel in st.session_state.presencas:
-                        st.warning("Você já está na lista!")
+                    if ja_na_lista:
+                        st.warning("Seu nome já está na lista!")
                     else:
-                        st.session_state.presencas.append(jogadora_sel)
+                        hora_agora = datetime.now().strftime("%H:%M")
+                        st.session_state.presencas.append({"nome": jogadora_sel, "hora": hora_agora})
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success("Presença confirmada!")
+                        st.success(f"Presença confirmada às {hora_agora}!")
                         st.rerun()
 
                 if st.button("❌ Cancelar Presença", use_container_width=True):
-                    if jogadora_sel in st.session_state.presencas:
-                        st.session_state.presencas.remove(jogadora_sel)
+                    if ja_na_lista:
+                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != jogadora_sel]
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.info("Presença cancelada.")
                         st.rerun()
@@ -342,54 +408,101 @@ if menu == "📌 Presença no Jogo":
         if st.session_state.admin_logged:
             st.markdown("---")
             st.subheader("🚨 Ações de Admin")
-            if st.button("🧹 Zerar Toda a Lista", use_container_width=True):
+            if st.button("🧹 Zerar Toda a Lista Manualmente", use_container_width=True):
                 st.session_state.presencas = []
                 salvar_dados(PRESENCAS_FILE, [])
-                st.warning("Lista zerada!")
+                st.session_state.sorteio_oficial = {}
+                salvar_dados(SORTEIO_FILE, {})
+                st.warning("Lista e sorteios zerados!")
                 st.rerun()
 
 
 # -----------------------------------------------------------------------------
-# PÁGINA 2: SORTEIO DE TIMES (EXCLUSIVO ADMIN)
+# PÁGINA 2: SORTEIO DE TIMES
 # -----------------------------------------------------------------------------
-elif menu == "🔀 Sorteio de Times (Admin)":
-    if not st.session_state.admin_logged:
-        st.error("🔒 Área restrita! Apenas administradores podem sortear os times.")
-    else:
-        st.subheader("🔀 Sorteio de Times")
+elif menu == "🔀 Sorteio de Times":
+    st.subheader("🔀 Sorteio de Times")
+
+    tab_oficial, tab_quadra = st.tabs(["🏆 Sorteio Oficial (Pré-Jogo)", "⚡ Ajuste Rápido de Quadra"])
+
+    with tab_oficial:
+        sorteio_salvo = st.session_state.sorteio_oficial
+        if sorteio_salvo and "times" in sorteio_salvo:
+            st.success(f"✅ **Sorteio Oficial Realizado ({sorteio_salvo.get('hora', '')})**")
+            cols = st.columns(len(sorteio_salvo["times"]))
+            for idx, (nome_time, membros) in enumerate(sorteio_salvo["times"].items()):
+                with cols[idx]:
+                    st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
+                    for item in membros:
+                        st.write(f"• **{item}**")
+                    st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.info("⏰ O Sorteio Oficial é realizado automaticamente às **18:00**.")
+
+        if st.session_state.admin_logged:
+            st.markdown("---")
+            st.write("#### 🛠️ Forçar Novo Sorteio Oficial (Admin)")
+            limite = st.session_state.avisos.get("limite_vagas", 10)
+            confirmadas = [obter_nome_p(p) for p in st.session_state.presencas[:limite]]
+            qtd_t = st.slider("Dividir em quantos times?", 2, 4, 2, key="slider_oficial")
+            
+            if st.button("🎲 Executar Sorteio Agora", use_container_width=True):
+                if len(confirmadas) < qtd_t:
+                    st.error("Número insuficiente de jogadoras confirmadas.")
+                else:
+                    temp = confirmadas.copy()
+                    random.shuffle(temp)
+                    res_times = {f"Time {i+1}": [] for i in range(qtd_t)}
+                    for idx, p in enumerate(temp):
+                        res_times[f"Time {idx % qtd_t + 1}"].append(p)
+                    
+                    st.session_state.sorteio_oficial = {
+                        "data": data_hoje_id,
+                        "hora": f"{datetime.now().strftime('%H:%M')} (Manual)",
+                        "times": res_times
+                    }
+                    salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
+                    st.success("Sorteio atualizado!")
+                    st.rerun()
+
+    with tab_quadra:
+        st.write("### ⚡ Sorteio na Quadra (Com as jogadoras presentes)")
+        st.caption("Use esta opção no momento do apito inicial caso faltem jogadoras do sorteio oficial.")
         
         limite = st.session_state.avisos.get("limite_vagas", 10)
-        confirmadas = st.session_state.presencas[:limite]
+        todas_conf = [obter_nome_p(p) for p in st.session_state.presencas[:limite]]
 
-        st.write(f"Total na lista de confirmadas: **{len(confirmadas)} jogadoras**")
+        if not todas_conf:
+            st.info("Nenhuma jogadora confirmada na lista.")
+        else:
+            presentes = st.multiselect("Marque as jogadoras que JÁ CHEGARAM na quadra:", todas_conf, default=todas_conf)
+            qtd_t_q = st.slider("Dividir em quantos times?", 2, 4, 2, key="slider_quadra")
 
-        qtd_times = st.slider("Dividir em quantos times?", 2, 4, 2)
+            if st.button("🎲 Sortear Apenas Presentes", use_container_width=True):
+                if len(presentes) < qtd_t_q:
+                    st.error("Selecione mais jogadoras presentes para sortear.")
+                else:
+                    temp = presentes.copy()
+                    random.shuffle(temp)
+                    times_q = [[] for _ in range(qtd_t_q)]
+                    for idx, p in enumerate(temp):
+                        times_q[idx % qtd_t_q].append(p)
 
-        if st.button("🎲 Sortear Times Agora", use_container_width=True):
-            if len(confirmadas) < qtd_times:
-                st.error("Poucas jogadoras na lista de confirmadas para realizar o sorteio.")
-            else:
-                temp = confirmadas.copy()
-                random.shuffle(temp)
-                times = [[] for _ in range(qtd_times)]
-                for idx, p in enumerate(temp):
-                    times[idx % qtd_times].append(p)
-
-                cols = st.columns(qtd_times)
-                for i, t in enumerate(times):
-                    with cols[i]:
-                        st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1}</h3>", unsafe_allow_html=True)
-                        for item in t:
-                            st.write(f"• **{item}**")
-                        st.markdown("</div>", unsafe_allow_html=True)
+                    cols_q = st.columns(qtd_t_q)
+                    for i, t in enumerate(times_q):
+                        with cols_q[i]:
+                            st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1} (Quadra)</h3>", unsafe_allow_html=True)
+                            for item in t:
+                                st.write(f"• **{item}**")
+                            st.markdown("</div>", unsafe_allow_html=True)
 
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FLUXO DE CAIXA COM EDIÇÃO E EXCLUSÃO (EXCLUSIVO ADMIN)
+# PÁGINA 3: FLUXO DE CAIXA (EXCLUSIVO ADMIN)
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
     if not st.session_state.admin_logged:
-        st.error("🔒 Área restrita! Faça login como administrador.")
+        st.error("🔒 Área restrita aos administradores!")
     else:
         st.subheader("📊 Fluxo de Caixa")
 
@@ -404,18 +517,17 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         m3.metric("💰 Saldo", f"R$ {total_in - total_out:.2f}")
 
         st.markdown("---")
-        
-        tab_list_fin, tab_add_fin, tab_edit_fin = st.tabs(["📜 Extrato Lançamentos", "➕ Novo Lançamento", "✏️ Editar / Excluir Lançamentos"])
+        tab_list_fin, tab_add_fin, tab_edit_fin = st.tabs(["📜 Extrato", "➕ Novo Registro", "✏️ Editar / Excluir"])
 
         with tab_list_fin:
             if not df_fin.empty:
                 st.dataframe(df_fin, use_container_width=True)
             else:
-                st.info("Nenhum registro até o momento.")
+                st.info("Nenhum registro postado.")
 
         with tab_add_fin:
             with st.form("form_fin", clear_on_submit=True):
-                f_data = st.text_input("Data (DD/MM/AAAA)", value=datetime.now().strftime("%d/%m/%Y"))
+                f_data = st.text_input("Data", value=datetime.now().strftime("%d/%m/%Y"))
                 f_desc = st.text_input("Descrição")
                 f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
                 f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
@@ -432,10 +544,8 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             if not st.session_state.financeiro:
                 st.info("Nenhum lançamento para editar.")
             else:
-                st.write("### Select a despesa/receita para gerenciar:")
                 opcoes_fin = [f"{i+1}. {item['data']} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
                 idx_sel = st.selectbox("Escolha o registro:", range(len(opcoes_fin)), format_func=lambda x: opcoes_fin[x])
-                
                 reg_sel = st.session_state.financeiro[idx_sel]
 
                 with st.form("form_edit_fin"):
@@ -444,20 +554,18 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                     ef_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_sel.get("tipo") == "Entrada" else 1)
                     ef_valor = st.number_input("Valor (R$)", value=float(reg_sel.get("valor", 0.0)), min_value=0.01)
 
-                    c_salv, c_exc = st.columns(2)
-                    with c_salv:
-                        if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                            st.session_state.financeiro[idx_sel] = {
-                                "data": ef_data, "descricao": ef_desc, "tipo": ef_tipo, "valor": float(ef_valor)
-                            }
-                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                            st.success("Lançamento atualizado!")
-                            st.rerun()
+                    if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
+                        st.session_state.financeiro[idx_sel] = {
+                            "data": ef_data, "descricao": ef_desc, "tipo": ef_tipo, "valor": float(ef_valor)
+                        }
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        st.success("Atualizado!")
+                        st.rerun()
 
                 if st.button("🗑️ Excluir Lançamento", type="primary", use_container_width=True):
                     st.session_state.financeiro.pop(idx_sel)
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Lançamento excluído com sucesso!")
+                    st.success("Excluído com sucesso!")
                     st.rerun()
 
 
@@ -472,11 +580,10 @@ elif menu == "💸 Pagamento & Pix":
 
 
 # -----------------------------------------------------------------------------
-# PÁGINA 5: REGULAMENTO POR TÓPICOS
+# PÁGINA 5: REGULAMENTO
 # -----------------------------------------------------------------------------
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento do Peladinha FC")
-    st.write("Confira as regras oficiais para a boa organização dos nossos jogos:")
     st.markdown("---")
 
     for item in st.session_state.regulamento:
@@ -491,8 +598,6 @@ elif menu == "📋 Elenco de Jogadoras":
     st.subheader("🏃‍♀️ Jogadoras Cadastradas")
     if st.session_state.jogadoras:
         df = pd.DataFrame(st.session_state.jogadoras)
-        
-        # Garante a coluna mes_vigente exibida
         for j in st.session_state.jogadoras:
             if "mes_vigente" not in j:
                 j["mes_vigente"] = mes_vigente_str
@@ -533,13 +638,13 @@ elif menu == "⚙️ Painel Admin":
                     "recado": rec_v
                 }
                 salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                st.success("Configurações salvas!")
+                st.success("Configurações salvadas!")
                 st.rerun()
 
         with t_cad:
             with st.form("form_adm_cad", clear_on_submit=True):
                 a_nome = st.text_input("Nome Completo *")
-                a_nasc = st.text_input("Data de Nascimento (DD/MM)", placeholder="Ex: 22/08")
+                a_nasc = st.text_input("Data de Nascimento (DD/MM)")
                 a_tipo = st.selectbox("Categoria Inicial", ["Mensalista", "Avulso"])
                 a_user = st.text_input("Login")
                 a_pass = st.text_input("Senha", type="password")
@@ -558,7 +663,7 @@ elif menu == "⚙️ Painel Admin":
                             "status": "Ativo"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Jogadora {a_nome} cadastrada com sucesso!")
+                        st.success(f"Jogadora {a_nome} cadastrada!")
                         st.rerun()
 
         with t_ger_jog:
@@ -567,12 +672,8 @@ elif menu == "⚙️ Painel Admin":
                 st.info("Nenhuma jogadora no elenco.")
             else:
                 nomes_jog = [f"{j['nome']} ({j.get('tipo', 'Avulso')})" for j in st.session_state.jogadoras]
-                idx_j_sel = st.selectbox("Selecione a jogadora para gerenciar:", range(len(nomes_jog)), format_func=lambda x: nomes_jog[x])
-                
+                idx_j_sel = st.selectbox("Selecione a jogadora:", range(len(nomes_jog)), format_func=lambda x: nomes_jog[x])
                 j_obj = st.session_state.jogadoras[idx_j_sel]
-
-                st.markdown("---")
-                st.info(f"📅 **Mês Vigente Aplicado:** {mes_vigente_str}")
 
                 with st.form("form_edit_jog"):
                     ej_nome = st.text_input("Nome Completo", value=j_obj.get("nome", ""))
@@ -582,7 +683,7 @@ elif menu == "⚙️ Painel Admin":
                     ej_pass = st.text_input("Senha", value=j_obj.get("senha", ""), type="password")
                     ej_cont = st.text_input("WhatsApp", value=j_obj.get("contato", ""))
 
-                    if st.form_submit_button("💾 Salvar Alterações da Jogadora", use_container_width=True):
+                    if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
                         st.session_state.jogadoras[idx_j_sel] = {
                             "nome": ej_nome.strip(),
                             "nascimento": ej_nasc.strip(),
@@ -594,18 +695,17 @@ elif menu == "⚙️ Painel Admin":
                             "status": "Ativo"
                         }
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Dados de {ej_nome} salvos para o mês {mes_vigente_str}!")
+                        st.success(f"Dados atualizados!")
                         st.rerun()
 
-                if st.button("🗑️ Excluir Jogadora do Elenco", type="primary", use_container_width=True):
+                if st.button("🗑️ Excluir Jogadora", type="primary", use_container_width=True):
                     jog_removida = st.session_state.jogadoras.pop(idx_j_sel)
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.success(f"Jogadora {jog_removida['nome']} removida permanentemente!")
+                    st.success(f"Jogadora {jog_removida['nome']} removida!")
                     st.rerun()
 
         with t_admins:
             st.write("### 👥 Administradores Cadastrados")
-            
             for index, adm in enumerate(st.session_state.administradores):
                 col_info, col_btn = st.columns([3, 1])
                 with col_info:
@@ -617,19 +717,17 @@ elif menu == "⚙️ Painel Admin":
                         if st.button("🗑️ Excluir", key=f"del_adm_{index}"):
                             st.session_state.administradores.pop(index)
                             salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador removido!")
+                            st.success("Removido!")
                             st.rerun()
 
             total_admins = len(st.session_state.administradores)
-            st.markdown("---")
-            st.info(f"Cadastrados: **{total_admins} / 4 administradores**")
-
             if total_admins < 4:
-                st.write("#### ➕ Adicionar Novo Administrador Secundário")
+                st.markdown("---")
+                st.write("#### ➕ Adicionar Novo Administrador")
                 with st.form("form_novo_adm", clear_on_submit=True):
-                    adm_n = st.text_input("Nome do Admin *")
-                    adm_l = st.text_input("Login do Admin *")
-                    adm_s = st.text_input("Senha do Admin *", type="password")
+                    adm_n = st.text_input("Nome *")
+                    adm_l = st.text_input("Login *")
+                    adm_s = st.text_input("Senha *", type="password")
 
                     if st.form_submit_button("💾 Salvar Administrador", use_container_width=True):
                         if adm_n.strip() and adm_l.strip() and adm_s.strip():
@@ -640,15 +738,13 @@ elif menu == "⚙️ Painel Admin":
                                 "principal": False
                             })
                             salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success(f"Admin {adm_n} cadastrado!")
+                            st.success("Admin adicionado!")
                             st.rerun()
-                        else:
-                            st.error("Preencha todos os campos do Administrador!")
 
         with t_reg:
             st.write("### 📝 Adicionar Novo Tópico ao Regulamento")
             with st.form("form_novo_reg", clear_on_submit=True):
-                r_topico = st.text_input("Título do Tópico", placeholder="Ex: 📌 6. Uso de Uniformes")
+                r_topico = st.text_input("Título do Tópico")
                 r_texto = st.text_area("Descrição da Regra")
 
                 if st.form_submit_button("➕ Adicionar Regra", use_container_width=True):
@@ -658,7 +754,7 @@ elif menu == "⚙️ Painel Admin":
                             "regrinha": r_texto.strip()
                         })
                         salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                        st.success("Regra adicionada ao regulamento!")
+                        st.success("Regra salva!")
                         st.rerun()
 
 # RODAPÉ
