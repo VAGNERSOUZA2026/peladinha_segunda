@@ -159,7 +159,7 @@ if "admin_nome" not in st.session_state:
     st.session_state.admin_nome = ""
 
 # -----------------------------------------------------------------------------
-# AUTOMAÇÕES POR HORÁRIO (18:00 SORTEIO AUTOMÁTICO | 20:00 ZERAR LISTA)
+# AUTOMAÇÕES POR HORÁRIO
 # -----------------------------------------------------------------------------
 hoje_dt = datetime.now()
 hoje_str = hoje_dt.strftime("%d/%m")
@@ -175,7 +175,6 @@ if hoje_dt.hour >= 18 and st.session_state.get("sorteio_auto_dia") != data_hoje_
         temp = confirmadas_nomes.copy()
         random.shuffle(temp)
         
-        # Divide em 2 times automaticamente
         t1 = temp[::2]
         t2 = temp[1::2]
         
@@ -254,7 +253,6 @@ if st.session_state.usuario_logado:
 else:
     tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"])
     
-    # FORMULÁRIO DE LOGIN (PERMITE ENTER DIRETO)
     with tab_log:
         with st.form("form_login_player"):
             l_user = st.text_input("Login")
@@ -299,7 +297,6 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("🔒 Área do Administrador")
 
 if not st.session_state.admin_logged:
-    # FORMULÁRIO DE LOGIN ADMIN (PERMITE ENTER DIRETO)
     with st.sidebar.form("form_login_admin"):
         adm_input = st.text_input("Login ou Senha Admin", type="password")
         btn_adm = st.form_submit_button("Acessar Como Admin", use_container_width=True)
@@ -621,7 +618,7 @@ elif menu == "⚙️ Painel Admin":
             "➕ Cadastrar Jogadora", 
             "📋 Gerenciar Elenco", 
             "👥 Gerenciar Admins", 
-            "📜 Editar Regulamento"
+            "📜 Gerenciar Regulamento"
         ])
         
         with t_conf:
@@ -741,20 +738,68 @@ elif menu == "⚙️ Painel Admin":
                             st.success("Admin adicionado!")
                             st.rerun()
 
+        # ABAS INTERNAS NO REGULAMENTO (EDITAR, ADICIONAR, EXCLUIR)
         with t_reg:
-            st.write("### 📝 Adicionar Novo Tópico ao Regulamento")
-            with st.form("form_novo_reg", clear_on_submit=True):
-                r_topico = st.text_input("Título do Tópico")
-                r_texto = st.text_area("Descrição da Regra")
+            st.write("### 📜 Gerenciar Tópicos do Regulamento")
+            
+            if not st.session_state.regulamento:
+                st.info("Nenhum tópico cadastrado no regulamento.")
+            
+            sub_t_edit, sub_t_add, sub_t_del = st.tabs([
+                "✏️ Editar Regra Existente", 
+                "➕ Adicionar Novo Tópico", 
+                "🗑️ Excluir Tópico"
+            ])
 
-                if st.form_submit_button("➕ Adicionar Regra", use_container_width=True):
-                    if r_topico and r_texto:
-                        st.session_state.regulamento.append({
-                            "topico": r_topico.strip(),
-                            "regrinha": r_texto.strip()
-                        })
+            # 1. EDITAR REGRA EXISTENTE
+            with sub_t_edit:
+                if st.session_state.regulamento:
+                    lista_topicos = [r["topico"] for r in st.session_state.regulamento]
+                    idx_reg_sel = st.selectbox("Escolha o tópico para editar:", range(len(lista_topicos)), format_func=lambda x: lista_topicos[x])
+                    
+                    reg_obj = st.session_state.regulamento[idx_reg_sel]
+
+                    with st.form("form_edit_reg"):
+                        er_topico = st.text_input("Título do Tópico", value=reg_obj.get("topico", ""))
+                        er_texto = st.text_area("Descrição da Regra", value=reg_obj.get("regrinha", ""), height=150)
+
+                        if st.form_submit_button("💾 Salvar Alterações na Regra", use_container_width=True):
+                            st.session_state.regulamento[idx_reg_sel] = {
+                                "topico": er_topico.strip(),
+                                "regrinha": er_texto.strip()
+                            }
+                            salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                            st.success("Regra atualizada com sucesso!")
+                            st.rerun()
+
+            # 2. ADICIONAR NOVO TÓPICO
+            with sub_t_add:
+                with st.form("form_novo_reg", clear_on_submit=True):
+                    r_topico = st.text_input("Título do Novo Tópico", placeholder="Ex: 📌 7. Uniformes e Chuteiras")
+                    r_texto = st.text_area("Descrição da Regra", placeholder="Digite o texto explicativo...")
+
+                    if st.form_submit_button("➕ Adicionar ao Regulamento", use_container_width=True):
+                        if r_topico and r_texto:
+                            st.session_state.regulamento.append({
+                                "topico": r_topico.strip(),
+                                "regrinha": r_texto.strip()
+                            })
+                            salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                            st.success("Nova regra adicionada!")
+                            st.rerun()
+                        else:
+                            st.error("Preencha o título e a descrição da regra.")
+
+            # 3. EXCLUIR TÓPICO
+            with sub_t_del:
+                if st.session_state.regulamento:
+                    lista_topicos_del = [r["topico"] for r in st.session_state.regulamento]
+                    idx_reg_del = st.selectbox("Selecione o tópico para apagar:", range(len(lista_topicos_del)), format_func=lambda x: lista_topicos_del[x], key="sb_del_reg")
+                    
+                    if st.button("🗑️ Confirmar Exclusão do Tópico", type="primary", use_container_width=True):
+                        topico_removido = st.session_state.regulamento.pop(idx_reg_del)
                         salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                        st.success("Regra salva!")
+                        st.success(f"Tópico '{topico_removido['topico']}' excluído!")
                         st.rerun()
 
 # RODAPÉ
