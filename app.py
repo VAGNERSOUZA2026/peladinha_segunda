@@ -20,6 +20,7 @@ st.markdown("""
     .card-notice { background-color: #FEF3C7; border-left: 5px solid #F59E0B; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
     .card-pix { background-color: #ECFDF5; border: 2px dashed #10B981; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 20px; }
     .card-team { background-color: #F3F4F6; border: 2px solid #E5E7EB; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+    .card-alert { background-color: #EFF6FF; border-left: 5px solid #3B82F6; padding: 12px; border-radius: 8px; margin-top: 10px; margin-bottom: 15px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -40,12 +41,9 @@ def salvar_dados(filename, data):
     with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=4)
 
-# Inicialização dos dados
+# Inicialização dos dados SEM jogadoras padrão fixas
 if "jogadoras" not in st.session_state:
-    st.session_state.jogadoras = carregar_dados(DATA_FILE, [
-        {"nome": "Mariana Silva", "posicao": "Jogadora", "tipo": "Mensalista", "contato": "(31) 99999-1111", "status": "Ativo"},
-        {"nome": "Camila Santos", "posicao": "Jogadora", "tipo": "Mensalista", "contato": "(31) 99999-2222", "status": "Ativo"},
-    ])
+    st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
 
 if "presencas" not in st.session_state:
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
@@ -53,9 +51,9 @@ if "presencas" not in st.session_state:
 if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
         "vencimento": "Todo dia 10 de cada mês",
-        "recado": "Lembrar de levar colete limpo e garrafa de água individual!",
+        "recado": "Favor chegarem 10 minutos antes para que possamos organizar o jogo, BOM DIVERTIMENTO PAPA NÓS",
         "pix": "peladinhafc@email.com",
-        "limite_vagas": 15
+        "limite_vagas": 10
     })
 
 if "admin_logged" not in st.session_state:
@@ -90,12 +88,18 @@ else:
         st.session_state.admin_logged = False
         st.rerun()
 
+# --- AUXILIAR: FILTRAR APENAS PRESENÇAS DE JOGADORAS ATIVAS ---
+jogadoras_cadastradas_ativas = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+
+# Limpa automaticamente a lista de presenças removendo qualquer nome que não exista no cadastro ativo
+presencas_validas = [nome for nome in st.session_state.presencas if nome in jogadoras_cadastradas_ativas]
+
 
 # --- PÁGINA 1: CONFIRMAR PRESENÇA ---
 if menu == "📌 Presença no Jogo":
     st.markdown("<h1 class='main-title'>⚽ Lista da Pelada</h1>", unsafe_allow_html=True)
     
-    limite = st.session_state.avisos.get("limite_vagas", 15)
+    limite = st.session_state.avisos.get("limite_vagas", 10)
 
     # Mural de avisos rápido
     st.markdown(f"""
@@ -107,27 +111,26 @@ if menu == "📌 Presença no Jogo":
     </div>
     """, unsafe_allow_html=True)
 
-    jogadoras_ativas = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
-    
     col_c1, col_c2 = st.columns([2, 1])
 
     with col_c1:
         st.subheader("✅ Marcar ou Desmarcar Presença")
-        if not jogadoras_ativas:
-            st.warning("Nenhuma jogadora ativa cadastrada.")
+        if not jogadoras_cadastradas_ativas:
+            st.warning("Nenhuma jogadora ativa cadastrada no Painel Admin.")
         else:
-            jogadora_sel = st.selectbox("Selecione seu nome na lista:", jogadoras_ativas)
+            jogadora_sel = st.selectbox("Selecione seu nome na lista:", jogadoras_cadastradas_ativas)
             
             c_btn1, c_btn2 = st.columns(2)
             with c_btn1:
                 if st.button("👍 Confirmar Presença", use_container_width=True):
-                    if jogadora_sel in st.session_state.presencas:
+                    if jogadora_sel in presencas_validas:
                         st.warning("Você já está na lista!")
                     else:
-                        st.session_state.presencas.append(jogadora_sel)
+                        presencas_validas.append(jogadora_sel)
+                        st.session_state.presencas = presencas_validas
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         
-                        if len(st.session_state.presencas) <= limite:
+                        if len(presencas_validas) <= limite:
                             st.success(f"🎉 {jogadora_sel} confirmada na lista principal!")
                         else:
                             st.warning(f"⚠️ Vagas esgotadas! {jogadora_sel} entrou para a **Fila de Espera**.")
@@ -135,21 +138,22 @@ if menu == "📌 Presença no Jogo":
 
             with c_btn2:
                 if st.button("❌ Cancelar Minha Presença", use_container_width=True):
-                    if jogadora_sel in st.session_state.presencas:
-                        estava_no_principal = st.session_state.presencas.index(jogadora_sel) < limite
+                    if jogadora_sel in presencas_validas:
+                        estava_no_principal = presencas_validas.index(jogadora_sel) < limite
                         
-                        st.session_state.presencas.remove(jogadora_sel)
+                        presencas_validas.remove(jogadora_sel)
+                        st.session_state.presencas = presencas_validas
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.info(f"{jogadora_sel} foi removida da lista.")
 
-                        if estava_no_principal and len(st.session_state.presencas) >= limite:
-                            promovida = st.session_state.presencas[limite - 1]
+                        if estava_no_principal and len(presencas_validas) >= limite:
+                            promovida = presencas_validas[limite - 1]
                             st.balloons()
                             st.success(f"🚀 **{promovida}** subiu automaticamente para a lista principal!")
                         
                         st.rerun()
                     else:
-                        st.error("Seu nome não está na lista.")
+                        st.error("Seu nome não está na lista de presença.")
 
         # RECURSO ADMIN: CONFIRMAÇÃO / REMOÇÃO POR TERCEIROS
         if st.session_state.admin_logged:
@@ -157,25 +161,27 @@ if menu == "📌 Presença no Jogo":
             st.subheader("🛠️ Gestão de Presença (Admin)")
             st.caption("Adicione ou remova qualquer jogadora da lista do jogo.")
             
-            jogadora_admin_sel = st.selectbox("Selecionar Jogadora (Admin):", jogadoras_ativas, key="admin_presence")
+            jogadora_admin_sel = st.selectbox("Selecionar Jogadora (Admin):", jogadoras_cadastradas_ativas, key="admin_presence")
             ca1, ca2 = st.columns(2)
             with ca1:
                 if st.button("➕ Confirmar para Jogadora", use_container_width=True):
-                    if jogadora_admin_sel not in st.session_state.presencas:
-                        st.session_state.presencas.append(jogadora_admin_sel)
+                    if jogadora_admin_sel not in presencas_validas:
+                        presencas_validas.append(jogadora_admin_sel)
+                        st.session_state.presencas = presencas_validas
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.success(f"Presença de {jogadora_admin_sel} adicionada!")
                         st.rerun()
             with ca2:
                 if st.button("🗑️ Remover do Jogo (Admin)", use_container_width=True):
-                    if jogadora_admin_sel in st.session_state.presencas:
-                        estava_no_principal = st.session_state.presencas.index(jogadora_admin_sel) < limite
-                        st.session_state.presencas.remove(jogadora_admin_sel)
+                    if jogadora_admin_sel in presencas_validas:
+                        estava_no_principal = presencas_validas.index(jogadora_admin_sel) < limite
+                        presencas_validas.remove(jogadora_admin_sel)
+                        st.session_state.presencas = presencas_validas
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.warning(f"{jogadora_admin_sel} removida da lista de presença!")
                         
-                        if estava_no_principal and len(st.session_state.presencas) >= limite:
-                            promovida = st.session_state.presencas[limite - 1]
+                        if estava_no_principal and len(presencas_validas) >= limite:
+                            promovida = presencas_validas[limite - 1]
                             st.success(f"🚀 **{promovida}** subiu automaticamente da fila de espera!")
                         st.rerun()
 
@@ -187,8 +193,8 @@ if menu == "📌 Presença no Jogo":
 
     # COLUNA DIREITA: LISTA PRINCIPAL + FILA DE ESPERA
     with col_c2:
-        confirmadas = st.session_state.presencas[:limite]
-        espera = st.session_state.presencas[limite:]
+        confirmadas = presencas_validas[:limite]
+        espera = presencas_validas[limite:]
 
         st.subheader(f"📋 Principais ({len(confirmadas)}/{limite})")
         if not confirmadas:
@@ -208,16 +214,32 @@ if menu == "📌 Presença no Jogo":
 elif menu == "🔀 Sorteio de Times":
     st.markdown("<h1 class='main-title'>🔀 Sorteio de Times</h1>", unsafe_allow_html=True)
 
-    tab_oficial, tab_atraso = st.tabs(["⭐ Sorteio Geral (Apenas Vagas Principais)", "⏱️ Sorteio Provisório (Quem Já Chegou)"])
+    tab_oficial, tab_atraso = st.tabs(["⭐ Sorteio Geral (Confirmadas)", "⏱️ Sorteio Provisório (Quem Já Chegou)"])
 
-    limite = st.session_state.avisos.get("limite_vagas", 15)
-    confirmadas = st.session_state.presencas[:limite]
+    limite = st.session_state.avisos.get("limite_vagas", 10)
+    confirmadas = presencas_validas[:limite]
 
     with tab_oficial:
-        qtd_times = st.slider("Dividir em quantos times?", 2, 4, 2, key="qtd_oficial")
-        if st.button("🎲 Sortear Times Aleatórios", use_container_width=True):
+        st.write(f"Total de jogadoras na lista principal: **{len(confirmadas)}**")
+        
+        modo_sorteio = st.radio("Modo de Divisão de Times:", ["🤖 Automático (Ideal por grupo)", "✍️ Escolher Número de Times Manualmente"], horizontal=True)
+
+        qtd_times = 2
+        if modo_sorteio == "✍️ Escolher Número de Times Manualmente":
+            qtd_times = st.slider("Dividir em quantos times?", 2, 6, 2, key="qtd_oficial")
+        else:
+            total = len(confirmadas)
+            if total >= 18:
+                qtd_times = 4
+            elif total >= 13:
+                qtd_times = 3
+            else:
+                qtd_times = 2
+            st.info(f"💡 O sistema definiu automaticamente **{qtd_times} times** com base nas {total} jogadoras confirmadas.")
+
+        if st.button("🎲 Sortear Times Agora", use_container_width=True):
             if len(confirmadas) < qtd_times:
-                st.error("Poucas jogadoras confirmadas na lista principal.")
+                st.error(f"Número insuficiente de jogadoras para dividir em {qtd_times} times.")
             else:
                 lista_temp = confirmadas.copy()
                 random.shuffle(lista_temp)
@@ -227,16 +249,30 @@ elif menu == "🔀 Sorteio de Times":
                     times[idx % qtd_times].append(p)
                 
                 cols = st.columns(qtd_times)
+                tamanhos = []
                 for i, t in enumerate(times):
+                    tamanhos.append(len(t))
                     with cols[i]:
-                        st.markdown(f"<div class='card-team'><h3>Time {i+1}</h3>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='card-team'><h3>Time {i+1} ({len(t)})</h3>", unsafe_allow_html=True)
                         for item in t:
                             st.write(f"• **{item}**")
                         st.markdown("</div>", unsafe_allow_html=True)
 
+                if len(set(tamanhos)) > 1:
+                    min_jog = min(tamanhos)
+                    max_jog = max(tamanhos)
+                    st.markdown(f"""
+                    <div class='card-alert'>
+                        ⚖️ <b>SUGESTÃO PARA DESIGUALDADE NUMÉRICA:</b><br>
+                        A divisão resultou em times com <b>{min_jog}</b> e <b>{max_jog}</b> jogadoras.<br>
+                        💡 <b>Recomendação de Rodízio:</b> O(s) time(s) maior(es) pode(m) fazer um rodízio fixo de substituição a cada gol ou intervalo de tempo, garantindo que todas joguem o mesmo tempo!
+                    </div>
+                    """, unsafe_allow_html=True)
+
     with tab_atraso:
         st.info("💡 Marque apenas quem está **presente na quadra agora** para iniciar o jogo sem atrasos.")
-        presentes_quadra = st.multiselect("Quem já chegou no campo/quadra?", st.session_state.presencas)
+        
+        presentes_quadra = st.multiselect("Quem já chegou no campo/quadra?", presencas_validas)
         
         if st.button("⚡ Gerar Times para Começar Agora", use_container_width=True):
             if len(presentes_quadra) < 2:
@@ -248,13 +284,16 @@ elif menu == "🔀 Sorteio de Times":
                 
                 c1, c2 = st.columns(2)
                 with c1:
-                    st.markdown("<div class='card-team'><h3>🔴 Time Colete</h3>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='card-team'><h3>🔴 Time Colete ({len(t1)})</h3>", unsafe_allow_html=True)
                     for p in t1: st.write(f"• {p}")
                     st.markdown("</div>", unsafe_allow_html=True)
                 with c2:
-                    st.markdown("<div class='card-team'><h3>🔵 Time Sem Colete</h3>", unsafe_allow_html=True)
+                    st.markdown(f"<div class='card-team'><h3>🔵 Time Sem Colete ({len(t2)})</h3>", unsafe_allow_html=True)
                     for p in t2: st.write(f"• {p}")
                     st.markdown("</div>", unsafe_allow_html=True)
+
+                if len(t1) != len(t2):
+                    st.warning("⚠️ Os times ficaram desiguais para este início rápido. Sugere-se fazer rodízio de substituição no time maior!")
 
 
 # --- PÁGINA 3: PIX E PAGAMENTO ---
@@ -299,6 +338,8 @@ elif menu == "📋 Elenco de Jogadoras":
     if st.session_state.jogadoras:
         df = pd.DataFrame(st.session_state.jogadoras)
         st.dataframe(df[['nome', 'tipo', 'contato', 'status']], use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma jogadora cadastrada.")
 
 
 # --- PÁGINA 6: PAINEL ADMIN ---
@@ -335,7 +376,7 @@ elif menu == "⚙️ Painel Admin":
                         st.success(f"**{nome}** cadastrada com sucesso!")
                         st.rerun()
 
-        # EDITAR / EXCLUIR JOGADORA DO CADASTRO (COM LIMPEZA AUTOMÁTICA DE PRESENÇA)
+        # EDITAR / EXCLUIR JOGADORA DO CADASTRO (LIMPEZA DEFINITIVA)
         with t_ger:
             st.subheader("Editar ou Excluir Jogadora")
             if st.session_state.jogadoras:
@@ -356,7 +397,7 @@ elif menu == "⚙️ Painel Admin":
                         nome_antigo = j_atual["nome"]
                         novo_nome = e_nome.strip()
 
-                        # Se mudou o nome, atualiza também na lista de presença
+                        # Atualiza na lista de presenças
                         if nome_antigo in st.session_state.presencas:
                             p_idx = st.session_state.presencas.index(nome_antigo)
                             st.session_state.presencas[p_idx] = novo_nome
@@ -375,31 +416,26 @@ elif menu == "⚙️ Painel Admin":
                         
                     if b2.form_submit_button("❌ Excluir do Cadastro Definitivamente", use_container_width=True):
                         nome_deletado = j_atual["nome"]
-                        limite = st.session_state.avisos.get("limite_vagas", 15)
                         
-                        # Remove do cadastro geral
+                        # 1. Deleta do Cadastro Principal
                         del st.session_state.jogadoras[idx]
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
 
-                        # Remove da lista de presença se ela estiver lá
+                        # 2. Deleta de Todas as Presenças
                         if nome_deletado in st.session_state.presencas:
-                            estava_no_principal = st.session_state.presencas.index(nome_deletado) < limite
                             st.session_state.presencas.remove(nome_deletado)
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                            
-                            # Se abriu vaga no principal, sobe o próximo da fila
-                            if estava_no_principal and len(st.session_state.presencas) >= limite:
-                                promovida = st.session_state.presencas[limite - 1]
-                                st.info(f"🚀 **{promovida}** subiu automaticamente para a lista principal!")
 
-                        st.warning(f"**{nome_deletado}** foi excluída do cadastro e removida das presenças!")
+                        st.warning(f"**{nome_deletado}** foi excluída de todo o sistema!")
                         st.rerun()
+            else:
+                st.info("Nenhuma jogadora cadastrada para gerenciar.")
 
         # GERENCIAR MURAL DE AVISOS, LIMITE DE VAGAS E PIX
         with t_avisos:
             st.subheader("📢 Configurar Lembretes, Limite de Vagas e Pix")
             with st.form("form_avisos"):
-                limite_v = st.number_input("Limite de Jogadoras no Dia:", min_value=2, max_value=50, value=st.session_state.avisos.get("limite_vagas", 15))
+                limite_v = st.number_input("Limite de Jogadoras no Dia:", min_value=2, max_value=50, value=st.session_state.avisos.get("limite_vagas", 10))
                 venc = st.text_input("Dia de Vencimento:", value=st.session_state.avisos.get("vencimento", ""))
                 rec = st.text_area("Lembrete / Recado do Grupo:", value=st.session_state.avisos.get("recado", ""))
                 pix = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
