@@ -486,4 +486,4 @@ elif menu == "⚙️ Painel Admin":
 
 # RODAPÉ
 st.markdown("<div class='developer-footer'>Desenvolvido por <b>Vagner Souza / Ciência da Computação</b></div>", unsafe_allow_html=True)
-        
+                        
