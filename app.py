@@ -261,46 +261,57 @@ if menu == "📌 Presença no Jogo":
     with col_c1:
         st.subheader("✅ Marcar ou Desmarcar Presença")
         
-        if not st.session_state.usuario_logado:
-            st.info("💡 **Faça login na barra lateral para confirmar sua presença com seu perfil.**")
+        if not st.session_state.usuario_logado and not st.session_state.admin_logged:
+            st.info("💡 **Faça login na barra lateral para gerenciar sua presença.**")
             
         jogadora_sel = st.selectbox("Selecione a jogadora:", jogadoras_cadastradas_ativas, index=jogadoras_cadastradas_ativas.index(st.session_state.usuario_logado) if st.session_state.usuario_logado in jogadoras_cadastradas_ativas else 0) if jogadoras_cadastradas_ativas else None
 
         if jogadora_sel:
             c_btn1, c_btn2 = st.columns(2)
+            
+            # CONFIRMAR PRESENÇA
             with c_btn1:
                 if st.button("👍 Confirmar Presença", use_container_width=True):
-                    if jogadora_sel in presencas_validas:
-                        st.warning("Já está na lista de presença!")
+                    # Validação de Permissão para Marcar
+                    if not st.session_state.admin_logged and st.session_state.usuario_logado != jogadora_sel:
+                        st.error("⚠️ Você só pode confirmar a presença da sua própria conta!")
                     else:
-                        presencas_validas.append(jogadora_sel)
-                        st.session_state.presencas = presencas_validas
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        
-                        if len(presencas_validas) <= limite:
-                            st.success(f"🎉 {jogadora_sel} confirmada na lista principal!")
+                        if jogadora_sel in presencas_validas:
+                            st.warning("Já está na lista de presença!")
                         else:
-                            st.warning(f"⚠️ Vagas esgotadas! {jogadora_sel} entrou na **Fila de Espera**.")
-                        st.rerun()
+                            presencas_validas.append(jogadora_sel)
+                            st.session_state.presencas = presencas_validas
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            
+                            if len(presencas_validas) <= limite:
+                                st.success(f"🎉 {jogadora_sel} confirmada na lista principal!")
+                            else:
+                                st.warning(f"⚠️ Vagas esgotadas! {jogadora_sel} entrou na **Fila de Espera**.")
+                            st.rerun()
 
+            # CANCELAR PRESENÇA (VALIDADO)
             with c_btn2:
                 if st.button("❌ Cancelar Presença", use_container_width=True):
-                    if jogadora_sel in presencas_validas:
-                        estava_no_principal = presencas_validas.index(jogadora_sel) < limite
-                        
-                        presencas_validas.remove(jogadora_sel)
-                        st.session_state.presencas = presencas_validas
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.info(f"{jogadora_sel} foi removida da lista.")
-
-                        if estava_no_principal and len(presencas_validas) >= limite:
-                            promovida = presencas_validas[limite - 1]
-                            st.balloons()
-                            st.success(f"🚀 **{promovida}** subiu automaticamente para a lista principal!")
-                        
-                        st.rerun()
+                    # Validação de Permissão para Cancelar/Excluir
+                    if not st.session_state.admin_logged and st.session_state.usuario_logado != jogadora_sel:
+                        st.error("⚠️ Permissão negada! Você só pode remover o seu próprio nome ou ser Administrador.")
                     else:
-                        st.error("Seu nome não está na lista de presença.")
+                        if jogadora_sel in presencas_validas:
+                            estava_no_principal = presencas_validas.index(jogadora_sel) < limite
+                            
+                            presencas_validas.remove(jogadora_sel)
+                            st.session_state.presencas = presencas_validas
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            st.info(f"{jogadora_sel} foi removida da lista.")
+
+                            if estava_no_principal and len(presencas_validas) >= limite:
+                                promovida = presencas_validas[limite - 1]
+                                st.balloons()
+                                st.success(f"🚀 **{promovida}** subiu automaticamente para a lista principal!")
+                            
+                            st.rerun()
+                        else:
+                            st.error("Seu nome não está na lista de presença.")
 
         if st.session_state.admin_logged:
             st.markdown("---")
@@ -451,7 +462,7 @@ elif menu == "📊 Fluxo de Caixa":
             with tab_novo:
                 st.write("#### Novo Lançamento")
                 with st.form("form_fin_novo", clear_on_submit=True):
-                    f_data = st.text_input("Data (DD/MM/AAAA)", value="30/07/2026")
+                    f_data = st.text_input("Data (DD/MM/AAAA)", value="31/07/2026")
                     f_desc = st.text_input("Descrição (ex: Mensalidade Fulana)")
                     f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
                     f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
@@ -460,297 +471,4 @@ elif menu == "📊 Fluxo de Caixa":
                         st.session_state.financeiro.append({
                             "data": f_data,
                             "descricao": f_desc,
-                            "tipo": f_tipo,
-                            "valor": float(f_valor)
-                        })
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        st.success("Lançamento cadastrado!")
-                        st.rerun()
-
-            # ---- ABA 2: EDITAR LANÇAMENTO ----
-            with tab_editar:
-                st.write("#### Editar Lançamento")
-                if st.session_state.financeiro:
-                    opcoes_edit = [f"{i} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
-                    sel_edit = st.selectbox("Selecione o lançamento:", opcoes_edit, key="sel_edit_fin")
-                    idx_edit = int(sel_edit.split(" - ")[0])
-                    item_edit = st.session_state.financeiro[idx_edit]
-
-                    with st.form("form_fin_edit"):
-                        ed_data = st.text_input("Data", value=item_edit["data"])
-                        ed_desc = st.text_input("Descrição", value=item_edit["descricao"])
-                        ed_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if item_edit["tipo"] == "Entrada" else 1)
-                        ed_valor = st.number_input("Valor (R$)", min_value=0.01, value=float(item_edit["valor"]), step=5.0)
-
-                        if st.form_submit_button("🔄 Atualizar Lançamento", use_container_width=True):
-                            st.session_state.financeiro[idx_edit] = {
-                                "data": ed_data,
-                                "descricao": ed_desc,
-                                "tipo": ed_tipo,
-                                "valor": float(ed_valor)
-                            }
-                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                            st.success("Lançamento atualizado com sucesso!")
-                            st.rerun()
-                else:
-                    st.info("Nenhum lançamento para editar.")
-
-            # ---- ABA 3: EXCLUIR LANÇAMENTO ----
-            with tab_excluir:
-                st.write("#### Excluir Lançamento Accidental")
-                if st.session_state.financeiro:
-                    opcoes_del = [f"{i} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
-                    sel_del = st.selectbox("Selecione para excluir:", opcoes_del, key="sel_del_fin")
-                    idx_del = int(sel_del.split(" - ")[0])
-
-                    if st.button("🗑️ Confirmar Exclusão", use_container_width=True):
-                        removido = st.session_state.financeiro.pop(idx_del)
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        st.warning(f"Lançamento '{removido['descricao']}' excluído!")
-                        st.rerun()
-                else:
-                    st.info("Nenhum lançamento para excluir.")
-
-        else:
-            st.info("🔑 **Faça login como Admin no menu lateral** para cadastrar, editar ou excluir lançamentos.")
-
-    # GERADOR DE RELATÓRIO PARA WHATSAPP
-    st.markdown("---")
-    st.subheader("📲 Compartilhar Prestação de Contas no WhatsApp")
-    
-    texto_relatorio = f"""⚽ *PRESTAÇÃO DE CONTAS - PELADINHA FC* ⚽
-
-🟢 *Total Receitas:* R$ {total_entradas:.2f}
-🔴 *Total Despesas:* R$ {total_saidas:.2f}
-💰 *SALDO ATUAL:* R$ {saldo_atual:.2f}
-
-Transparência e compromisso com o nosso grupo!
-"""
-    st.text_area("Texto formatado para envio:", value=texto_relatorio, height=150)
-    
-    url_wa = f"https://api.whatsapp.com/send?text={urllib.parse.quote(texto_relatorio)}"
-    st.markdown(f'<a href="{url_wa}" target="_blank"><button style="background-color:#25D366; color:white; border:none; padding:10px 20px; border-radius:8px; font-weight:bold; cursor:pointer;">🚀 Compartilhar no WhatsApp</button></a>', unsafe_allow_html=True)
-
-
-# -----------------------------------------------------------------------------
-# PÁGINA 4: PIX E PAGAMENTO
-# -----------------------------------------------------------------------------
-elif menu == "💸 Pagamento & Pix":
-    st.subheader("💸 Chave Pix para Pagamento")
-    chave_pix = st.session_state.avisos.get("pix", "Não informada")
-
-    st.markdown(f"""
-    <div class='card-pix'>
-        <h3>💰 Chave Pix Oficial do Grupo</h3>
-        <p style='font-size: 1.6rem; font-weight: bold; color: #047857;'>{chave_pix}</p>
-        <p><b>Vencimento:</b> {st.session_state.avisos.get('vencimento')}</p>
-    </div>
-    """, unsafe_allow_html=True)
-
-    st.text_input("Copiar Chave Pix:", value=chave_pix)
-
-
-# -----------------------------------------------------------------------------
-# PÁGINA 5: REGULAMENTO DO GRUPO
-# -----------------------------------------------------------------------------
-elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento Oficial & Estatuto do Peladinha FC")
-    
-    st.markdown("""
-    <div style='background-color: #F8FAFC; border-left: 6px solid #0284C7; padding: 15px; border-radius: 8px; margin-bottom: 25px;'>
-        📌 <b>Objetivo do Grupo:</b> Promover a prática do futebol feminino com espírito esportivo, integração, respeito mútuo e organização. Todas as participantes concordam com as regras descritas abaixo ao ingressarem na pelada.
-    </div>
-    """, unsafe_allow_html=True)
-
-    tab_r1, tab_r2, tab_r3, tab_r4 = st.tabs([
-        "🤝 Conduta & Convivência", 
-        "⏰ Presença & Fila de Espera", 
-        "💸 Mensalidade & Avulsas", 
-        "⚽ Regras de Jogo & Fair Play"
-    ])
-
-    with tab_r1:
-        st.markdown("""
-        ### 🤝 1. Respeito e Boa Convivência
-        * **Respeito Mútuo:** Não serão toleradas ofensas verbais, discussões acaloradas, xingamentos ou agressões físicas entre jogadoras ou com a organização.
-        * **Inclusão:** O grupo apoia jogadoras de todos os níveis técnicos. Incentive e ajude suas companheiras de time.
-        * **Comunicação no Grupo:** O grupo de WhatsApp é voltado exclusivamente para assuntos da pelada (confirmações, avisos, pagamentos e resenha saudável).
-        * **Penalidades:** Atitudes antidesportivas sujeitarão a jogadora a advertência ou remoção definitiva do grupo, a critério da administração.
-        """)
-
-    with tab_r2:
-        st.markdown("""
-        ### ⏰ 2. Horários, Confirmação e Lista de Espera
-        * **Pontualidade:** Chegar com pelo menos **10 minutos de antecedência** ao local para organização do material e início pontual.
-        * **Confirmação de Presença:** A lista de presença é aberta no aplicativo/grupo semanalmente. As vagas principais são preenchidas por ordem de confirmação.
-        * **Desistências e Cancelamento:** 
-          * Caso não possa comparecer, **cancele sua presença no aplicativo com antecedência mínima de 4 horas**.
-          * Cancelamentos em cima da hora prejudicam o fechamento dos times e podem gerar cobrança da taxa avulsa caso a vaga não seja preenchida.
-        * **Fila de Espera:** Quando o limite de vagas for atingido, novas confirmações entram automaticamente na fila de espera. Havendo desistência, a primeira da fila é promovida para a lista principal.
-        """)
-
-    with tab_r3:
-        st.markdown("""
-        ### 💸 3. Pagamentos e Taxas
-        * **Mensalistas:**
-          * O pagamento da mensalidade deve ser efetuado até a **data de vencimento estipulada no painel (dia 10 de cada mês)**.
-          * O não pagamento até o prazo sujeita a perda da prioridade de vaga no mês seguinte.
-        * **Jogadoras Avulsas:**
-          * O valor avulso deve ser quitado **via Pix antes do início da partida** ou enviado no grupo/app como comprovante.
-        * **Uso da Arrecadação:** Todos os valores arrecadados são destinados exclusivamente ao aluguel da quadra/campo, aquisição e manutenção de materiais (bolas, coletes, apitos) e eventos do grupo. A prestação de contas fica disponível na aba *Fluxo de Caixa*.
-        """)
-
-    with tab_r4:
-        st.markdown("""
-        ### ⚽ 4. Regras de Jogo & Segurança
-        * **Calçado e Equipamentos:** É obrigatório o uso de calçado adequado para a modalidade da quadra/campo (society/futsal). Recomendado o uso de caneleiras.
-        * **Jogo Limpo (Fair Play):**
-          * **Entradas Violentas:** Proibido carrinho ou divididas com força excessiva/risco de lesão.
-          * **Auto-arbitragem:** Prevalece a honestidade! Se a bola saiu ou houve falta, a própria jogadora deve admitir e paralisar a jogada.
-        * **Rodízio e Substituições:**
-          * Todos os times jogam o mesmo tempo estipulado pela organização.
-          * Caso o time possua jogadoras reservas, o rodízio de substituições deve ser feito de forma igualitária para que todas joguem o mesmo tempo.
-        """)
-
-
-# -----------------------------------------------------------------------------
-# PÁGINA 6: ELENCO DE JOGADORAS
-# -----------------------------------------------------------------------------
-elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("🏃‍♀️ Elenco de Cadastradas")
-    if st.session_state.jogadoras:
-        df = pd.DataFrame(st.session_state.jogadoras)
-        st.dataframe(df[['nome', 'tipo', 'contato', 'status']], use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhuma jogadora cadastrada.")
-
-
-# -----------------------------------------------------------------------------
-# PÁGINA 7: PAINEL ADMIN
-# -----------------------------------------------------------------------------
-elif menu == "⚙️ Painel Admin":
-    st.subheader("⚙️ Painel do Administrador")
-    
-    if not st.session_state.admin_logged:
-        st.error("🔒 Área restrita! Digite a senha no menu lateral para acessar.")
-    else:
-        t_cad, t_ger, t_pass, t_avisos = st.tabs([
-            "➕ Cadastrar Jogadora", 
-            "✏️ Gerenciar Jogadoras", 
-            "🔑 Gestão de Acessos & Senhas", 
-            "📢 Avisos & Pix"
-        ])
-        
-        with t_cad:
-            st.subheader("Cadastrar Nova Jogadora (Admin)")
-            with st.form("cad_form", clear_on_submit=True):
-                col1, col2 = st.columns(2)
-                with col1:
-                    nome = st.text_input("Nome Completo *")
-                    tipo = st.selectbox("Categoria *", ["Mensalista", "Avulso"])
-                    login_admin = st.text_input("Login do Usuário")
-                with col2:
-                    contato = st.text_input("WhatsApp / Contato")
-                    status = st.selectbox("Status *", ["Ativo", "Inativo"])
-                    senha_admin_user = st.text_input("Senha do Usuário", type="password")
-                
-                if st.form_submit_button("💾 Salvar Cadastro", use_container_width=True):
-                    if nome.strip():
-                        st.session_state.jogadoras.append({
-                            "nome": nome.strip(),
-                            "login": login_admin.strip(),
-                            "senha": senha_admin_user.strip(),
-                            "tipo": tipo,
-                            "contato": contato.strip(),
-                            "status": status
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"**{nome}** cadastrada com sucesso!")
-                        st.rerun()
-
-        with t_ger:
-            st.subheader("Editar ou Excluir Jogadora")
-            if st.session_state.jogadoras:
-                nomes = [j["nome"] for j in st.session_state.jogadoras]
-                sel_j = st.selectbox("Escolha uma jogadora:", nomes)
-                idx = next(i for i, item in enumerate(st.session_state.jogadoras) if item["nome"] == sel_j)
-                j_atual = st.session_state.jogadoras[idx]
-                
-                with st.form("edit_form"):
-                    e_nome = st.text_input("Nome", value=j_atual["nome"])
-                    e_tipo = st.selectbox("Categoria", ["Mensalista", "Avulso"], index=["Mensalista", "Avulso"].index(j_atual.get("tipo", "Mensalista")))
-                    e_contato = st.text_input("Contato", value=j_atual.get("contato", ""))
-                    e_status = st.selectbox("Status", ["Ativo", "Inativo"], index=["Ativo", "Inativo"].index(j_atual.get("status", "Ativo")))
-                    
-                    b1, b2 = st.columns(2)
-                    if b1.form_submit_button("🔄 Atualizar Dados", use_container_width=True):
-                        st.session_state.jogadoras[idx].update({
-                            "nome": e_nome.strip(),
-                            "tipo": e_tipo,
-                            "contato": e_contato.strip(),
-                            "status": e_status
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Dados atualizados!")
-                        st.rerun()
-                        
-                    if b2.form_submit_button("❌ Excluir Definitivamente", use_container_width=True):
-                        nome_deletado = j_atual["nome"]
-                        del st.session_state.jogadoras[idx]
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-
-                        if nome_deletado in st.session_state.presencas:
-                            st.session_state.presencas.remove(nome_deletado)
-                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-
-                        st.warning(f"**{nome_deletado}** foi excluída de todo o sistema!")
-                        st.rerun()
-
-        with t_pass:
-            st.subheader("🔑 Recuperação de Login e Senha")
-            st.caption("Altere ou recupere os dados de acesso das jogadoras.")
-            
-            if st.session_state.jogadoras:
-                nomes_j = [j["nome"] for j in st.session_state.jogadoras]
-                sel_rec = st.selectbox("Selecione a Jogadora:", nomes_j, key="rec_sel")
-                idx_rec = next(i for i, item in enumerate(st.session_state.jogadoras) if item["nome"] == sel_rec)
-                j_rec = st.session_state.jogadoras[idx_rec]
-
-                with st.form("form_rec_pass"):
-                    rec_login = st.text_input("Login da Jogadora:", value=j_rec.get("login", ""))
-                    rec_senha = st.text_input("Nova Senha:", value=j_rec.get("senha", ""))
-
-                    if st.form_submit_button("🔄 Salvar Nova Senha / Login", use_container_width=True):
-                        st.session_state.jogadoras[idx_rec]["login"] = rec_login.strip()
-                        st.session_state.jogadoras[idx_rec]["senha"] = rec_senha.strip()
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Credenciais de **{sel_rec}** atualizadas com sucesso!")
-                        st.rerun()
-
-        with t_avisos:
-            st.subheader("📢 Configurar Lembretes, Limite de Vagas e Pix")
-            with st.form("form_avisos"):
-                limite_v = st.number_input("Limite de Jogadoras no Dia:", min_value=2, max_value=50, value=st.session_state.avisos.get("limite_vagas", 10))
-                venc = st.text_input("Dia de Vencimento:", value=st.session_state.avisos.get("vencimento", ""))
-                rec = st.text_area("Lembrete / Recado do Grupo:", value=st.session_state.avisos.get("recado", ""))
-                pix = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
-                
-                if st.form_submit_button("💾 Salvar Configurações", use_container_width=True):
-                    st.session_state.avisos = {
-                        "limite_vagas": int(limite_v),
-                        "vencimento": venc,
-                        "recado": rec,
-                        "pix": pix
-                    }
-                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Configurações atualizadas!")
-                    st.rerun()
-
-# -----------------------------------------------------------------------------
-# RODAPÉ FIXO DO DESENVOLVEDOR NO CORPO PRINCIPAL
-# -----------------------------------------------------------------------------
-st.markdown("""
-<div class='developer-footer'>
-    Desenvolvido por <b>Vagner Souza / Ciência da Computação</b>
-</div>
-""", unsafe_allow_html=True)
+                     
