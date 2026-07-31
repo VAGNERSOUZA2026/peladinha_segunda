@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA
+# ESTILIZAÇÃO CSS CUSTOMIZADA (LAYOUT MODERNO & FEMININO)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -25,6 +25,7 @@ st.markdown("""
         font-family: 'Poppins', sans-serif;
     }
 
+    /* Banner Principal */
     .hero-banner {
         background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), 
                     url('https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=1200&auto=format&fit=crop');
@@ -40,6 +41,7 @@ st.markdown("""
     .hero-title { font-size: 2.2rem; font-weight: 800; margin-bottom: 5px; color: #FFFFFF; }
     .hero-subtitle { font-size: 1.0rem; font-weight: 300; color: #E2E8F0; }
 
+    /* Cards Informativos */
     .card-notice {
         background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
         border-left: 6px solid #F59E0B;
@@ -76,6 +78,7 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
+    /* Rodapé Customizado */
     .developer-footer {
         background: #0F172A;
         color: #94A3B8;
@@ -152,7 +155,6 @@ st.markdown("""
 # -----------------------------------------------------------------------------
 st.sidebar.title("👤 Área do Usuário")
 
-# STATUS DE LOGIN
 if st.session_state.usuario_logado:
     st.sidebar.success(f"Logada como: **{st.session_state.usuario_logado}**")
     if st.sidebar.button("🚪 Sair do Perfil"):
@@ -182,7 +184,6 @@ else:
 
         if st.button("📝 Cadastrar"):
             if cad_nome and cad_user and cad_pass:
-                # Verifica se o login já existe
                 if any(j.get("login") == cad_user for j in st.session_state.jogadoras):
                     st.sidebar.error("Esse login já está em uso!")
                 else:
@@ -261,7 +262,7 @@ if menu == "📌 Presença no Jogo":
         st.subheader("✅ Marcar ou Desmarcar Presença")
         
         if not st.session_state.usuario_logado:
-            st.info("💡 **Faça login na barra lateral para confirmar sua presença diretamente com seu perfil!**")
+            st.info("💡 **Faça login na barra lateral para confirmar sua presença com seu perfil.**")
             
         jogadora_sel = st.selectbox("Selecione a jogadora:", jogadoras_cadastradas_ativas, index=jogadoras_cadastradas_ativas.index(st.session_state.usuario_logado) if st.session_state.usuario_logado in jogadoras_cadastradas_ativas else 0) if jogadoras_cadastradas_ativas else None
 
@@ -417,7 +418,6 @@ elif menu == "🔀 Sorteio de Times":
 elif menu == "📊 Fluxo de Caixa":
     st.subheader("📊 Fluxo de Caixa & Prestação de Contas")
 
-    # Cálculos Financeiros
     df_fin = pd.DataFrame(st.session_state.financeiro) if st.session_state.financeiro else pd.DataFrame(columns=["data", "descricao", "tipo", "valor"])
     
     total_entradas = df_fin[df_fin["tipo"] == "Entrada"]["valor"].sum() if not df_fin.empty else 0.0
@@ -437,29 +437,82 @@ elif menu == "📊 Fluxo de Caixa":
     with col_f1:
         st.write("### 📜 Histórico de Lançamentos")
         if not df_fin.empty:
-            st.dataframe(df_fin, use_container_width=True, hide_index=True)
+            df_exibicao = df_fin.copy()
+            df_exibicao["valor"] = df_exibicao["valor"].apply(lambda v: f"R$ {v:.2f}")
+            st.dataframe(df_exibicao, use_container_width=True)
         else:
             st.info("Nenhum lançamento registrado no momento.")
 
     with col_f2:
         if st.session_state.admin_logged:
-            st.write("### ➕ Novo Lançamento (Admin)")
-            with st.form("form_fin"):
-                f_data = st.text_input("Data (ex: DD/MM/AAAA)", value="30/07/2026")
-                f_desc = st.text_input("Descrição (ex: Mensalidade Fulana / Aluguel Quadra)")
-                f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
-                f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
+            tab_novo, tab_editar, tab_excluir = st.tabs(["➕ Novo", "✏️ Editar", "🗑️ Excluir"])
 
-                if st.form_submit_button("💾 Salvar Registro", use_container_width=True):
-                    st.session_state.financeiro.append({
-                        "data": f_data,
-                        "descricao": f_desc,
-                        "tipo": f_tipo,
-                        "valor": float(f_valor)
-                    })
-                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Lançamento efetuado com sucesso!")
-                    st.rerun()
+            # ---- ABA 1: NOVO LANÇAMENTO ----
+            with tab_novo:
+                st.write("#### Novo Lançamento")
+                with st.form("form_fin_novo", clear_on_submit=True):
+                    f_data = st.text_input("Data (DD/MM/AAAA)", value="30/07/2026")
+                    f_desc = st.text_input("Descrição (ex: Mensalidade Fulana)")
+                    f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
+                    f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
+
+                    if st.form_submit_button("💾 Salvar Registro", use_container_width=True):
+                        st.session_state.financeiro.append({
+                            "data": f_data,
+                            "descricao": f_desc,
+                            "tipo": f_tipo,
+                            "valor": float(f_valor)
+                        })
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        st.success("Lançamento cadastrado!")
+                        st.rerun()
+
+            # ---- ABA 2: EDITAR LANÇAMENTO ----
+            with tab_editar:
+                st.write("#### Editar Lançamento")
+                if st.session_state.financeiro:
+                    opcoes_edit = [f"{i} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
+                    sel_edit = st.selectbox("Selecione o lançamento:", opcoes_edit, key="sel_edit_fin")
+                    idx_edit = int(sel_edit.split(" - ")[0])
+                    item_edit = st.session_state.financeiro[idx_edit]
+
+                    with st.form("form_fin_edit"):
+                        ed_data = st.text_input("Data", value=item_edit["data"])
+                        ed_desc = st.text_input("Descrição", value=item_edit["descricao"])
+                        ed_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if item_edit["tipo"] == "Entrada" else 1)
+                        ed_valor = st.number_input("Valor (R$)", min_value=0.01, value=float(item_edit["valor"]), step=5.0)
+
+                        if st.form_submit_button("🔄 Atualizar Lançamento", use_container_width=True):
+                            st.session_state.financeiro[idx_edit] = {
+                                "data": ed_data,
+                                "descricao": ed_desc,
+                                "tipo": ed_tipo,
+                                "valor": float(ed_valor)
+                            }
+                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                            st.success("Lançamento atualizado com sucesso!")
+                            st.rerun()
+                else:
+                    st.info("Nenhum lançamento para editar.")
+
+            # ---- ABA 3: EXCLUIR LANÇAMENTO ----
+            with tab_excluir:
+                st.write("#### Excluir Lançamento Accidental")
+                if st.session_state.financeiro:
+                    opcoes_del = [f"{i} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
+                    sel_del = st.selectbox("Selecione para excluir:", opcoes_del, key="sel_del_fin")
+                    idx_del = int(sel_del.split(" - ")[0])
+
+                    if st.button("🗑️ Confirmar Exclusão", use_container_width=True):
+                        removido = st.session_state.financeiro.pop(idx_del)
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        st.warning(f"Lançamento '{removido['descricao']}' excluído!")
+                        st.rerun()
+                else:
+                    st.info("Nenhum lançamento para excluir.")
+
+        else:
+            st.info("🔑 **Faça login como Admin no menu lateral** para cadastrar, editar ou excluir lançamentos.")
 
     # GERADOR DE RELATÓRIO PARA WHATSAPP
     st.markdown("---")
@@ -497,7 +550,6 @@ elif menu == "💸 Pagamento & Pix":
     st.text_input("Copiar Chave Pix:", value=chave_pix)
 
 
-# -----------------------------------------------------------------------------
 # -----------------------------------------------------------------------------
 # PÁGINA 5: REGULAMENTO DO GRUPO
 # -----------------------------------------------------------------------------
@@ -560,6 +612,7 @@ elif menu == "📜 Regulamento":
           * Caso o time possua jogadoras reservas, o rodízio de substituições deve ser feito de forma igualitária para que todas joguem o mesmo tempo.
         """)
 
+
 # -----------------------------------------------------------------------------
 # PÁGINA 6: ELENCO DE JOGADORAS
 # -----------------------------------------------------------------------------
@@ -599,14 +652,14 @@ elif menu == "⚙️ Painel Admin":
                 with col2:
                     contato = st.text_input("WhatsApp / Contato")
                     status = st.selectbox("Status *", ["Ativo", "Inativo"])
-                    senha_admin = st.text_input("Senha do Usuário", type="password")
+                    senha_admin_user = st.text_input("Senha do Usuário", type="password")
                 
                 if st.form_submit_button("💾 Salvar Cadastro", use_container_width=True):
                     if nome.strip():
                         st.session_state.jogadoras.append({
                             "nome": nome.strip(),
                             "login": login_admin.strip(),
-                            "senha": senha_admin.strip(),
+                            "senha": senha_admin_user.strip(),
                             "tipo": tipo,
                             "contato": contato.strip(),
                             "status": status
@@ -653,7 +706,6 @@ elif menu == "⚙️ Painel Admin":
                         st.warning(f"**{nome_deletado}** foi excluída de todo o sistema!")
                         st.rerun()
 
-        # RECUPERAÇÃO DE LOGINS E SENHAS PELO ADMIN
         with t_pass:
             st.subheader("🔑 Recuperação de Login e Senha")
             st.caption("Altere ou recupere os dados de acesso das jogadoras.")
