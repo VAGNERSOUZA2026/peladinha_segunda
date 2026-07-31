@@ -54,7 +54,8 @@ if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
         "vencimento": "Todo dia 10 de cada mês",
         "recado": "Lembrar de levar colete limpo e garrafa de água individual!",
-        "pix": "peladinhafc@email.com"
+        "pix": "peladinhafc@email.com",
+        "limite_vagas": 15
     })
 
 if "admin_logged" not in st.session_state:
@@ -94,10 +95,13 @@ else:
 if menu == "📌 Presença no Jogo":
     st.markdown("<h1 class='main-title'>⚽ Lista da Pelada</h1>", unsafe_allow_html=True)
     
-    # Mural de avisos rápido no topo
+    limite = st.session_state.avisos.get("limite_vagas", 15)
+
+    # Mural de avisos rápido
     st.markdown(f"""
     <div class='card-notice'>
         📢 <b>MURAL DE AVISOS DO GRUPO:</b><br>
+        🎯 <b>Limite de Vagas do Jogo:</b> {limite} jogadoras<br>
         📅 <b>Vencimento da Mensalidade:</b> {st.session_state.avisos.get('vencimento')}<br>
         💡 <b>Lembrete:</b> {st.session_state.avisos.get('recado')}
     </div>
@@ -108,7 +112,7 @@ if menu == "📌 Presença no Jogo":
     col_c1, col_c2 = st.columns([2, 1])
 
     with col_c1:
-        st.subheader("✅ Confirmar Presença")
+        st.subheader("✅ Marcar ou Desmarcar Presença")
         if not jogadoras_ativas:
             st.warning("Nenhuma jogadora ativa cadastrada.")
         else:
@@ -116,66 +120,108 @@ if menu == "📌 Presença no Jogo":
             
             c_btn1, c_btn2 = st.columns(2)
             with c_btn1:
-                if st.button("👍 Confirmar Minha Presença", use_container_width=True):
+                if st.button("👍 Confirmar Presença", use_container_width=True):
                     if jogadora_sel in st.session_state.presencas:
                         st.warning("Você já está na lista!")
                     else:
                         st.session_state.presencas.append(jogadora_sel)
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success(f"{jogadora_sel} confirmada!")
-                        st.rerun()
-            with c_btn2:
-                if st.button("❌ Tirar Meu Nome", use_container_width=True):
-                    if jogadora_sel in st.session_state.presencas:
-                        st.session_state.presencas.remove(jogadora_sel)
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.info(f"{jogadora_sel} removida.")
+                        
+                        if len(st.session_state.presencas) <= limite:
+                            st.success(f"🎉 {jogadora_sel} confirmada na lista principal!")
+                        else:
+                            st.warning(f"⚠️ Vagas esgotadas! {jogadora_sel} entrou para a **Fila de Espera**.")
                         st.rerun()
 
-        # RECURSO ADMIN: CONFIRMAÇÃO POR TERCEIROS
+            with c_btn2:
+                if st.button("❌ Cancelar Minha Presença", use_container_width=True):
+                    if jogadora_sel in st.session_state.presencas:
+                        # Verifica se quem tá saindo estava no grupo principal
+                        estava_no_principal = st.session_state.presencas.index(jogadora_sel) < limite
+                        
+                        st.session_state.presencas.remove(jogadora_sel)
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.info(f"{jogadora_sel} foi removida da lista.")
+
+                        # Se subiu alguém da fila de espera
+                        if estava_no_principal and len(st.session_state.presencas) >= limite:
+                            promovida = st.session_state.presencas[limite - 1]
+                            st.balloons()
+                            st.success(f"🚀 **{promovida}** subiu automaticamente da fila de espera para a lista principal!")
+                        
+                        st.rerun()
+                    else:
+                        st.error("Seu nome não está na lista.")
+
+        # RECURSO ADMIN: CONFIRMAÇÃO / REMOÇÃO POR TERCEIROS
         if st.session_state.admin_logged:
             st.markdown("---")
             st.subheader("🛠️ Gestão de Presença (Admin)")
-            st.caption("Adicione ou remova qualquer jogadora que tenha pedido no WhatsApp.")
+            st.caption("Adicione ou remova qualquer jogadora que pediu pelo WhatsApp.")
             
             jogadora_admin_sel = st.selectbox("Selecionar Jogadora (Admin):", jogadoras_ativas, key="admin_presence")
             ca1, ca2 = st.columns(2)
             with ca1:
-                if st.button("➕ Adicionar à Lista", use_container_width=True):
+                if st.button("➕ Confirmar para Jogadora", use_container_width=True):
                     if jogadora_admin_sel not in st.session_state.presencas:
                         st.session_state.presencas.append(jogadora_admin_sel)
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success(f"{jogadora_admin_sel} adicionada!")
+                        st.success(f"Presença de {jogadora_admin_sel} adicionada!")
                         st.rerun()
             with ca2:
-                if st.button("🗑️ Zerar Lista do Jogo", use_container_width=True):
-                    st.session_state.presencas = []
-                    salvar_dados(PRESENCAS_FILE, [])
-                    st.warning("Lista zerada com sucesso!")
-                    st.rerun()
+                if st.button("🗑️ Remover do Jogo (Admin)", use_container_width=True):
+                    if jogadora_admin_sel in st.session_state.presencas:
+                        estava_no_principal = st.session_state.presencas.index(jogadora_admin_sel) < limite
+                        st.session_state.presencas.remove(jogadora_admin_sel)
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.warning(f"{jogadora_admin_sel} removida pelo admin!")
+                        
+                        if estava_no_principal and len(st.session_state.presencas) >= limite:
+                            promovida = st.session_state.presencas[limite - 1]
+                            st.success(f"🚀 **{promovida}** subiu automaticamente da fila de espera!")
+                        st.rerun()
 
+            if st.button("🚨 Zerar Toda a Lista do Jogo", use_container_width=True):
+                st.session_state.presencas = []
+                salvar_dados(PRESENCAS_FILE, [])
+                st.warning("Lista completamente zerada!")
+                st.rerun()
+
+    # COLUNA DIREITA: LISTA PRINCIPAL + FILA DE ESPERA
     with col_c2:
-        st.subheader(f"📋 Confirmadas ({len(st.session_state.presencas)})")
-        if not st.session_state.presencas:
+        confirmadas = st.session_state.presencas[:limite]
+        espera = st.session_state.presencas[limite:]
+
+        st.subheader(f"📋 Principais ({len(confirmadas)}/{limite})")
+        if not confirmadas:
             st.write("Ninguém confirmou ainda.")
         else:
-            for idx, nome in enumerate(st.session_state.presencas, 1):
+            for idx, nome in enumerate(confirmadas, 1):
                 st.write(f"**{idx}.** {nome}")
+
+        if espera:
+            st.markdown("---")
+            st.subheader(f"⏳ Fila de Espera ({len(espera)})")
+            for idx, nome in enumerate(espera, 1):
+                st.write(f"**{idx}.** {nome} *(Aguardando vaga)*")
 
 
 # --- PÁGINA 2: SORTEIO DE TIMES ---
 elif menu == "🔀 Sorteio de Times":
     st.markdown("<h1 class='main-title'>🔀 Sorteio de Times</h1>", unsafe_allow_html=True)
 
-    tab_oficial, tab_atraso = st.tabs(["⭐ Sorteio Geral (Confirmadas)", "⏱️ Sorteio Provisório (Quem Já Chegou)"])
+    tab_oficial, tab_atraso = st.tabs(["⭐ Sorteio Geral (Apenas Vagas Principais)", "⏱️ Sorteio Provisório (Quem Já Chegou)"])
+
+    limite = st.session_state.avisos.get("limite_vagas", 15)
+    confirmadas = st.session_state.presencas[:limite]
 
     with tab_oficial:
         qtd_times = st.slider("Dividir em quantos times?", 2, 4, 2, key="qtd_oficial")
         if st.button("🎲 Sortear Times Aleatórios", use_container_width=True):
-            if len(st.session_state.presencas) < qtd_times:
-                st.error("Poucas jogadoras confirmadas para dividir os times.")
+            if len(confirmadas) < qtd_times:
+                st.error("Poucas jogadoras confirmadas na lista principal.")
             else:
-                lista_temp = st.session_state.presencas.copy()
+                lista_temp = confirmadas.copy()
                 random.shuffle(lista_temp)
                 
                 times = [[] for _ in range(qtd_times)]
@@ -238,16 +284,14 @@ elif menu == "📜 Regulamento":
     st.markdown("""
     ### ⚠️ Regras Oficiais da Peladinha
     
-    Para garantir um ambiente divertido, respeitoso e organizado, todas as participantes devem seguir o regulamento abaixo:
-
     1. **Respeito em Primeiro Lugar:** Não serão toleradas ofensas, agressões verbais ou físicas, xingamentos ou qualquer tipo de desrespeito entre as jogadoras ou organizadores.
-    2. **Compromisso com o Horário:** Chegue com pelo menos 10 minutos de antecedência. O jogo começará no horário marcado.
-    3. **Confirmação de Presença:** Cancele sua presença na lista com antecedência caso surja um imprevisto, permitindo que outra pessoa jogue.
+    2. **Compromisso com o Horário:** Chegue com pelo menos 10 minutos de antecedência.
+    3. **Confirmação e Fila de Espera:** Ao cancelar sua presença, a vaga será preenchida automaticamente pela primeira pessoa da fila de espera.
     4. **Pagamentos em Dia:** O pagamento da mensalidade/avulso deve ser feito até a data limite estipulada.
-    5. **Jogo Limpo (Fair Play):** Evite jogadas violentas ou de risco. O objetivo principal do grupo é a prática esportiva e a amizade.
+    5. **Jogo Limpo (Fair Play):** Evite jogadas violentas ou de risco.
 
     ---
-    > 🔴 **ATENÇÃO:** O descumprimento das regras acima, condutas antidesportivas frequentes ou falta de respeito com as demais integrantes **resultará na exclusão definitiva da jogadora da pelada.**
+    > 🔴 **ATENÇÃO:** O descumprimento das regras acima ou condutas antidesportivas frequentes **resultará na exclusão definitiva da jogadora da pelada.**
     """)
 
 
@@ -266,9 +310,9 @@ elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
         st.error("🔒 Área restrita! Digite a senha no menu lateral para acessar.")
     else:
-        t_cad, t_ger, t_avisos = st.tabs(["➕ Cadastrar Jogadora", "✏️ Gerenciar Jogadoras", "📢 Lembretes & Pix"])
+        t_cad, t_ger, t_avisos = st.tabs(["➕ Cadastrar Jogadora", "✏️ Gerenciar Jogadoras", "📢 Lembretes, Limite de Vagas & Pix"])
         
-        # CADASTRAR JOGADORA (SEM HABILIDADES/ESTRELAS)
+        # CADASTRAR JOGADORA
         with t_cad:
             st.subheader("Cadastrar Nova Jogadora")
             with st.form("cad_form", clear_on_submit=True):
@@ -328,20 +372,22 @@ elif menu == "⚙️ Painel Admin":
                         st.warning("Jogadora excluída!")
                         st.rerun()
 
-        # GERENCIAR MURAL DE AVISOS E PIX
+        # GERENCIAR MURAL DE AVISOS, LIMITE DE VAGAS E PIX
         with t_avisos:
-            st.subheader("📢 Configurar Lembretes e Pix")
+            st.subheader("📢 Configurar Lembretes, Limite de Vagas e Pix")
             with st.form("form_avisos"):
+                limite_v = st.number_input("Limite de Jogadoras no Dia:", min_value=2, max_value=50, value=st.session_state.avisos.get("limite_vagas", 15))
                 venc = st.text_input("Dia de Vencimento:", value=st.session_state.avisos.get("vencimento", ""))
                 rec = st.text_area("Lembrete / Recado do Grupo:", value=st.session_state.avisos.get("recado", ""))
                 pix = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
                 
-                if st.form_submit_button("💾 Salvar Avisos e Pix", use_container_width=True):
+                if st.form_submit_button("💾 Salvar Configurações", use_container_width=True):
                     st.session_state.avisos = {
+                        "limite_vagas": int(limite_v),
                         "vencimento": venc,
                         "recado": rec,
                         "pix": pix
                     }
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Mural e Pix atualizados com sucesso!")
+                    st.success("Configurações atualizadas!")
                     st.rerun()
