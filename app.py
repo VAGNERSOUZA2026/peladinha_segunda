@@ -435,4 +435,3 @@ with aba_financeiro:
     )
   else:
     st.success("🎉 Todos os Pix foram pagos!")
-                    
