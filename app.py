@@ -3,7 +3,12 @@ import pandas as pd
 import json
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+# -----------------------------------------------------------------------------
+# FUSO HORÁRIO BRASIL (UTC-3)
+# -----------------------------------------------------------------------------
+FUSO_BRASIL = timezone(timedelta(hours=-3))
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
@@ -168,9 +173,9 @@ if "msg_cadastro_sucesso" not in st.session_state:
     st.session_state.msg_cadastro_sucesso = False
 
 # -----------------------------------------------------------------------------
-# AUTOMAÇÕES POR HORÁRIO
+# AUTOMAÇÕES POR HORÁRIO (Ajustado para Fuso do Brasil)
 # -----------------------------------------------------------------------------
-hoje_dt = datetime.now()
+hoje_dt = datetime.now(FUSO_BRASIL)
 hoje_str = hoje_dt.strftime("%d/%m")
 mes_vigente_str = hoje_dt.strftime("%m/%Y")
 data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
@@ -234,11 +239,8 @@ if st.session_state.usuario_logado:
         st.session_state.usuario_logado = None
         st.rerun()
 else:
-    # Seleção de abas dinâmicas
     abas_nomes = ["Entrar", "Cadastrar"]
-    idx_aba = 0 if st.session_state.aba_ativa == "Entrar" else 1
     
-    # Renderiza os tabs
     tab_log, tab_cad = st.sidebar.tabs(abas_nomes)
     
     with tab_log:
@@ -260,7 +262,6 @@ else:
                     st.error("Login ou senha incorretos!")
 
     with tab_cad:
-        # clear_on_submit=True limpa automaticamente todo o formulário após o envio
         with st.form("form_cad_player", clear_on_submit=True):
             c_nome = st.text_input("Seu Nome *")
             c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
@@ -270,7 +271,6 @@ else:
             
             if btn_cad:
                 if c_nome and c_user and c_pass:
-                    # Verifica se o login já existe
                     if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
                         st.error("Este Login já está em uso. Escolha outro!")
                     else:
@@ -286,7 +286,6 @@ else:
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         
-                        # Altera para ir para a tela de login e marca flag de mensagem
                         st.session_state.aba_ativa = "Entrar"
                         st.session_state.msg_cadastro_sucesso = True
                         st.rerun()
@@ -320,7 +319,6 @@ else:
         st.session_state.admin_logged = False
         st.session_state.admin_nome = ""
         st.rerun()
-
 
 # -----------------------------------------------------------------------------
 # PÁGINA 1: PRESENÇA NO JOGO
@@ -413,7 +411,8 @@ if menu == "📌 Presença no Jogo":
                     if ja_na_lista:
                         st.warning("Seu nome já está registrado na lista!")
                     else:
-                        hora_agora = datetime.now().strftime("%H:%M")
+                        # Pega o horário correto com o fuso -3
+                        hora_agora = datetime.now(FUSO_BRASIL).strftime("%H:%M")
                         st.session_state.presencas.append({
                             "nome": jogadora_sel, 
                             "hora": hora_agora,
@@ -441,7 +440,6 @@ if menu == "📌 Presença no Jogo":
                 salvar_dados(SORTEIO_FILE, {})
                 st.warning("Lista e sorteios zerados!")
                 st.rerun()
-
 
 # -----------------------------------------------------------------------------
 # PÁGINA 2: SORTEIO DE TIMES
@@ -487,7 +485,7 @@ elif menu == "🔀 Sorteio de Times":
                     
                     st.session_state.sorteio_oficial = {
                         "data": data_hoje_id,
-                        "hora": f"{datetime.now().strftime('%H:%M')} (Manual)",
+                        "hora": f"{datetime.now(FUSO_BRASIL).strftime('%H:%M')} (Manual)",
                         "times": res_times
                     }
                     salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
@@ -526,7 +524,6 @@ elif menu == "🔀 Sorteio de Times":
                                 st.write(f"• **{item}**")
                             st.markdown("</div>", unsafe_allow_html=True)
 
-
 # -----------------------------------------------------------------------------
 # PÁGINA 3: FLUXO DE CAIXA (EXCLUSIVO ADMIN)
 # -----------------------------------------------------------------------------
@@ -557,7 +554,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
 
         with tab_add_fin:
             with st.form("form_fin", clear_on_submit=True):
-                f_data = st.text_input("Data", value=datetime.now().strftime("%d/%m/%Y"))
+                f_data = st.text_input("Data", value=datetime.now(FUSO_BRASIL).strftime("%d/%m/%Y"))
                 f_desc = st.text_input("Descrição")
                 f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
                 f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
@@ -598,7 +595,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                     st.success("Excluído com sucesso!")
                     st.rerun()
 
-
 # -----------------------------------------------------------------------------
 # PÁGINA 4: PAGAMENTO & PIX
 # -----------------------------------------------------------------------------
@@ -607,7 +603,6 @@ elif menu == "💸 Pagamento & Pix":
     pix_key = st.session_state.avisos.get("pix", "Não informada")
     st.info(f"🔑 **Chave Pix:** {pix_key}")
     st.write(f"📅 **Vencimento:** {st.session_state.avisos.get('vencimento')}")
-
 
 # -----------------------------------------------------------------------------
 # PÁGINA 5: REGULAMENTO
@@ -619,7 +614,6 @@ elif menu == "📜 Regulamento":
     for item in st.session_state.regulamento:
         with st.expander(f"**{item['topico']}**", expanded=True):
             st.write(item["regrinha"])
-
 
 # -----------------------------------------------------------------------------
 # PÁGINA 6: ELENCO DE JOGADORAS
@@ -636,7 +630,6 @@ elif menu == "📋 Elenco de Jogadoras":
         st.dataframe(df[cols_visiveis], use_container_width=True, hide_index=True)
     else:
         st.info("Nenhuma jogadora cadastrada.")
-
 
 # -----------------------------------------------------------------------------
 # PÁGINA 7: PAINEL ADMIN
