@@ -1,9 +1,4 @@
-# Vamos ler o código existente ou reescrever o app.py atualizado garantindo que haja um botão super simples no Painel Admin para zerar absolutamente todos os dados de testes.
-# O usuário quer "só um botão no próprio app para apagar tudo dos testes".
-
-# Vamos criar uma versão atualizada e completa do app.py contendo o botão "💥 Apagar Todos os Dados de Teste"
-
-app_code = '''import streamlit as st
+import streamlit as st
 import pandas as pd
 import json
 import os
@@ -734,6 +729,7 @@ elif menu == "⚙️ Painel Admin":
                 with col_m1:
                     manter_jogadoras = st.checkbox("Manter o cadastro das Jogadoras", value=True)
                 
+                # BOTÃO QUE ZERA OS DADOS
                 if st.button("💥 APAGAR TUDO E ZERAR SISTEMA", use_container_width=True, type="primary"):
                     # 1. Zerar Presenças
                     st.session_state.presencas = []
@@ -974,9 +970,3 @@ Data do Aceite: {hoje_str}
 # RODAPÉ
 # -----------------------------------------------------------------------------
 st.markdown("<div class='developer-footer'>Desenvolvido por <b>Vagner Souza / Ciência da Computação</b></div>", unsafe_allow_html=True)
-'''
-
-with open("app.py", "w", encoding="utf-8") as f:
-    f.write(app_code)
-
-print("Arquivo app.py atualizado com sucesso!")
