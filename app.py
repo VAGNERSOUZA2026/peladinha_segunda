@@ -6,11 +6,7 @@ import random
 import urllib.parse
 from datetime import datetime, timezone, timedelta
 from io import BytesIO
-
-# Importação para geração de PDF
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import html
 
 # -----------------------------------------------------------------------------
 # FUSO HORÁRIO BRASIL (UTC-3)
@@ -45,42 +41,63 @@ def formatar_nome_proprio(texto):
     return " ".join(resultado)
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO PARA GERAR PDF DO CONTRATO
+# FUNÇÃO PARA GERAR DOCUMENTO DO CONTRATO
 # -----------------------------------------------------------------------------
-def gerar_pdf_contrato(nome, doc, whats, cidade, valor, data_ass, assinatura):
-    buffer = BytesIO()
-    doc_pdf = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
-    styles = getSampleStyleSheet()
+def gerar_documento_contrato(nome, doc, whats, cidade, valor, data_ass, assinatura):
+    conteudo_html = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Contrato - Peladinha FC</title>
+    <style>
+        body {{ font-family: Arial, sans-serif; margin: 40px; color: #333; line-height: 1.6; }}
+        h2 {{ text-align: center; color: #0F172A; text-transform: uppercase; margin-bottom: 30px; }}
+        .section {{ margin-bottom: 20px; }}
+        .section-title {{ font-weight: bold; color: #0F172A; }}
+        .box {{ border: 1px solid #CCC; padding: 15px; border-radius: 5px; background: #F9F9F9; margin-top: 20px; }}
+        .footer {{ margin-top: 40px; text-align: center; font-size: 12px; color: #777; }}
+    </style>
+</head>
+<body>
+    <h2>CONTRATO DE PRESTAÇÃO DE SERVIÇOS E LICENCIAMENTO DE SOFTWARE</h2>
     
-    style_title = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, leading=18, alignment=1)
-    style_body = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14)
-    
-    story = []
-    story.append(Paragraph("<b>CONTRATO DE PRESTAÇÃO DE SERVIÇOS E LICENCIAMENTO DE SOFTWARE</b>", style_title))
-    story.append(Spacer(1, 15))
-    
-    p1 = f"<b>1. CONTRATANTE:</b><br/>Nome: {nome}<br/>CPF/CNPJ: {doc}<br/>WhatsApp: {whats}<br/>Cidade/UF: {cidade}"
-    story.append(Paragraph(p1, style_body))
-    story.append(Spacer(1, 10))
-    
-    p2 = "<b>2. CONTRATADO:</b><br/>Desenvolvedor: Vagner Souza (Ciência da Computação)<br/>WhatsApp: (31) 98968-4010"
-    story.append(Paragraph(p2, style_body))
-    story.append(Spacer(1, 10))
-    
-    p3 = "<b>3. OBJETO DO CONTRATO:</b><br/>Disponibilização de licença de uso do aplicativo web 'Peladinha FC' para gestão de presenças, sorteio de times e controle financeiro de peladas."
-    story.append(Paragraph(p3, style_body))
-    story.append(Spacer(1, 10))
-    
-    p4 = f"<b>4. VALOR E PAGAMENTO:</b><br/>O CONTRATANTE pagará o valor mensal de R$ {valor:.2f}, até o dia 10 de cada mês via Pix."
-    story.append(Paragraph(p4, style_body))
-    story.append(Spacer(1, 15))
-    
-    p5 = f"<b>5. ACEITE E ASSINATURA ELETRÔNICA:</b><br/>O CONTRATANTE declara ter lido e concordado com todos os termos deste instrumento contratual.<br/><br/>Data do Aceite: {data_ass}<br/>Assinado Digitalmente por: <b>{assinatura}</b>"
-    story.append(Paragraph(p5, style_body))
-    
-    doc_pdf.build(story)
-    buffer.seek(0)
-    return buffer
+    <div class="section">
+        <span class="section-title">1. CONTRATANTE:</span><br>
+        <b>Nome:</b> {html.escape(nome)}<br>
+        <b>CPF/CNPJ:</b> {html.escape(doc)}<br>
+        <b>WhatsApp:</b> {html.escape(whats)}<br>
+        <b>Cidade/UF:</b> {html.escape(cidade)}
+    </div>
+
+    <div class="section">
+        <span class="section-title">2. CONTRATADO:</span><br>
+        Desenvolvedor: Vagner Souza (Ciência da Computação)<br>
+        WhatsApp: (31) 98968-4010
+    </div>
+
+    <div class="section">
+        <span class="section-title">3. OBJETO DO CONTRATO:</span><br>
+        Disponibilização de licença de uso do aplicativo web "Peladinha FC" para gestão de presenças, sorteio de times e controle financeiro de peladas.
+    </div>
+
+    <div class="section">
+        <span class="section-title">4. VALOR E PAGAMENTO:</span><br>
+        O CONTRATANTE pagará o valor mensal de R$ {valor:.2f}, até o dia 10 de cada mês via Pix.
+    </div>
+
+    <div class="box">
+        <span class="section-title">5. ACEITE E ASSINATURA ELETRÔNICA:</span><br>
+        O CONTRATANTE declara ter lido e concordado com todos os termos deste instrumento contratual.<br><br>
+        <b>Data do Aceite:</b> {data_ass}<br>
+        <b>Assinado Digitalmente por:</b> {html.escape(assinatura)}
+    </div>
+
+    <div class="footer">
+        Documento gerado eletronicamente através da plataforma Peladinha FC.
+    </div>
+</body>
+</html>"""
+    return conteudo_html.encode('utf-8')
 
 # -----------------------------------------------------------------------------
 # ESTILIZAÇÃO CSS CUSTOMIZADA
@@ -323,7 +340,6 @@ else:
             
             if btn_cad:
                 if c_nome_raw and c_user and c_pass:
-                    # Aplica a autocorreção de nome ao salvar
                     nome_formatado = formatar_nome_proprio(c_nome_raw)
                     st.session_state.jogadoras.append({
                         "nome": nome_formatado, "nascimento": c_nasc.strip(),
@@ -593,7 +609,7 @@ elif menu == "📋 Elenco de Jogadoras":
         st.dataframe(df[["nome", "tipo", "nascimento", "status"]], use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 8: PAINEL ADMIN (COM GERAÇÃO DE PDF E CORREÇÃO DE NOME)
+# PÁGINA 8: PAINEL ADMIN
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
@@ -622,7 +638,7 @@ elif menu == "⚙️ Painel Admin":
                     st.session_state.hora_simulada = st.slider("Hora Simulada:", 0, 23, st.session_state.hora_simulada)
             idx_tab += 1
 
-        # --- TAB: CONTRATO COM GERAÇÃO DE PDF & CORREÇÃO AUTOMÁTICA ---
+        # --- TAB: CONTRATO ---
         with tabs_objetos[idx_tab]:
             st.markdown("### 📜 Contrato de Prestação de Serviços & Licenciamento")
 
@@ -636,7 +652,6 @@ elif menu == "⚙️ Painel Admin":
                 cnt_cidade_in = st.text_input("Cidade / UF *", value="Contagem - MG")
                 cnt_valor = st.number_input("Valor da Mensalidade (R$)", value=39.90, step=5.0)
 
-            # Aplica autocorreção de nome nas variáveis do contrato
             cnt_nome = formatar_nome_proprio(cnt_nome_in)
             cnt_cidade = formatar_nome_proprio(cnt_cidade_in)
 
@@ -681,18 +696,16 @@ Data do Aceite: {hoje_str}
                 if cnt_nome and cnt_doc and ass_nome and aceite_box:
                     st.success("✅ **Contrato assinado e validado!**")
                     
-                    # 1. Geração do arquivo PDF
-                    pdf_bytes = gerar_pdf_contrato(cnt_nome, cnt_doc, cnt_whats, cnt_cidade, cnt_valor, hoje_str, ass_nome)
+                    doc_bytes = gerar_documento_contrato(cnt_nome, cnt_doc, cnt_whats, cnt_cidade, cnt_valor, hoje_str, ass_nome)
                     
                     st.download_button(
-                        label="📄 Baixar Contrato em PDF",
-                        data=pdf_bytes,
-                        file_name=f"Contrato_PeladinhaFC_{cnt_nome.replace(' ', '_')}.pdf",
-                        mime="application/pdf",
+                        label="📄 Baixar Contrato Oficial Assinado",
+                        data=doc_bytes,
+                        file_name=f"Contrato_PeladinhaFC_{cnt_nome.replace(' ', '_')}.html",
+                        mime="text/html",
                         use_container_width=True
                     )
 
-                    # 2. Mensagem para WhatsApp do Desenvolvedor (31 989684010)
                     msg_wa = (
                         f"⚽ *NOVO CONTRATO ASSINADO - PELADINHA FC*\n\n"
                         f"*Contratante:* {cnt_nome}\n"
@@ -715,7 +728,7 @@ Data do Aceite: {hoje_str}
                         </a>
                     """, unsafe_allow_html=True)
                 else:
-                    st.info("💡 Preencha os campos obrigatórios, a assinatura e marque o aceite para gerar o PDF e botão de envio.")
+                    st.info("💡 Preencha os campos obrigatórios, a assinatura e marque o aceite para gerar o documento e botão de envio.")
 
         idx_tab += 1
 
@@ -748,7 +761,6 @@ Data do Aceite: {hoje_str}
                 
                 btn_adm_cad = st.form_submit_button("Salvar Jogadora")
                 if btn_adm_cad and adm_nome_raw:
-                    # Aplica a autocorreção de nome
                     adm_nome_fmt = formatar_nome_proprio(adm_nome_raw)
                     st.session_state.jogadoras.append({
                         "nome": adm_nome_fmt,
