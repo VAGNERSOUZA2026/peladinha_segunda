@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import random
+import urllib.parse
 from datetime import datetime, timezone, timedelta
 
 # -----------------------------------------------------------------------------
@@ -19,6 +20,24 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
+# -----------------------------------------------------------------------------
+# FUNÇÃO PARA CORREÇÃO AUTOMÁTICA DE DIGITAÇÃO DE NOMES
+# Ex: "vagner souza" -> "Vagner Souza", "maria da silva" -> "Maria da Silva"
+# -----------------------------------------------------------------------------
+def formatar_nome_proprio(texto):
+    if not texto:
+        return ""
+    palavras_minusculas = {'de', 'da', 'do', 'dos', 'das', 'e'}
+    palavras = texto.strip().split()
+    resultado = []
+    for idx, palavra in enumerate(palavras):
+        palavra_lower = palavra.lower()
+        if idx > 0 and palavra_lower in palavras_minusculas:
+            resultado.append(palavra_lower)
+        else:
+            resultado.append(palavra_lower.capitalize())
+    return " ".join(resultado)
 
 # -----------------------------------------------------------------------------
 # ESTILIZAÇÃO CSS CUSTOMIZADA
@@ -58,6 +77,19 @@ st.markdown("""
         border-top: 5px solid #EC4899;
         border-radius: 12px;
         padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .contract-box {
+        background-color: #F8FAFC;
+        border: 1px solid #CBD5E1;
+        padding: 20px;
+        border-radius: 10px;
+        font-family: 'Courier New', Courier, monospace;
+        font-size: 0.85rem;
+        color: #1E293B;
+        height: 350px;
+        overflow-y: scroll;
         margin-bottom: 15px;
     }
 
@@ -182,9 +214,7 @@ data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
 
 # -----------------------------------------------------------------------------
-# REGRAS AUTOMÁTICAS DE HORÁRIO:
-# 1. Limpeza Automática pós-jogo (às 20:00 ou mais)
-# 2. Sorteio Automático dos Times (às 18:00 até 19:59)
+# REGRAS AUTOMÁTICAS DE HORÁRIO
 # -----------------------------------------------------------------------------
 if hoje_dt.hour >= 20:
     if st.session_state.presencas or st.session_state.sorteio_oficial:
@@ -280,22 +310,23 @@ else:
 
     with tab_cad:
         with st.form("form_cad_player", clear_on_submit=True):
-            c_nome = st.text_input("Seu Nome *")
+            c_nome_raw = st.text_input("Seu Nome *")
             c_nasc = st.text_input("Nascimento (DD/MM) *")
             c_user = st.text_input("Escolha um Login *")
             c_pass = st.text_input("Escolha uma Senha *", type="password")
             btn_cad = st.form_submit_button("📝 Criar Conta", use_container_width=True)
             
             if btn_cad:
-                if c_nome and c_user and c_pass:
+                if c_nome_raw and c_user and c_pass:
+                    nome_formatado = formatar_nome_proprio(c_nome_raw)
                     st.session_state.jogadoras.append({
-                        "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
+                        "nome": nome_formatado, "nascimento": c_nasc.strip(),
                         "login": c_user.strip(), "senha": c_pass.strip(),
                         "tipo": "Avulso", "mes_vigente": mes_vigente_str,
                         "contato": "", "status": "Ativo"
                     })
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.success("Conta criada! Faça login.")
+                    st.success(f"Conta criada para **{nome_formatado}**! Faça login.")
                     st.rerun()
 
 # -----------------------------------------------------------------------------
@@ -498,7 +529,7 @@ elif menu == "🔀 Sorteio de Times":
                             st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FLUXO DE CAIXA (HISTÓRICO COMPLETO & FILTROS POR ANO)
+# PÁGINA 3: FLUXO DE CAIXA
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
     st.subheader("📊 Fluxo de Caixa do Clube (Histórico Anual)")
@@ -529,7 +560,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         if st.session_state.financeiro:
             df_fin = pd.DataFrame(st.session_state.financeiro)
             
-            # Converte coluna de data para datetime para facilitar ordenação/filtros
             df_fin['data_dt'] = pd.to_datetime(df_fin['data'], format='%d/%m/%Y', errors='coerce')
             df_fin['Ano'] = df_fin['data_dt'].dt.year.astype(str)
             df_fin['Mês'] = df_fin['data_dt'].dt.strftime('%m/%Y')
@@ -561,7 +591,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             cols_exibir_fin = [c for c in ["data", "tipo", "descricao", "valor"] if c in df_filtrado.columns]
             st.dataframe(df_filtrado[cols_exibir_fin], use_container_width=True)
         else:
-            st.info("Nenhum lançamento registrado até o momento.")
+            st.info("Nenum lançamento registrado até o momento.")
 
 # -----------------------------------------------------------------------------
 # PÁGINA 4: PAGAMENTO & PIX
@@ -595,7 +625,7 @@ elif menu == "📋 Elenco de Jogadoras":
         st.info("Nenhuma jogadora cadastrada no momento.")
 
 # -----------------------------------------------------------------------------
-# PÁGINA 7: PAINEL ADMIN (COM RESTRIÇÃO DO LABORATÓRIO DE TESTES)
+# PÁGINA 7: PAINEL ADMIN (INCLUINDO CONTRATO DE PRESTAÇÃO DE SERVIÇO)
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
@@ -607,13 +637,13 @@ elif menu == "⚙️ Painel Admin":
             tabs_titulos.append("🧪 Laboratório de Testes (Dev)")
         
         tabs_titulos.extend([
+            "📜 Contrato de Serviço",
             "⚙️ Configurações Gerais", 
             "➕ Cadastrar Jogadora", 
             "📋 Gerenciar Elenco"
         ])
 
         tabs_objetos = st.tabs(tabs_titulos)
-
         idx_tab = 0
         
         # --- TAB RESTRITA: LABORATÓRIO DE TESTES (APENAS ADMIN PRINCIPAL) ---
@@ -633,19 +663,8 @@ elif menu == "⚙️ Painel Admin":
                         st.session_state.minuto_simulado = st.slider("Escolha os Minutos Simulado:", 0, 59, st.session_state.minuto_simulado)
                         st.warning(f"⏰ Horário Ativo no App: **{st.session_state.hora_simulada:02d}:{st.session_state.minuto_simulado:02d}**")
 
-                        if st.session_state.hora_simulada < 17:
-                            st.info("💡 **Status:** Antes das 17:00 — Avulsas ficam aguardando na Fila de Espera.")
-                        elif 17 <= st.session_state.hora_simulada < 18:
-                            st.success("💡 **Status:** Entre 17:00 e 18:00 — Avulsas sobem para as vagas restantes das Mensalistas!")
-                        elif 18 <= st.session_state.hora_simulada < 20:
-                            st.success("💡 **Status:** 18:00 às 19:59 — Sorteio automático dos times é realizado!")
-                        else:
-                            st.info("💡 **Status:** 20:00 em diante — A lista de presença e sorteios são zerados automaticamente para o próximo dia.")
-
                 with c_test2:
                     st.markdown("#### 2️⃣ Gerar Dados Rápidos para Testar")
-                    st.write("Clique abaixo para preencher a lista com 10 Mensalistas e 8 Avulsas automaticamente:")
-                    
                     if st.button("🚀 Injetar Jogadoras de Teste na Lista", use_container_width=True):
                         fakes = []
                         for i in range(1, 11):
@@ -655,11 +674,11 @@ elif menu == "⚙️ Painel Admin":
                         
                         st.session_state.presencas = fakes
                         salvar_dados(PRESENCAS_FILE, fakes)
-                        st.success("10 Mensalistas e 8 Avulsas inseridas na lista de presença!")
+                        st.success("10 Mensalistas e 8 Avulsas inseridas!")
                         st.rerun()
 
                     st.markdown("---")
-                    if st.button("🧹 Zerar Lista e Sorteios (Reset Manual / Teste)", use_container_width=True):
+                    if st.button("🧹 Zerar Lista e Sorteios (Reset Manual)", use_container_width=True):
                         st.session_state.presencas = []
                         salvar_dados(PRESENCAS_FILE, [])
                         st.session_state.sorteio_oficial = {}
@@ -667,6 +686,92 @@ elif menu == "⚙️ Painel Admin":
                         st.info("Ambiente de teste zerado com sucesso!")
                         st.rerun()
             idx_tab += 1
+
+        # --- TAB: CONTRATO DE PRESTAÇÃO DE SERVIÇOS ---
+        with tabs_objetos[idx_tab]:
+            st.markdown("### 📜 Contrato de Prestação de Serviços & Licenciamento")
+            st.caption("Preencha os dados do responsável pelo clube e assine digitalmente para formalizar o uso do app.")
+
+            c_cnt1, c_cnt2 = st.columns([1, 1])
+
+            with c_cnt1:
+                st.markdown("#### 📝 Dados do Contratante")
+                cnt_nome_raw = st.text_input("Nome Completo do Responsável *")
+                cnt_doc = st.text_input("CPF ou CNPJ *")
+                cnt_whats = st.text_input("WhatsApp do Responsável *")
+                cnt_cidade = st.text_input("Cidade / UF *", value="Contagem - MG")
+                cnt_valor = st.number_input("Valor da Mensalidade (R$)", value=39.90, step=5.0)
+
+            cnt_nome = formatar_nome_proprio(cnt_nome_raw)
+
+            contrato_texto = f"""
+CONTRATO DE PRESTAÇÃO DE SERVIÇOS E LICENCIAMENTO DE SOFTWARE
+
+1. CONTRATANTE:
+Nome: {cnt_nome if cnt_nome else '[Aguardando Preenchimento]'}
+CPF/CNPJ: {cnt_doc if cnt_doc else '[Aguardando Preenchimento]'}
+WhatsApp: {cnt_whats if cnt_whats else '[Aguardando Preenchimento]'}
+Cidade/UF: {cnt_cidade}
+
+2. CONTRATADO:
+Desenvolvedor: Vagner Souza (Ciência da Computação)
+WhatsApp: (31) 98968-4010
+
+3. OBJETO DO CONTRATO:
+Disponibilização de licença de uso do aplicativo web "Peladinha FC" para gestão de presenças, sorteio de times e controle financeiro.
+
+4. VALOR E PAGAMENTO:
+O CONTRATANTE pagará o valor mensal de R$ {cnt_valor:.2f}, até o dia 10 de cada mês via Pix.
+
+5. ASSINATURA E ACEITE:
+Ao marcar a opção de aceite e clicar no botão abaixo, o CONTRATANTE declara estar de acordo com todos os termos deste contrato.
+Data do Aceite: {hoje_str}
+            """
+
+            with c_cnt2:
+                st.markdown("#### 📄 Termos do Contrato")
+                st.markdown(f"<div class='contract-box'><pre>{contrato_texto}</pre></div>", unsafe_allow_html=True)
+
+            st.markdown("---")
+            st.markdown("#### ✍️ Assinatura Eletrônica & Envio")
+
+            c_ass1, c_ass2 = st.columns([1, 1])
+            with c_ass1:
+                ass_nome_raw = st.text_input("Digite seu Nome Completo para Assinar *")
+                ass_nome = formatar_nome_proprio(ass_nome_raw)
+                aceite_box = st.checkbox("Li e aceito os termos do contrato de prestação de serviço acima.")
+
+            with c_ass2:
+                if cnt_nome and cnt_doc and ass_nome and aceite_box:
+                    st.success("✅ **Contrato assinado e pronto para envio!**")
+                    
+                    # Mensagem formatada para o WhatsApp do Desenvolvedor
+                    msg_wa = (
+                        f"⚽ *NOVO CONTRATO ASSINADO - PELADINHA FC*\n\n"
+                        f"*Contratante:* {cnt_nome}\n"
+                        f"*CPF/CNPJ:* {cnt_doc}\n"
+                        f"*WhatsApp:* {cnt_whats}\n"
+                        f"*Cidade/UF:* {cnt_cidade}\n"
+                        f"*Valor Mensal:* R$ {cnt_valor:.2f}\n"
+                        f"*Data da Assinatura:* {hoje_str}\n"
+                        f"*Assinado Por:* {ass_nome}\n\n"
+                        f"Declaro aceite integral aos termos do contrato prestado por Vagner Souza."
+                    )
+                    
+                    # Link oficial da API do WhatsApp para o seu número (31 989684010)
+                    wa_link = f"https://api.whatsapp.com/send?phone=5531989684010&text={urllib.parse.quote(msg_wa)}"
+                    
+                    st.markdown(f"""
+                        <a href="{wa_link}" target="_blank" style="text-decoration: none;">
+                            <div style="background-color: #25D366; color: white; padding: 12px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; margin-top: 10px;">
+                                📲 Enviar Contrato Assinado para o Desenvolvedor (Vagner Souza)
+                            </div>
+                        </a>
+                    """, unsafe_allow_html=True)
+                else:
+                    st.info("💡 Preencha todos os campos do contratante, a assinatura e marque o aceite para liberar o botão de envio.")
+
+        idx_tab += 1
 
         # --- TAB: CONFIGURAÇÕES GERAIS ---
         with tabs_objetos[idx_tab]:
@@ -689,16 +794,17 @@ elif menu == "⚙️ Painel Admin":
         with tabs_objetos[idx_tab]:
             st.markdown("### ➕ Cadastrar Nova Jogadora (Pelo Admin)")
             with st.form("form_admin_cad_jog"):
-                adm_nome_j = st.text_input("Nome Completo")
+                adm_nome_raw = st.text_input("Nome Completo")
                 adm_tipo_j = st.selectbox("Tipo de Jogadora", ["Mensalista", "Avulso"])
                 adm_nasc_j = st.text_input("Data de Nascimento (DD/MM)")
                 adm_user_j = st.text_input("Login de Acesso")
                 adm_pass_j = st.text_input("Senha", type="password")
                 
                 btn_adm_cad = st.form_submit_button("Salvar Jogadora")
-                if btn_adm_cad and adm_nome_j:
+                if btn_adm_cad and adm_nome_raw:
+                    adm_nome_fmt = formatar_nome_proprio(adm_nome_raw)
                     st.session_state.jogadoras.append({
-                        "nome": adm_nome_j.strip(),
+                        "nome": adm_nome_fmt,
                         "tipo": adm_tipo_j,
                         "nascimento": adm_nasc_j.strip(),
                         "login": adm_user_j.strip(),
@@ -708,7 +814,7 @@ elif menu == "⚙️ Painel Admin":
                         "status": "Ativo"
                     })
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.success(f"Jogadora {adm_nome_j} cadastrada com sucesso!")
+                    st.success(f"Jogadora **{adm_nome_fmt}** cadastrada com sucesso!")
         idx_tab += 1
 
         # --- TAB: GERENCIAR ELENCO ---
