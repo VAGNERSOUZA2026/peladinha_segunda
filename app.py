@@ -520,7 +520,7 @@ elif menu == "🔀 Sorteio de Times":
                         st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO VIA WHATSAPP OPTIMIZADO)
+# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO VIA WHATSAPP OTIMIZADO)
 # -----------------------------------------------------------------------------
 elif menu == "📸 Foto do Jogo":
     st.subheader("📸 Registro da Pelada & Envio no WhatsApp")
@@ -540,10 +540,10 @@ elif menu == "📸 Foto do Jogo":
         
         # Passo a Passo para o usuário
         st.markdown("""
-        #### 📲 Como enviar pelo celular/PC:
-        1. Clique no botão abaixo **'📥 Baixar Foto'** para salvar a imagem no seu aparelho.
-        2. Clique em **'💬 Abrir WhatsApp'** para abrir a conversa com o número **(31) 98968-4010**.
-        3. No WhatsApp, toque no ícone de **Anexo/Câmera** e envie a foto baixada!
+        #### 📲 Como enviar pelo celular:
+        1. Clique no botão **`📥 1º Baixar Foto para o Celular`**.
+        2. Clique no botão **`💬 2º Abrir WhatsApp`** abaixo.
+        3. No WhatsApp, toque no ícone de **Anexo (+ ou 📎)** e selecione a foto baixada no topo da galeria!
         """)
 
         col_f1, col_f2 = st.columns(2)
@@ -560,18 +560,15 @@ elif menu == "📸 Foto do Jogo":
         legenda_padrao = f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥"
         msg_foto_wa = f"{legenda_padrao}\n\n_Enviado pelo App Peladinha FC_"
         
-        # Link nativo otimizado para abrir direto o aplicativo do WhatsApp em celular/PC
         wa_numero_teste = "5531989684010"
         wa_foto_link = f"https://wa.me/{wa_numero_teste}?text={urllib.parse.quote(msg_foto_wa)}"
 
         with col_f2:
-            st.markdown(f"""
-                <a href="{wa_foto_link}" target="_blank" style="text-decoration: none;">
-                    <div style="background-color: #25D366; color: white; padding: 10px 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 0.95rem; line-height: 1.4;">
-                        💬 2º Abrir WhatsApp (31 98968-4010)
-                    </div>
-                </a>
-            """, unsafe_allow_html=True)
+            st.link_button(
+                label="💬 2º Abrir WhatsApp (31 98968-4010)",
+                url=wa_foto_link,
+                use_container_width=True
+            )
 
 # -----------------------------------------------------------------------------
 # PÁGINA 4: FLUXO DE CAIXA
@@ -742,13 +739,11 @@ Data do Aceite: {hoje_str}
                     
                     wa_link = f"https://wa.me/5531989684010?text={urllib.parse.quote(msg_wa)}"
                     
-                    st.markdown(f"""
-                        <a href="{wa_link}" target="_blank" style="text-decoration: none;">
-                            <div style="background-color: #25D366; color: white; padding: 12px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.0rem; margin-top: 10px;">
-                                📲 Notificar Vagner Souza pelo WhatsApp
-                            </div>
-                        </a>
-                    """, unsafe_allow_html=True)
+                    st.link_button(
+                        label="📲 Notificar Vagner Souza pelo WhatsApp",
+                        url=wa_link,
+                        use_container_width=True
+                    )
                 else:
                     st.info("💡 Preencha os campos obrigatórios, a assinatura e marque o aceite para gerar o documento e botão de envio.")
 
