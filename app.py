@@ -1,30 +1,425 @@
+import streamlit as st
+import pandas as pd
+import json
+import os
+import random
+from datetime import datetime, timezone, timedelta
+
 # -----------------------------------------------------------------------------
-# AUTOMAÇÃO DE HORÁRIOS (Promover Avulsas às 17:00)
+# FUSO HORÁRIO BRASIL (UTC-3)
 # -----------------------------------------------------------------------------
-def processar_promocao_avulsas():
-    hoje_agora = datetime.now(FUSO_BRASIL)
+FUSO_BRASIL = timezone(timedelta(hours=-3))
+
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DA PÁGINA
+# -----------------------------------------------------------------------------
+st.set_page_config(
+    page_title="Peladinha FC | Gestão de Futebol Feminino",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# -----------------------------------------------------------------------------
+# ESTILIZAÇÃO CSS CUSTOMIZADA
+# -----------------------------------------------------------------------------
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap');
+    html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
+
+    .hero-banner {
+        background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), 
+                    url('https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=1200&auto=format&fit=crop');
+        background-size: cover;
+        background-position: center;
+        border-radius: 16px;
+        padding: 25px 15px;
+        text-align: center;
+        color: #FFFFFF;
+        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
+        margin-bottom: 20px;
+    }
+    .hero-title { font-size: 2.0rem; font-weight: 800; margin-bottom: 5px; color: #FFFFFF; }
+    .hero-subtitle { font-size: 0.9rem; font-weight: 300; color: #E2E8F0; }
+
+    .card-notice {
+        background: #FEF3C7;
+        border-left: 6px solid #F59E0B;
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 15px;
+        color: #78350F;
+    }
+
+    .card-bday {
+        background: linear-gradient(135deg, #FCE7F3 0%, #FBCFE8 100%);
+        border-left: 6px solid #EC4899;
+        padding: 18px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        color: #831843;
+        text-align: center;
+        font-size: 1.1rem;
+        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+    }
+
+    .card-team {
+        background-color: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-top: 5px solid #EC4899;
+        border-radius: 12px;
+        padding: 15px;
+        margin-bottom: 15px;
+    }
+
+    .developer-footer {
+        background: #0F172A;
+        color: #94A3B8;
+        text-align: center;
+        padding: 12px;
+        border-radius: 10px;
+        margin-top: 30px;
+        font-size: 0.85rem;
+    }
+</style>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# TRATAMENTO DE DADOS (ARQUIVOS JSON)
+# -----------------------------------------------------------------------------
+DATA_FILE = "jogadoras.json"
+PRESENCAS_FILE = "presencas.json"
+AVISOS_FILE = "avisos.json"
+FINANCE_FILE = "financeiro.json"
+ADMINS_FILE = "administradores.json"
+REGULAMENTO_FILE = "regulamento.json"
+SORTEIO_FILE = "sorteio.json"
+
+def carregar_dados(filename, default):
+    if os.path.exists(filename):
+        try:
+            with open(filename, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default
+    return default
+
+def salvar_dados(filename, data):
+    try:
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
+
+def obter_nome_p(p):
+    return p["nome"] if isinstance(p, dict) else p
+
+def obter_hora_p(p):
+    return p.get("hora", "") if isinstance(p, dict) else ""
+
+def obter_tipo_p(p):
+    return p.get("tipo", "Avulso") if isinstance(p, dict) else "Avulso"
+
+if "jogadoras" not in st.session_state:
+    st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
+
+if "presencas" not in st.session_state:
+    st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
+
+if "financeiro" not in st.session_state:
+    st.session_state.financeiro = carregar_dados(FINANCE_FILE, [])
+
+if "administradores" not in st.session_state:
+    def_admins = [
+        {"nome": "Admin Principal", "login": "admin", "senha": "1980", "principal": True}
+    ]
+    st.session_state.administradores = carregar_dados(ADMINS_FILE, def_admins)
+
+if "avisos" not in st.session_state:
+    st.session_state.avisos = carregar_dados(AVISOS_FILE, {
+        "vencimento": "Todo dia 10 de cada mês",
+        "recado": "Favor chegarem 10 minutos antes para organizar o jogo!",
+        "pix": "peladinhafc@email.com",
+        "limite_vagas": 15
+    })
+
+if "regulamento" not in st.session_state:
+    st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
+        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "As jogadoras MENSALISTAS têm prioridade absoluta até às 17:00."},
+        {"topico": "⏳ 2. Promoção de Avulsas", "regrinha": "Às 17:00, se as 15 vagas não forem preenchidas por mensalistas, as jogadoras avulsas da fila de espera são promovidas automaticamente para a lista principal."},
+        {"topico": "🎲 3. Sorteio de Times", "regrinha": "Às 18:00 o sorteio automático dos times é realizado."},
+        {"topico": "💸 4. Mensalidades e Pagamento", "regrinha": "As mensalidades devem ser pagas via Pix até a data estipulada de vencimento."}
+    ])
+
+if "sorteio_oficial" not in st.session_state:
+    st.session_state.sorteio_oficial = carregar_dados(SORTEIO_FILE, {})
+
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = None
+
+if "admin_logged" not in st.session_state:
+    st.session_state.admin_logged = False
+
+if "admin_nome" not in st.session_state:
+    st.session_state.admin_nome = ""
+
+# -----------------------------------------------------------------------------
+# SIMULADOR DE HORÁRIO NA SIDEBAR (MENU LATERAL)
+# -----------------------------------------------------------------------------
+st.sidebar.title("🧪 Painel de Simulação / Testes")
+usar_simulacao = st.sidebar.checkbox("⚙️ Ativar Simulação de Horário")
+
+if usar_simulacao:
+    h_simulada = st.sidebar.slider("Horas (0-23):", 0, 23, 16)
+    m_simulada = st.sidebar.slider("Minutos (0-59):", 0, 59, 30)
+    hoje_dt = datetime.now(FUSO_BRASIL).replace(hour=h_simulada, minute=m_simulada)
+    st.sidebar.warning(f"🕒 **Hora Simulada Ativa:** {hoje_dt.strftime('%H:%M')}")
+else:
+    hoje_dt = datetime.now(FUSO_BRASIL)
+
+hoje_str = hoje_dt.strftime("%d/%m")
+mes_vigente_str = hoje_dt.strftime("%m/%Y")
+data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
+
+# -----------------------------------------------------------------------------
+# AUTOMAÇÃO AUTOMÁTICA DE SORTEIO ÀS 18:00
+# -----------------------------------------------------------------------------
+limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
+
+if hoje_dt.hour >= 18:
+    sorteio_existente = st.session_state.sorteio_oficial
+    if not sorteio_existente or sorteio_existente.get("data") != data_hoje_id:
+        lista_atual = st.session_state.presencas
+        mensalistas_l = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
+        avulsas_l = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
+        vagas_sobrando = limite_vagas_at - len(mensalistas_l)
+        
+        conf_objs = (mensalistas_l + avulsas_l[:vagas_sobrando]) if vagas_sobrando > 0 else mensalistas_l[:limite_vagas_at]
+        confirmadas = [obter_nome_p(p) for p in conf_objs]
+
+        if len(confirmadas) >= 2:
+            temp = confirmadas.copy()
+            random.shuffle(temp)
+            res_times = {"Time 1": [], "Time 2": []}
+            for idx, p in enumerate(temp):
+                res_times[f"Time {idx % 2 + 1}"].append(p)
+
+            st.session_state.sorteio_oficial = {
+                "data": data_hoje_id,
+                "hora": f"{hoje_dt.strftime('%H:%M')} (Automático)",
+                "times": res_times
+            }
+            salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
+
+# -----------------------------------------------------------------------------
+# BANNER DA APLICAÇÃO
+# -----------------------------------------------------------------------------
+st.markdown("""
+<div class='hero-banner'>
+    <div class='hero-title'>⚽ PELADINHA FC</div>
+    <div class='hero-subtitle'>Gestão Inteligente & Sorteio de Futebol Feminino</div>
+</div>
+""", unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# MENU LATERAL (SIDEBAR) - NAVEGAÇÃO
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("---")
+st.sidebar.title("📌 Navegação")
+
+lista_menu = [
+    "📌 Presença no Jogo", 
+    "🔀 Sorteio de Times",
+    "💸 Pagamento & Pix",
+    "📜 Regulamento",
+    "📋 Elenco de Jogadoras"
+]
+
+if st.session_state.admin_logged:
+    lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
+
+lista_menu.append("⚙️ Painel Admin")
+menu = st.sidebar.radio("Ir para:", lista_menu)
+
+# -----------------------------------------------------------------------------
+# ÁREA DA JOGADORA (LOGIN)
+# -----------------------------------------------------------------------------
+st.sidebar.markdown("---")
+st.sidebar.title("👤 Área da Jogadora")
+
+if st.session_state.usuario_logado:
+    st.sidebar.success(f"Logada: **{st.session_state.usuario_logado}**")
+    if st.sidebar.button("🚪 Sair da Conta"):
+        st.session_state.usuario_logado = None
+        st.rerun()
+else:
+    tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"])
     
-    # Se já passou das 17:00
-    if hoje_agora.hour >= 17:
-        limite = st.session_state.avisos.get("limite_vagas", 15)
-        lista = st.session_state.presencas
-        
-        # Separa mensalistas e avulsas
-        mensalistas = [p for p in lista if obter_tipo_p(p) == "Mensalista"]
-        avulsas = [p for p in lista if obter_tipo_p(p) == "Avulso"]
-        
-        vagas_restantes = limite - len(mensalistas)
-        
-        # Se restam vagas e há avulsas na fila de espera
-        if vagas_restantes > 0 and len(avulsas) > 0:
-            # Pega as avulsas necessárias para completar o limite
-            avulsas_promovidas = avulsas[:vagas_restantes]
-            avulsas_restantes = avulsas[vagas_restantes:]
+    with tab_log:
+        with st.form("form_login_player"):
+            l_user = st.text_input("Login")
+            l_pass = st.text_input("Senha", type="password")
+            btn_log = st.form_submit_button("🔑 Entrar", use_container_width=True)
             
-            # Reorganiza a lista: Mensalistas + Avulsas Promovidas + Avulsas que sobraram na espera
-            nova_lista = mensalistas + avulsas_promovidas + avulsas_restantes
+            if btn_log:
+                user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
+                if user_found:
+                    st.session_state.usuario_logado = user_found["nome"]
+                    st.rerun()
+                else:
+                    st.error("Login ou senha incorretos!")
+
+    with tab_cad:
+        with st.form("form_cad_player", clear_on_submit=True):
+            c_nome = st.text_input("Seu Nome *")
+            c_nasc = st.text_input("Nascimento (DD/MM) *")
+            c_user = st.text_input("Escolha um Login *")
+            c_pass = st.text_input("Escolha uma Senha *", type="password")
+            btn_cad = st.form_submit_button("📝 Criar Conta", use_container_width=True)
             
-            # Salva se houver alteração
-            if nova_lista != st.session_state.presencas:
-                st.session_state.presencas = nova_lista
-                salvar_dados(PRESENCAS_FILE, nova_lista)
+            if btn_cad:
+                if c_nome and c_user and c_pass:
+                    st.session_state.jogadoras.append({
+                        "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
+                        "login": c_user.strip(), "senha": c_pass.strip(),
+                        "tipo": "Avulso", "mes_vigente": mes_vigente_str,
+                        "contato": "", "status": "Ativo"
+                    })
+                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                    st.success("Conta criada! Faça login.")
+                    st.rerun()
+
+# -----------------------------------------------------------------------------
+# PÁGINA 1: PRESENÇA NO JOGO
+# -----------------------------------------------------------------------------
+if menu == "📌 Presença no Jogo":
+    limite = st.session_state.avisos.get("limite_vagas", 15)
+    hora_atual = hoje_dt.hour
+
+    st.markdown(f"""
+    <div class='card-notice'>
+        📢 <b>HORÁRIO SIMULADO / ATUAL DO SISTEMA: {hoje_dt.strftime('%H:%M')}</b><br>
+        ⭐ <b>Mensalistas têm prioridade até às 17:00.</b><br>
+        ⏰ <b>Às 17:00:</b> As vagas não preenchidas por mensalistas são liberadas para as jogadoras Avulsas da fila!<br>
+        🎲 <b>Às 18:00:</b> O Sorteio Oficial dos Times é gerado AUTOMATICAMENTE.
+    </div>
+    """, unsafe_allow_html=True)
+
+    col_lista, col_acoes = st.columns([1, 1])
+    lista_atual = st.session_state.presencas
+
+    # Lógica de Separação de Vagas pelas 17:00
+    mensalistas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
+    avulsas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
+
+    if hora_atual < 17:
+        # Antes das 17h: Mensalistas ocupam prioridade total
+        confirmadas = mensalistas_lista[:limite]
+        espera = mensalistas_lista[limite:] + avulsas_lista
+    else:
+        # Após as 17h: Vagas restantes são ocupadas por Avulsas
+        vagas_sobrando = limite - len(mensalistas_lista)
+        if vagas_sobrando > 0:
+            confirmadas = mensalistas_lista + avulsas_lista[:vagas_sobrando]
+            espera = avulsas_lista[vagas_sobrando:]
+        else:
+            confirmadas = mensalistas_lista[:limite]
+            espera = mensalistas_lista[limite:] + avulsas_lista
+
+    with col_lista:
+        st.subheader("📋 Lista de Presença")
+
+        st.markdown(f"### 🟢 Confirmadas ({len(confirmadas)}/{limite})")
+        if not confirmadas:
+            st.info("Nenhuma jogadora confirmada ainda.")
+        else:
+            for i, p in enumerate(confirmadas, 1):
+                nome_p = obter_nome_p(p)
+                hora_p = obter_hora_p(p)
+                tipo_p = obter_tipo_p(p)
+                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa Promovida"
+                st.write(f"**{i}.** {nome_p} `[{badge}]` — *(às {hora_p})*")
+
+        st.markdown("---")
+        st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
+        if not espera:
+            st.caption("Nenhuma jogadora na fila de espera.")
+        else:
+            for i, p in enumerate(espera, 1):
+                nome_p = obter_nome_p(p)
+                hora_p = obter_hora_p(p)
+                tipo_p = obter_tipo_p(p)
+                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa"
+                st.write(f"**{i}º na espera:** {nome_p} `[{badge}]` — *(às {hora_p})*")
+
+    with col_acoes:
+        st.subheader("✍️ Testar Entrada de Presença")
+        
+        pode_mexer = st.session_state.usuario_logado or st.session_state.admin_logged
+
+        if not pode_mexer:
+            st.warning("⚠️ Faça login na barra lateral para testar a entrada na lista!")
+        else:
+            with st.form("form_presenca_express"):
+                jogadora_sel = st.session_state.usuario_logado or "Jogadora Teste"
+                st.write(f"Confirmando como: **{jogadora_sel}**")
+
+                c1, c2 = st.columns(2)
+                btn_confirmar = c1.form_submit_button("👍 Confirmar Presença", use_container_width=True)
+                btn_cancelar = c2.form_submit_button("❌ Cancelar Presença", use_container_width=True)
+
+            if jogadora_sel:
+                dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == jogadora_sel), None)
+                tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
+
+                if btn_confirmar:
+                    hora_registro = hoje_dt.strftime("%H:%M")
+                    st.session_state.presencas.append({
+                        "nome": jogadora_sel, 
+                        "hora": hora_registro,
+                        "tipo": tipo_j
+                    })
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.rerun()
+
+                if btn_cancelar:
+                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != jogadora_sel]
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.rerun()
+
+        st.markdown("---")
+        if st.button("🧹 Zerar Lista para Recomeçar Teste", use_container_width=True):
+            st.session_state.presencas = []
+            salvar_dados(PRESENCAS_FILE, [])
+            st.session_state.sorteio_oficial = {}
+            salvar_dados(SORTEIO_FILE, {})
+            st.rerun()
+
+# -----------------------------------------------------------------------------
+# PÁGINA 2: SORTEIO DE TIMES
+# -----------------------------------------------------------------------------
+elif menu == "🔀 Sorteio de Times":
+    st.subheader("🔀 Sorteio de Times")
+
+    sorteio_salvo = st.session_state.sorteio_oficial
+    if sorteio_salvo and "times" in sorteio_salvo:
+        st.success(f"✅ **Sorteio Oficial Realizado ({sorteio_salvo.get('hora', '')})**")
+        cols = st.columns(len(sorteio_salvo["times"]))
+        for idx, (nome_time, membros) in enumerate(sorteio_salvo["times"].items()):
+            with cols[idx]:
+                st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
+                for item in membros:
+                    st.write(f"• **{item}**")
+                st.markdown("</div>", unsafe_allow_html=True)
+    else:
+        st.info("⏰ O Sorteio Oficial é realizado AUTOMATICAMENTE às **18:00**. Altere o slider de teste no menu lateral para 18h para ver a mágica acontecer!")
+
+# -----------------------------------------------------------------------------
+# OUTRAS PÁGINAS (Padrão)
+# -----------------------------------------------------------------------------
+else:
+    st.info("Utilize o menu lateral para navegar entre as telas.")
+
+# RODAPÉ
+st.markdown("<div class='developer-footer'>Desenvolvido por <b>Vagner Souza / Ciência da Computação</b></div>", unsafe_allow_html=True)
