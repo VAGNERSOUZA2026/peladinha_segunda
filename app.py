@@ -302,7 +302,7 @@ lista_menu.append("⚙️ Painel Admin")
 menu = st.sidebar.radio("Ir para:", lista_menu)
 
 # -----------------------------------------------------------------------------
-# ÁREA DA JOGADORA (LOGIN & CADASTRO COM AUTOCORREÇÃO DE NOME)
+# ÁREA DA JOGADORA
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.title("👤 Área da Jogadora")
@@ -520,7 +520,7 @@ elif menu == "🔀 Sorteio de Times":
                         st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO VIA WHATSAPP OTIMIZADO)
+# PÁGINA 3: FOTO DO JOGO (COM DEEP LINK NATIVO DE CELULAR)
 # -----------------------------------------------------------------------------
 elif menu == "📸 Foto do Jogo":
     st.subheader("📸 Registro da Pelada & Envio no WhatsApp")
@@ -538,37 +538,38 @@ elif menu == "📸 Foto do Jogo":
         
         st.success("✅ **Foto Pronta!**")
         
-        # Passo a Passo para o usuário
         st.markdown("""
-        #### 📲 Como enviar pelo celular:
-        1. Clique no botão **`📥 1º Baixar Foto para o Celular`**.
-        2. Clique no botão **`💬 2º Abrir WhatsApp`** abaixo.
-        3. No WhatsApp, toque no ícone de **Anexo (+ ou 📎)** e selecione a foto baixada no topo da galeria!
+        #### 📲 Passo a Passo:
+        1. Clique no botão **`📥 1º Baixar Foto`** para salvar no seu celular/PC.
+        2. Clique em **`📱 Abrir no App (Celular)`** se estiver no smartphone, ou **`💻 WhatsApp Web`** se estiver no PC.
+        3. No WhatsApp, anexe a foto baixada no chat!
         """)
 
-        col_f1, col_f2 = st.columns(2)
-        
-        with col_f1:
-            st.download_button(
-                label="📥 1º Baixar Foto para o Celular",
-                data=bytes_foto,
-                file_name=f"Foto_PeladinhaFC_{hoje_dt.strftime('%d_%m_%Y')}.jpg",
-                mime="image/jpeg",
-                use_container_width=True
-            )
+        st.download_button(
+            label="📥 1º Baixar Foto para o Dispositivo",
+            data=bytes_foto,
+            file_name=f"Foto_PeladinhaFC_{hoje_dt.strftime('%d_%m_%Y')}.jpg",
+            mime="image/jpeg",
+            use_container_width=True
+        )
+
+        st.markdown("<br>", unsafe_allow_html=True)
 
         legenda_padrao = f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥"
         msg_foto_wa = f"{legenda_padrao}\n\n_Enviado pelo App Peladinha FC_"
         
-        wa_numero_teste = "5531989684010"
-        wa_foto_link = f"https://wa.me/{wa_numero_teste}?text={urllib.parse.quote(msg_foto_wa)}"
+        numero_wa = "5531989684010"
+        text_encoded = urllib.parse.quote(msg_foto_wa)
+        
+        # Link nativo (Deep Link) que força o Android / iOS a abrir o APP diretamente
+        link_app_mobile = f"whatsapp://send?phone={numero_wa}&text={text_encoded}"
+        link_web = f"https://wa.me/{numero_wa}?text={text_encoded}"
 
-        with col_f2:
-            st.link_button(
-                label="💬 2º Abrir WhatsApp (31 98968-4010)",
-                url=wa_foto_link,
-                use_container_width=True
-            )
+        col_w1, col_w2 = st.columns(2)
+        with col_w1:
+            st.link_button("📱 2º Abrir no App do WhatsApp (Celular)", link_app_mobile, use_container_width=True)
+        with col_w2:
+            st.link_button("💻 2º Abrir no WhatsApp Web (Computador)", link_web, use_container_width=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA 4: FLUXO DE CAIXA
@@ -737,13 +738,17 @@ Data do Aceite: {hoje_str}
                         f"Declaro aceite integral aos termos do contrato prestado por Vagner Souza."
                     )
                     
-                    wa_link = f"https://wa.me/5531989684010?text={urllib.parse.quote(msg_wa)}"
+                    num_wa = "5531989684010"
+                    txt_enc = urllib.parse.quote(msg_wa)
                     
-                    st.link_button(
-                        label="📲 Notificar Vagner Souza pelo WhatsApp",
-                        url=wa_link,
-                        use_container_width=True
-                    )
+                    link_mob = f"whatsapp://send?phone={num_wa}&text={txt_enc}"
+                    link_pc = f"https://wa.me/{num_wa}?text={txt_enc}"
+
+                    col_cnt_w1, col_cnt_w2 = st.columns(2)
+                    with col_cnt_w1:
+                        st.link_button("📱 Abrir no App (Celular)", link_mob, use_container_width=True)
+                    with col_cnt_w2:
+                        st.link_button("💻 WhatsApp Web (PC)", link_pc, use_container_width=True)
                 else:
                     st.info("💡 Preencha os campos obrigatórios, a assinatura e marque o aceite para gerar o documento e botão de envio.")
 
