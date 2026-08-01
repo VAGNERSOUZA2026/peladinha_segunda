@@ -138,7 +138,8 @@ if "regulamento" not in st.session_state:
         {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "As jogadoras MENSALISTAS têm prioridade absoluta até às 17:00."},
         {"topico": "⏳ 2. Promoção de Avulsas", "regrinha": "Às 17:00, se as 15 vagas não forem preenchidas por mensalistas, as jogadoras avulsas da fila de espera são promovidas automaticamente para a lista principal."},
         {"topico": "🎲 3. Sorteio de Times", "regrinha": "Às 18:00 o sorteio automático dos times é realizado."},
-        {"topico": "💸 4. Mensalidades e Pagamento", "regrinha": "As mensalidades devem ser pagas via Pix até a data estipulada de vencimento."}
+        {"topico": "💸 4. Mensalidades e Pagamento", "regrinha": "As mensalidades devem ser pagas via Pix até a data estipulada de vencimento."},
+        {"topico": "🔄 5. Encerramento da Lista", "regrinha": "Às 20:00 a lista de presença e os sorteios são zerados automaticamente para a próxima rodada."}
     ])
 
 if "sorteio_oficial" not in st.session_state:
@@ -178,9 +179,18 @@ data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
 
 # -----------------------------------------------------------------------------
-# AUTOMAÇÃO AUTOMÁTICA DE SORTEIO ÀS 18:00
+# REGRAS AUTOMÁTICAS DE HORÁRIO:
+# 1. Limpeza Automática pós-jogo (às 20:00 ou mais)
+# 2. Sorteio Automático dos Times (às 18:00 até 19:59)
 # -----------------------------------------------------------------------------
-if hoje_dt.hour >= 18:
+if hoje_dt.hour >= 20:
+    if st.session_state.presencas or st.session_state.sorteio_oficial:
+        st.session_state.presencas = []
+        st.session_state.sorteio_oficial = {}
+        salvar_dados(PRESENCAS_FILE, [])
+        salvar_dados(SORTEIO_FILE, {})
+
+elif hoje_dt.hour >= 18:
     sorteio_existente = st.session_state.sorteio_oficial
     if not sorteio_existente or sorteio_existente.get("data") != data_hoje_id:
         lista_atual = st.session_state.presencas
@@ -316,12 +326,16 @@ if menu == "📌 Presença no Jogo":
     limite = st.session_state.avisos.get("limite_vagas", 15)
     hora_atual = hoje_dt.hour
 
+    if hora_atual >= 20:
+        st.info("🌙 **Pelada encerrada!** A lista foi zerada e está aberta para novas confirmações.")
+
     st.markdown(f"""
     <div class='card-notice'>
         📢 <b>AVISOS DA PELADA:</b> Limitado a <b>{limite} vagas</b> (Jogo às 19:00).<br>
         ⭐ <b>Mensalistas têm prioridade até às 17:00.</b><br>
         ⏰ <b>Às 17:00:</b> As vagas restantes são preenchidas automaticamente pelas Avulsas na Fila!<br>
-        🎲 <b>Sorteio Oficial:</b> Realizado automaticamente às <b>18:00</b>.
+        🎲 <b>Sorteio Oficial:</b> Realizado automaticamente às <b>18:00</b>.<br>
+        🔄 <b>Zeramento Automático:</b> Às <b>20:00</b> a lista limpa automaticamente.
     </div>
     """, unsafe_allow_html=True)
 
@@ -481,22 +495,60 @@ elif menu == "🔀 Sorteio de Times":
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
     st.subheader("📊 Fluxo de Caixa do Clube")
-    st.info("Página de controle de receitas e despesas.")
+    
+    col_f1, col_f2 = st.columns(2)
+    with col_f1:
+        st.markdown("### ➕ Registrar Lançamento")
+        with st.form("form_financeiro"):
+            tipo_trans = st.selectbox("Tipo", ["Entrada (Receita)", "Saída (Despesa)"])
+            desc_trans = st.text_input("Descrição (Ex: Mensalidade Ana, Aluguel Quadra)")
+            valor_trans = st.number_input("Valor (R$)", min_value=0.0, step=5.0)
+            btn_fin = st.form_submit_button("Registrar Transação")
+            
+            if btn_fin and valor_trans > 0:
+                st.session_state.financeiro.append({
+                    "data": hoje_str,
+                    "tipo": tipo_trans,
+                    "descricao": desc_trans,
+                    "valor": valor_trans
+                })
+                salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                st.success("Lançamento adicionado com sucesso!")
+
+    with col_f2:
+        st.markdown("### 📈 Resumo do Caixa")
+        if st.session_state.financeiro:
+            df_fin = pd.DataFrame(st.session_state.financeiro)
+            st.dataframe(df_fin, use_container_width=True)
+            
+            entradas = sum(t["valor"] for t in st.session_state.financeiro if "Entrada" in t["tipo"])
+            saidas = sum(t["valor"] for t in st.session_state.financeiro if "Saída" in t["tipo"])
+            saldo = entradas - saidas
+            
+            st.metric("Total Entradas", f"R$ {entradas:.2f}")
+            st.metric("Total Saídas", f"R$ {saidas:.2f}")
+            st.metric("Saldo Atual", f"R$ {saldo:.2f}")
+        else:
+            st.info("Nenhum lançamento registrado até o momento.")
 
 # -----------------------------------------------------------------------------
 # PÁGINA 4: PAGAMENTO & PIX
 # -----------------------------------------------------------------------------
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Dados para Pagamento")
-    st.info(f"🔑 Chave Pix: **{st.session_state.avisos.get('pix')}**")
+    st.info(f"🔑 **Chave Pix:** {st.session_state.avisos.get('pix')}")
+    st.write(f"📅 **Vencimento das Mensalidades:** {st.session_state.avisos.get('vencimento')}")
+    st.write(f"💬 **Recado:** {st.session_state.avisos.get('recado')}")
 
 # -----------------------------------------------------------------------------
 # PÁGINA 5: REGULAMENTO
 # -----------------------------------------------------------------------------
 elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento Interno")
+    st.subheader("📜 Regulamento Interno do Clube")
     for item in st.session_state.regulamento:
-        st.write(f"**{item['topico']}**: {item['regrinha']}")
+        st.markdown(f"#### {item['topico']}")
+        st.write(item['regrinha'])
+        st.markdown("---")
 
 # -----------------------------------------------------------------------------
 # PÁGINA 6: ELENCO DE JOGADORAS
@@ -505,12 +557,13 @@ elif menu == "📋 Elenco de Jogadoras":
     st.subheader("📋 Elenco Cadastrado")
     if st.session_state.jogadoras:
         df = pd.DataFrame(st.session_state.jogadoras)
-        st.dataframe(df[["nome", "tipo", "nascimento"]], use_container_width=True)
+        cols_exibir = [c for c in ["nome", "tipo", "nascimento", "status"] if c in df.columns]
+        st.dataframe(df[cols_exibir], use_container_width=True)
     else:
         st.info("Nenhuma jogadora cadastrada no momento.")
 
 # -----------------------------------------------------------------------------
-# PÁGINA 7: PAINEL ADMIN (COM O LABORATORIO DE TESTES INTEGRO)
+# PÁGINA 7: PAINEL ADMIN
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
@@ -544,8 +597,10 @@ elif menu == "⚙️ Painel Admin":
                         st.info("💡 **Status:** Antes das 17:00 — Avulsas ficam aguardando na Fila de Espera.")
                     elif 17 <= st.session_state.hora_simulada < 18:
                         st.success("💡 **Status:** Entre 17:00 e 18:00 — Avulsas sobem para as vagas restantes das Mensalistas!")
+                    elif 18 <= st.session_state.hora_simulada < 20:
+                        st.success("💡 **Status:** 18:00 às 19:59 — Sorteio automático dos times é realizado!")
                     else:
-                        st.success("💡 **Status:** 18:00 em diante — Sorteio automático dos times é realizado!")
+                        st.info("💡 **Status:** 20:00 em diante — A lista de presença e sorteios são zerados automaticamente para o próximo dia.")
 
             with c_test2:
                 st.markdown("#### 2️⃣ Gerar Dados Rápidos para Testar")
@@ -564,7 +619,7 @@ elif menu == "⚙️ Painel Admin":
                     st.rerun()
 
                 st.markdown("---")
-                if st.button("🧹 Zerar Lista e Sorteios (Reset de Teste)", use_container_width=True):
+                if st.button("🧹 Zerar Lista e Sorteios (Reset Manual / Teste)", use_container_width=True):
                     st.session_state.presencas = []
                     salvar_dados(PRESENCAS_FILE, [])
                     st.session_state.sorteio_oficial = {}
@@ -577,10 +632,14 @@ elif menu == "⚙️ Painel Admin":
             st.markdown("### ⚙️ Ajustes do App")
             limite_v = st.number_input("Limite de Vagas por Jogo:", value=st.session_state.avisos.get("limite_vagas", 15))
             pix_v = st.text_input("Chave Pix de Pagamento:", value=st.session_state.avisos.get("pix", ""))
+            venc_v = st.text_input("Vencimento Mensalidade:", value=st.session_state.avisos.get("vencimento", ""))
+            recado_v = st.text_area("Recado no Painel:", value=st.session_state.avisos.get("recado", ""))
             
             if st.button("💾 Salvar Configurações"):
                 st.session_state.avisos["limite_vagas"] = int(limite_v)
                 st.session_state.avisos["pix"] = pix_v
+                st.session_state.avisos["vencimento"] = venc_v
+                st.session_state.avisos["recado"] = recado_v
                 salvar_dados(AVISOS_FILE, st.session_state.avisos)
                 st.success("Configurações atualizadas!")
 
