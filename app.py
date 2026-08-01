@@ -5,7 +5,6 @@ import os
 import random
 import urllib.parse
 from datetime import datetime, timezone, timedelta
-from io import BytesIO
 import html
 
 # -----------------------------------------------------------------------------
@@ -521,11 +520,11 @@ elif menu == "🔀 Sorteio de Times":
                         st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO PARA O WHATSAPP)
+# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO VIA WHATSAPP OPTIMIZADO)
 # -----------------------------------------------------------------------------
 elif menu == "📸 Foto do Jogo":
     st.subheader("📸 Registro da Pelada & Envio no WhatsApp")
-    st.caption("Tire a foto da galera no final do jogo ou selecione da galeria para enviar no grupo!")
+    st.caption("Tire a foto da galera no final do jogo ou selecione da galeria para enviar!")
 
     foto_capturada = st.camera_input("📷 Acionar Câmera do Celular/PC")
     foto_upload = st.file_uploader("🖼️ Ou escolha uma foto da Galeria", type=["jpg", "jpeg", "png"])
@@ -533,23 +532,46 @@ elif menu == "📸 Foto do Jogo":
     foto_final = foto_capturada if foto_capturada is not None else foto_upload
 
     if foto_final is not None:
-        st.image(foto_final, caption="Foto Selecionada", use_column_width=True)
+        bytes_foto = foto_final.getvalue()
         
-        st.success("✅ **Foto pronta!**")
-        st.info("💡 **Como enviar:** O WhatsApp Web/App por segurança não permite anexar arquivos de imagem automaticamente por link. Clique no botão abaixo para abrir o WhatsApp e **cole/anexe a foto capturada**!")
-
-        legenda = st.text_input("Escreva uma legenda para a foto:", value=f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥")
+        st.image(bytes_foto, caption="Foto Selecionada", use_column_width=True)
         
-        msg_foto_wa = f"{legenda}\n\n_Enviado pelo App Peladinha FC_"
-        wa_foto_link = f"https://api.whatsapp.com/send?text={urllib.parse.quote(msg_foto_wa)}"
+        st.success("✅ **Foto Pronta!**")
+        
+        # Passo a Passo para o usuário
+        st.markdown("""
+        #### 📲 Como enviar pelo celular/PC:
+        1. Clique no botão abaixo **'📥 Baixar Foto'** para salvar a imagem no seu aparelho.
+        2. Clique em **'💬 Abrir WhatsApp'** para abrir a conversa com o número **(31) 98968-4010**.
+        3. No WhatsApp, toque no ícone de **Anexo/Câmera** e envie a foto baixada!
+        """)
 
-        st.markdown(f"""
-            <a href="{wa_foto_link}" target="_blank" style="text-decoration: none;">
-                <div style="background-color: #25D366; color: white; padding: 14px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; margin-top: 10px;">
-                    📲 Abrir WhatsApp para Enviar com Legenda
-                </div>
-            </a>
-        """, unsafe_allow_html=True)
+        col_f1, col_f2 = st.columns(2)
+        
+        with col_f1:
+            st.download_button(
+                label="📥 1º Baixar Foto para o Celular",
+                data=bytes_foto,
+                file_name=f"Foto_PeladinhaFC_{hoje_dt.strftime('%d_%m_%Y')}.jpg",
+                mime="image/jpeg",
+                use_container_width=True
+            )
+
+        legenda_padrao = f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥"
+        msg_foto_wa = f"{legenda_padrao}\n\n_Enviado pelo App Peladinha FC_"
+        
+        # Link nativo otimizado para abrir direto o aplicativo do WhatsApp em celular/PC
+        wa_numero_teste = "5531989684010"
+        wa_foto_link = f"https://wa.me/{wa_numero_teste}?text={urllib.parse.quote(msg_foto_wa)}"
+
+        with col_f2:
+            st.markdown(f"""
+                <a href="{wa_foto_link}" target="_blank" style="text-decoration: none;">
+                    <div style="background-color: #25D366; color: white; padding: 10px 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 0.95rem; line-height: 1.4;">
+                        💬 2º Abrir WhatsApp (31 98968-4010)
+                    </div>
+                </a>
+            """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA 4: FLUXO DE CAIXA
@@ -718,7 +740,7 @@ Data do Aceite: {hoje_str}
                         f"Declaro aceite integral aos termos do contrato prestado por Vagner Souza."
                     )
                     
-                    wa_link = f"https://api.whatsapp.com/send?phone=5531989684010&text={urllib.parse.quote(msg_wa)}"
+                    wa_link = f"https://wa.me/5531989684010?text={urllib.parse.quote(msg_wa)}"
                     
                     st.markdown(f"""
                         <a href="{wa_link}" target="_blank" style="text-decoration: none;">
