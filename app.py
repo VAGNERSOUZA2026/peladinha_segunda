@@ -289,14 +289,13 @@ st.sidebar.title("📌 Navegação")
 lista_menu = [
     "📌 Presença no Jogo", 
     "🔀 Sorteio de Times",
-    "📸 Foto do Jogo",
     "💸 Pagamento & Pix",
     "📜 Regulamento",
     "📋 Elenco de Jogadoras"
 ]
 
 if st.session_state.admin_logged:
-    lista_menu.insert(3, "📊 Fluxo de Caixa (Admin)")
+    lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
 
 lista_menu.append("⚙️ Painel Admin")
 menu = st.sidebar.radio("Ir para:", lista_menu)
@@ -520,59 +519,7 @@ elif menu == "🔀 Sorteio de Times":
                         st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FOTO DO JOGO (COM DEEP LINK NATIVO DE CELULAR)
-# -----------------------------------------------------------------------------
-elif menu == "📸 Foto do Jogo":
-    st.subheader("📸 Registro da Pelada & Envio no WhatsApp")
-    st.caption("Tire a foto da galera no final do jogo ou selecione da galeria para enviar!")
-
-    foto_capturada = st.camera_input("📷 Acionar Câmera do Celular/PC")
-    foto_upload = st.file_uploader("🖼️ Ou escolha uma foto da Galeria", type=["jpg", "jpeg", "png"])
-
-    foto_final = foto_capturada if foto_capturada is not None else foto_upload
-
-    if foto_final is not None:
-        bytes_foto = foto_final.getvalue()
-        
-        st.image(bytes_foto, caption="Foto Selecionada", use_column_width=True)
-        
-        st.success("✅ **Foto Pronta!**")
-        
-        st.markdown("""
-        #### 📲 Passo a Passo:
-        1. Clique no botão **`📥 1º Baixar Foto`** para salvar no seu celular/PC.
-        2. Clique em **`📱 Abrir no App (Celular)`** se estiver no smartphone, ou **`💻 WhatsApp Web`** se estiver no PC.
-        3. No WhatsApp, anexe a foto baixada no chat!
-        """)
-
-        st.download_button(
-            label="📥 1º Baixar Foto para o Dispositivo",
-            data=bytes_foto,
-            file_name=f"Foto_PeladinhaFC_{hoje_dt.strftime('%d_%m_%Y')}.jpg",
-            mime="image/jpeg",
-            use_container_width=True
-        )
-
-        st.markdown("<br>", unsafe_allow_html=True)
-
-        legenda_padrao = f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥"
-        msg_foto_wa = f"{legenda_padrao}\n\n_Enviado pelo App Peladinha FC_"
-        
-        numero_wa = "5531989684010"
-        text_encoded = urllib.parse.quote(msg_foto_wa)
-        
-        # Link nativo (Deep Link) que força o Android / iOS a abrir o APP diretamente
-        link_app_mobile = f"whatsapp://send?phone={numero_wa}&text={text_encoded}"
-        link_web = f"https://wa.me/{numero_wa}?text={text_encoded}"
-
-        col_w1, col_w2 = st.columns(2)
-        with col_w1:
-            st.link_button("📱 2º Abrir no App do WhatsApp (Celular)", link_app_mobile, use_container_width=True)
-        with col_w2:
-            st.link_button("💻 2º Abrir no WhatsApp Web (Computador)", link_web, use_container_width=True)
-
-# -----------------------------------------------------------------------------
-# PÁGINA 4: FLUXO DE CAIXA
+# PÁGINA 3: FLUXO DE CAIXA
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
     st.subheader("📊 Fluxo de Caixa do Clube")
@@ -602,7 +549,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             st.dataframe(df_fin, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 5: PAGAMENTO & PIX
+# PÁGINA 4: PAGAMENTO & PIX
 # -----------------------------------------------------------------------------
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Dados para Pagamento")
@@ -611,7 +558,7 @@ elif menu == "💸 Pagamento & Pix":
     st.write(f"💬 **Recado:** {st.session_state.avisos.get('recado')}")
 
 # -----------------------------------------------------------------------------
-# PÁGINA 6: REGULAMENTO
+# PÁGINA 5: REGULAMENTO
 # -----------------------------------------------------------------------------
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Interno do Clube")
@@ -620,7 +567,7 @@ elif menu == "📜 Regulamento":
         st.write(item['regrinha'])
 
 # -----------------------------------------------------------------------------
-# PÁGINA 7: ELENCO DE JOGADORAS
+# PÁGINA 6: ELENCO DE JOGADORAS
 # -----------------------------------------------------------------------------
 elif menu == "📋 Elenco de Jogadoras":
     st.subheader("📋 Elenco Cadastrado")
@@ -629,7 +576,7 @@ elif menu == "📋 Elenco de Jogadoras":
         st.dataframe(df[["nome", "tipo", "nascimento", "status"]], use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 8: PAINEL ADMIN
+# PÁGINA 7: PAINEL ADMIN
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
