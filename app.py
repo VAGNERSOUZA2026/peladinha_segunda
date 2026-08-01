@@ -160,6 +160,13 @@ if "admin_logged" not in st.session_state:
 if "admin_nome" not in st.session_state:
     st.session_state.admin_nome = ""
 
+# Controle de alternância de abas (Entrar / Cadastrar)
+if "aba_ativa" not in st.session_state:
+    st.session_state.aba_ativa = "Entrar"
+
+if "msg_cadastro_sucesso" not in st.session_state:
+    st.session_state.msg_cadastro_sucesso = False
+
 # -----------------------------------------------------------------------------
 # AUTOMAÇÕES POR HORÁRIO
 # -----------------------------------------------------------------------------
@@ -227,9 +234,18 @@ if st.session_state.usuario_logado:
         st.session_state.usuario_logado = None
         st.rerun()
 else:
-    tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"])
+    # Seleção de abas dinâmicas
+    abas_nomes = ["Entrar", "Cadastrar"]
+    idx_aba = 0 if st.session_state.aba_ativa == "Entrar" else 1
+    
+    # Renderiza os tabs
+    tab_log, tab_cad = st.sidebar.tabs(abas_nomes)
     
     with tab_log:
+        if st.session_state.msg_cadastro_sucesso:
+            st.success("🎉 Cadastro realizado com sucesso! Faça seu login abaixo:")
+            st.session_state.msg_cadastro_sucesso = False
+
         with st.form("form_login_player"):
             l_user = st.text_input("Login")
             l_pass = st.text_input("Senha", type="password")
@@ -244,7 +260,8 @@ else:
                     st.error("Login ou senha incorretos!")
 
     with tab_cad:
-        with st.form("form_cad_player"):
+        # clear_on_submit=True limpa automaticamente todo o formulário após o envio
+        with st.form("form_cad_player", clear_on_submit=True):
             c_nome = st.text_input("Seu Nome *")
             c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
             c_user = st.text_input("Escolha um Login *")
@@ -253,19 +270,26 @@ else:
             
             if btn_cad:
                 if c_nome and c_user and c_pass:
-                    st.session_state.jogadoras.append({
-                        "nome": c_nome.strip(), 
-                        "nascimento": c_nasc.strip(),
-                        "login": c_user.strip(), 
-                        "senha": c_pass.strip(),
-                        "tipo": "Avulso", 
-                        "mes_vigente": mes_vigente_str,
-                        "contato": "", 
-                        "status": "Ativo"
-                    })
-                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.success("Conta criada! Agora faça seu login.")
-                    st.rerun()
+                    # Verifica se o login já existe
+                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
+                        st.error("Este Login já está em uso. Escolha outro!")
+                    else:
+                        st.session_state.jogadoras.append({
+                            "nome": c_nome.strip(), 
+                            "nascimento": c_nasc.strip(),
+                            "login": c_user.strip(), 
+                            "senha": c_pass.strip(),
+                            "tipo": "Avulso", 
+                            "mes_vigente": mes_vigente_str,
+                            "contato": "", 
+                            "status": "Ativo"
+                        })
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        
+                        # Altera para ir para a tela de login e marca flag de mensagem
+                        st.session_state.aba_ativa = "Entrar"
+                        st.session_state.msg_cadastro_sucesso = True
+                        st.rerun()
                 else:
                     st.error("Preencha Nome, Login e Senha!")
 
@@ -315,9 +339,6 @@ if menu == "📌 Presença no Jogo":
 
     col_lista, col_acoes = st.columns([1, 1])
 
-    # REGRA DE NEGÓCIO:
-    # 1. Mensalistas ocupam exclusivamente a lista de confirmadas (até o limite)
-    # 2. Avulsas vão diretamente para a Fila de Espera
     lista_atual = st.session_state.presencas
     
     mensalistas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
@@ -334,7 +355,7 @@ if menu == "📌 Presença no Jogo":
             st.info("Nenhuma mensalista confirmada ainda.")
         else:
             for i, p in enumerate(confirmadas, 1):
-                nome_p = filter_p = obter_nome_p(p)
+                nome_p = obter_nome_p(p)
                 hora_p = obter_hora_p(p)
                 st.write(f"**{i}.** {nome_p} `[* Mensalista]` — *(às {hora_p})*")
 
@@ -378,7 +399,6 @@ if menu == "📌 Presença no Jogo":
                 pos_confirmada = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == jogadora_sel), None)
                 pos_espera = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == jogadora_sel), None)
 
-                # MENSAGENS EXATAS DE CONFIRMAÇÃO E POSIÇÃO
                 if pos_confirmada:
                     st.success(f"🎉 **VOCÊ ESTÁ NO JOGO!** Posição **{pos_confirmada}** entre as confirmadas.")
                 elif pos_espera:
@@ -755,7 +775,7 @@ elif menu == "⚙️ Painel Admin":
             st.write("### 📜 Gerenciar Tópicos do Regulamento")
             
             if not st.session_state.regulamento:
-                st.info("Nenum tópico cadastrado no regulamento.")
+                st.info("Nenhum tópico cadastrado no regulamento.")
             
             sub_t_edit, sub_t_add, sub_t_del = st.tabs([
                 "✏️ Editar Regra Existente", 
