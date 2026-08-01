@@ -86,7 +86,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# ARQUIVOS DE DADOS
+# TRATAMENTO DE DADOS (ARQUIVOS JSON)
 # -----------------------------------------------------------------------------
 DATA_FILE = "jogadoras.json"
 PRESENCAS_FILE = "presencas.json"
@@ -121,7 +121,6 @@ def obter_hora_p(p):
 def obter_tipo_p(p):
     return p.get("tipo", "Avulso") if isinstance(p, dict) else "Avulso"
 
-# Inicialização de Session State
 if "jogadoras" not in st.session_state:
     st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
 
@@ -132,7 +131,9 @@ if "financeiro" not in st.session_state:
     st.session_state.financeiro = carregar_dados(FINANCE_FILE, [])
 
 if "administradores" not in st.session_state:
-    def_admins = [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "principal": True}]
+    def_admins = [
+        {"nome": "Admin Principal", "login": "admin", "senha": "1980", "principal": True}
+    ]
     st.session_state.administradores = carregar_dados(ADMINS_FILE, def_admins)
 
 if "avisos" not in st.session_state:
@@ -163,33 +164,29 @@ if "admin_logged" not in st.session_state:
 if "admin_nome" not in st.session_state:
     st.session_state.admin_nome = ""
 
-# Estado do Simulador de Testes (Apenas para o Admin)
-if "simulacao_ativa" not in st.session_state:
-    st.session_state.simulacao_ativa = False
-if "hora_simulada" not in st.session_state:
-    st.session_state.hora_simulada = 16
-if "minuto_simulado" not in st.session_state:
-    st.session_state.minuto_simulado = 30
+# -----------------------------------------------------------------------------
+# SIMULADOR DE HORÁRIO NA SIDEBAR (MENU LATERAL)
+# -----------------------------------------------------------------------------
+st.sidebar.title("🧪 Painel de Simulação / Testes")
+usar_simulacao = st.sidebar.checkbox("⚙️ Ativar Simulação de Horário")
 
-# -----------------------------------------------------------------------------
-# PROCESSAMENTO DA HORA VIGENTE (REAL OU SIMULADA)
-# -----------------------------------------------------------------------------
-if st.session_state.simulacao_ativa and st.session_state.admin_logged:
-    hoje_dt = datetime.now(FUSO_BRASIL).replace(
-        hour=st.session_state.hora_simulada, 
-        minute=st.session_state.minuto_simulado
-    )
+if usar_simulacao:
+    h_simulada = st.sidebar.slider("Horas (0-23):", 0, 23, 16)
+    m_simulada = st.sidebar.slider("Minutos (0-59):", 0, 59, 30)
+    hoje_dt = datetime.now(FUSO_BRASIL).replace(hour=h_simulada, minute=m_simulada)
+    st.sidebar.warning(f"🕒 **Hora Simulada Ativa:** {hoje_dt.strftime('%H:%M')}")
 else:
     hoje_dt = datetime.now(FUSO_BRASIL)
 
 hoje_str = hoje_dt.strftime("%d/%m")
 mes_vigente_str = hoje_dt.strftime("%m/%Y")
 data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
-limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
 
 # -----------------------------------------------------------------------------
 # AUTOMAÇÃO AUTOMÁTICA DE SORTEIO ÀS 18:00
 # -----------------------------------------------------------------------------
+limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
+
 if hoje_dt.hour >= 18:
     sorteio_existente = st.session_state.sorteio_oficial
     if not sorteio_existente or sorteio_existente.get("data") != data_hoje_id:
@@ -225,12 +222,10 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if st.session_state.simulacao_ativa and st.session_state.admin_logged:
-    st.warning(f"🧪 **MODO DE TESTE ATIVO:** O horário do sistema está simulado em **{hoje_dt.strftime('%H:%M')}**")
-
 # -----------------------------------------------------------------------------
-# MENU LATERAL (SIDEBAR)
+# MENU LATERAL (SIDEBAR) - NAVEGAÇÃO
 # -----------------------------------------------------------------------------
+st.sidebar.markdown("---")
 st.sidebar.title("📌 Navegação")
 
 lista_menu = [
@@ -295,27 +290,6 @@ else:
                     st.success("Conta criada! Faça login.")
                     st.rerun()
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("🔒 Área do Administrador")
-
-if not st.session_state.admin_logged:
-    with st.sidebar.form("form_login_admin"):
-        adm_input = st.text_input("Senha Admin", type="password")
-        btn_adm = st.form_submit_button("Acessar Como Admin", use_container_width=True)
-        if btn_adm:
-            if adm_input == "1980" or any(adm.get("senha") == adm_input for adm in st.session_state.administradores):
-                st.session_state.admin_logged = True
-                st.session_state.admin_nome = "Admin"
-                st.rerun()
-            else:
-                st.error("Senha incorreta!")
-else:
-    st.sidebar.info(f"🔑 Logado como **{st.session_state.admin_nome}**")
-    if st.sidebar.button("Sair do Admin"):
-        st.session_state.admin_logged = False
-        st.session_state.simulacao_ativa = False
-        st.rerun()
-
 # -----------------------------------------------------------------------------
 # PÁGINA 1: PRESENÇA NO JOGO
 # -----------------------------------------------------------------------------
@@ -325,23 +299,26 @@ if menu == "📌 Presença no Jogo":
 
     st.markdown(f"""
     <div class='card-notice'>
-        📢 <b>AVISOS DA PELADA:</b> Limitado a <b>{limite} vagas</b> (Jogo às 19:00).<br>
+        📢 <b>HORÁRIO SIMULADO / ATUAL DO SISTEMA: {hoje_dt.strftime('%H:%M')}</b><br>
         ⭐ <b>Mensalistas têm prioridade até às 17:00.</b><br>
-        ⏰ <b>Às 17:00:</b> As vagas restantes são preenchidas automaticamente pelas Avulsas na Fila!<br>
-        🎲 <b>Sorteio Oficial:</b> Realizado automaticamente às <b>18:00</b>.
+        ⏰ <b>Às 17:00:</b> As vagas não preenchidas por mensalistas são liberadas para as jogadoras Avulsas da fila!<br>
+        🎲 <b>Às 18:00:</b> O Sorteio Oficial dos Times é gerado AUTOMATICAMENTE.
     </div>
     """, unsafe_allow_html=True)
 
     col_lista, col_acoes = st.columns([1, 1])
     lista_atual = st.session_state.presencas
 
+    # Lógica de Separação de Vagas pelas 17:00
     mensalistas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
     avulsas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
 
     if hora_atual < 17:
+        # Antes das 17h: Mensalistas ocupam prioridade total
         confirmadas = mensalistas_lista[:limite]
         espera = mensalistas_lista[limite:] + avulsas_lista
     else:
+        # Após as 17h: Vagas restantes são ocupadas por Avulsas
         vagas_sobrando = limite - len(mensalistas_lista)
         if vagas_sobrando > 0:
             confirmadas = mensalistas_lista + avulsas_lista[:vagas_sobrando]
@@ -353,7 +330,7 @@ if menu == "📌 Presença no Jogo":
     with col_lista:
         st.subheader("📋 Lista de Presença")
 
-        st.markdown(f"### 🟢 Confirmadas no Jogo ({len(confirmadas)}/{limite})")
+        st.markdown(f"### 🟢 Confirmadas ({len(confirmadas)}/{limite})")
         if not confirmadas:
             st.info("Nenhuma jogadora confirmada ainda.")
         else:
@@ -377,21 +354,16 @@ if menu == "📌 Presença no Jogo":
                 st.write(f"**{i}º na espera:** {nome_p} `[{badge}]` — *(às {hora_p})*")
 
     with col_acoes:
-        st.subheader("✍️ Minha Presença")
+        st.subheader("✍️ Testar Entrada de Presença")
         
         pode_mexer = st.session_state.usuario_logado or st.session_state.admin_logged
 
         if not pode_mexer:
-            st.warning("⚠️ **Você precisa estar logada para confirmar presença!**")
-            st.info("👈 Faça Login na **Área da Jogadora** no menu lateral.")
+            st.warning("⚠️ Faça login na barra lateral para testar a entrada na lista!")
         else:
             with st.form("form_presenca_express"):
-                if st.session_state.admin_logged and not st.session_state.usuario_logado:
-                    nomes_cad = [j["nome"] for j in st.session_state.jogadoras]
-                    jogadora_sel = st.selectbox("Selecione a jogadora para alterar:", nomes_cad) if nomes_cad else None
-                else:
-                    jogadora_sel = st.session_state.usuario_logado
-                    st.write(f"Conectada como: **{jogadora_sel}**")
+                jogadora_sel = st.session_state.usuario_logado or "Jogadora Teste"
+                st.write(f"Confirmando como: **{jogadora_sel}**")
 
                 c1, c2 = st.columns(2)
                 btn_confirmar = c1.form_submit_button("👍 Confirmar Presença", use_container_width=True)
@@ -401,28 +373,28 @@ if menu == "📌 Presença no Jogo":
                 dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == jogadora_sel), None)
                 tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
 
-                ja_na_lista = any(obter_nome_p(p) == jogadora_sel for p in st.session_state.presencas)
-
                 if btn_confirmar:
-                    if ja_na_lista:
-                        st.warning("Seu nome já está registrado na lista!")
-                    else:
-                        st.session_state.presencas.append({
-                            "nome": jogadora_sel, 
-                            "hora": hoje_dt.strftime("%H:%M"),
-                            "tipo": tipo_j
-                        })
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.rerun()
+                    hora_registro = hoje_dt.strftime("%H:%M")
+                    st.session_state.presencas.append({
+                        "nome": jogadora_sel, 
+                        "hora": hora_registro,
+                        "tipo": tipo_j
+                    })
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.rerun()
 
                 if btn_cancelar:
-                    if ja_na_lista:
-                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != jogadora_sel]
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.info("Presença cancelada!")
-                        st.rerun()
-                    else:
-                        st.error("Seu nome não está na lista.")
+                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != jogadora_sel]
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.rerun()
+
+        st.markdown("---")
+        if st.button("🧹 Zerar Lista para Recomeçar Teste", use_container_width=True):
+            st.session_state.presencas = []
+            salvar_dados(PRESENCAS_FILE, [])
+            st.session_state.sorteio_oficial = {}
+            salvar_dados(SORTEIO_FILE, {})
+            st.rerun()
 
 # -----------------------------------------------------------------------------
 # PÁGINA 2: SORTEIO DE TIMES
@@ -430,158 +402,24 @@ if menu == "📌 Presença no Jogo":
 elif menu == "🔀 Sorteio de Times":
     st.subheader("🔀 Sorteio de Times")
 
-    tab_oficial, tab_quadra = st.tabs(["🏆 Sorteio Oficial (Pré-Jogo)", "⚡ Ajuste Rápido de Quadra"])
-
-    with tab_oficial:
-        sorteio_salvo = st.session_state.sorteio_oficial
-        if sorteio_salvo and "times" in sorteio_salvo:
-            st.success(f"✅ **Sorteio Oficial Realizado ({sorteio_salvo.get('hora', '')})**")
-            cols = st.columns(len(sorteio_salvo["times"]))
-            for idx, (nome_time, membros) in enumerate(sorteio_salvo["times"].items()):
-                with cols[idx]:
-                    st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
-                    for item in membros:
-                        st.write(f"• **{item}**")
-                    st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("⏰ O Sorteio Oficial é realizado automaticamente às **18:00**.")
-
-    with tab_quadra:
-        st.write("### ⚡ Sorteio na Quadra (Com as jogadoras presentes)")
-        st.caption("Use esta opção caso faltem jogadoras no momento do jogo.")
-        
-        limite = st.session_state.avisos.get("limite_vagas", 15)
-        lista_atual = st.session_state.presencas
-        mensalistas_l = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
-        avulsas_l = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
-        vagas_sobrando = limite - len(mensalistas_l)
-        
-        conf_objs = (mensalistas_l + avulsas_l[:vagas_sobrando]) if vagas_sobrando > 0 else mensalistas_l[:limite]
-        todas_conf = [obter_nome_p(p) for p in conf_objs]
-
-        if not todas_conf:
-            st.info("Nenhuma jogadora confirmada na lista.")
-        else:
-            presentes = st.multiselect("Marque as jogadoras que JÁ CHEGARAM na quadra:", todas_conf, default=todas_conf)
-            qtd_t_q = st.slider("Dividir em quantos times?", 2, 4, 2, key="slider_quadra")
-
-            if st.button("🎲 Sortear Apenas Presentes", use_container_width=True):
-                if len(presentes) < qtd_t_q:
-                    st.error("Selecione mais jogadoras presentes para sortear.")
-                else:
-                    temp = presentes.copy()
-                    random.shuffle(temp)
-                    times_q = [[] for _ in range(qtd_t_q)]
-                    for idx, p in enumerate(temp):
-                        times_q[idx % qtd_t_q].append(p)
-
-                    cols_q = st.columns(qtd_t_q)
-                    for i, t in enumerate(times_q):
-                        with cols_q[i]:
-                            st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1} (Quadra)</h3>", unsafe_allow_html=True)
-                            for item in t:
-                                st.write(f"• **{item}**")
-                            st.markdown("</div>", unsafe_allow_html=True)
-
-# -----------------------------------------------------------------------------
-# OUTRAS PÁGINAS PADRÃO
-# -----------------------------------------------------------------------------
-elif menu == "📊 Fluxo de Caixa (Admin)":
-    st.subheader("📊 Fluxo de Caixa")
-    st.info("Área de controle financeiro do clube.")
-
-elif menu == "💸 Pagamento & Pix":
-    st.subheader("💸 Dados para Pagamento")
-    st.info(f"🔑 Chave Pix: {st.session_state.avisos.get('pix')}")
-
-elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento")
-    for item in st.session_state.regulamento:
-        st.write(f"**{item['topico']}**: {item['regrinha']}")
-
-elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("📋 Elenco Cadastrado")
-    if st.session_state.jogadoras:
-        st.dataframe(pd.DataFrame(st.session_state.jogadoras)[["nome", "tipo", "nascimento"]], use_container_width=True)
-
-# -----------------------------------------------------------------------------
-# PÁGINA 7: PAINEL ADMIN (COM A ABA DE TESTES EXCLUSIVA)
-# -----------------------------------------------------------------------------
-elif menu == "⚙️ Painel Admin":
-    st.subheader("⚙️ Painel do Administrador")
-    if not st.session_state.admin_logged:
-        st.error("🔒 Faça login como Admin na barra lateral para acessar esta área!")
+    sorteio_salvo = st.session_state.sorteio_oficial
+    if sorteio_salvo and "times" in sorteio_salvo:
+        st.success(f"✅ **Sorteio Oficial Realizado ({sorteio_salvo.get('hora', '')})**")
+        cols = st.columns(len(sorteio_salvo["times"]))
+        for idx, (nome_time, membros) in enumerate(sorteio_salvo["times"].items()):
+            with cols[idx]:
+                st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
+                for item in membros:
+                    st.write(f"• **{item}**")
+                st.markdown("</div>", unsafe_allow_html=True)
     else:
-        t_testes, t_conf, t_cad, t_ger_jog = st.tabs([
-            "🧪 Laboratório de Testes", 
-            "⚙️ Configurações Gerais", 
-            "➕ Cadastrar Jogadora", 
-            "📋 Gerenciar Elenco"
-        ])
+        st.info("⏰ O Sorteio Oficial é realizado AUTOMATICAMENTE às **18:00**. Altere o slider de teste no menu lateral para 18h para ver a mágica acontecer!")
 
-        # --- ABA EXCLUSIVA DE TESTES ---
-        with t_testes:
-            st.markdown("### 🧪 Central de Simulação & Testes de Regras")
-            st.caption("Use esta ferramenta para testar como o app reage com o passar das horas do dia da pelada.")
-
-            c_test1, c_test2 = st.columns(2)
-
-            with c_test1:
-                st.markdown("#### 1️⃣ Simular Horário do Sistema")
-                st.session_state.simulacao_ativa = st.checkbox("🟢 Ativar Simulação de Horário", value=st.session_state.simulacao_ativa)
-                
-                if st.session_state.simulacao_ativa:
-                    st.session_state.hora_simulada = st.slider("Escolha a Hora Simulada:", 0, 23, st.session_state.hora_simulada)
-                    st.session_state.minuto_simulado = st.slider("Escolha os Minutos Simulado:", 0, 59, st.session_state.minuto_simulado)
-                    st.warning(f"⏰ Horário Ativo no App: **{st.session_state.hora_simulada:02d}:{st.session_state.minuto_simulado:02d}**")
-
-                    if st.session_state.hora_simulada < 17:
-                        st.info("💡 **Status Esperado:** Avulsas ficam na Fila de Espera.")
-                    elif 17 <= st.session_state.hora_simulada < 18:
-                        st.success("💡 **Status Esperado:** Avulsas sobem para a Lista Principal se houver vagas!")
-                    else:
-                        st.success("💡 **Status Esperado:** Sorteio automático de times gerado às 18:00!")
-
-            with c_test2:
-                st.markdown("#### 2️⃣ Gerar Dados Rápidos para Testar")
-                st.write("Clique abaixo para preencher a lista com 10 Mensalistas e 8 Avulsas automaticamente:")
-                
-                if st.button("🚀 Injetar Jogadoras de Teste na Lista", use_container_width=True):
-                    # Cria jogadoras de teste se não existirem
-                    fakes = []
-                    for i in range(1, 11):
-                        fakes.append({"nome": f"Mensalista {i}", "hora": "14:00", "tipo": "Mensalista"})
-                    for i in range(1, 9):
-                        fakes.append({"nome": f"Avulsa {i}", "hora": f"14:{i:02d}", "tipo": "Avulso"})
-                    
-                    st.session_state.presencas = fakes
-                    salvar_dados(PRESENCAS_FILE, fakes)
-                    st.success("10 Mensalistas e 8 Avulsas inseridas na lista de presença!")
-                    st.rerun()
-
-                st.markdown("---")
-                if st.button("🧹 Zerar Lista e Sorteios (Reset de Teste)", use_container_width=True):
-                    st.session_state.presencas = []
-                    salvar_dados(PRESENCAS_FILE, [])
-                    st.session_state.sorteio_oficial = {}
-                    salvar_dados(SORTEIO_FILE, {})
-                    st.info("Ambiente de teste zerado!")
-                    st.rerun()
-
-        with t_conf:
-            limite_v = st.number_input("Limite de Vagas:", value=st.session_state.avisos.get("limite_vagas", 15))
-            pix_v = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
-            if st.button("💾 Salvar Configurações"):
-                st.session_state.avisos["limite_vagas"] = int(limite_v)
-                st.session_state.avisos["pix"] = pix_v
-                salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                st.success("Atualizado!")
-
-        with t_cad:
-            st.write("Formulário de cadastro de jogadoras pelo Admin.")
-
-        with t_ger_jog:
-            st.write("Gerenciamento do elenco de jogadoras.")
+# -----------------------------------------------------------------------------
+# OUTRAS PÁGINAS (Padrão)
+# -----------------------------------------------------------------------------
+else:
+    st.info("Utilize o menu lateral para navegar entre as telas.")
 
 # RODAPÉ
 st.markdown("<div class='developer-footer'>Desenvolvido por <b>Vagner Souza / Ciência da Computação</b></div>", unsafe_allow_html=True)
