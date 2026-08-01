@@ -5,6 +5,12 @@ import os
 import random
 import urllib.parse
 from datetime import datetime, timezone, timedelta
+from io import BytesIO
+
+# Importação para geração de PDF
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 
 # -----------------------------------------------------------------------------
 # FUSO HORÁRIO BRASIL (UTC-3)
@@ -23,7 +29,6 @@ st.set_page_config(
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA CORREÇÃO AUTOMÁTICA DE DIGITAÇÃO DE NOMES
-# Ex: "vagner souza" -> "Vagner Souza", "maria da silva" -> "Maria da Silva"
 # -----------------------------------------------------------------------------
 def formatar_nome_proprio(texto):
     if not texto:
@@ -38,6 +43,44 @@ def formatar_nome_proprio(texto):
         else:
             resultado.append(palavra_lower.capitalize())
     return " ".join(resultado)
+
+# -----------------------------------------------------------------------------
+# FUNÇÃO PARA GERAR PDF DO CONTRATO
+# -----------------------------------------------------------------------------
+def gerar_pdf_contrato(nome, doc, whats, cidade, valor, data_ass, assinatura):
+    buffer = BytesIO()
+    doc_pdf = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    styles = getSampleStyleSheet()
+    
+    style_title = ParagraphStyle('Title', parent=styles['Heading1'], fontSize=14, leading=18, alignment=1)
+    style_body = ParagraphStyle('Body', parent=styles['Normal'], fontSize=10, leading=14)
+    
+    story = []
+    story.append(Paragraph("<b>CONTRATO DE PRESTAÇÃO DE SERVIÇOS E LICENCIAMENTO DE SOFTWARE</b>", style_title))
+    story.append(Spacer(1, 15))
+    
+    p1 = f"<b>1. CONTRATANTE:</b><br/>Nome: {nome}<br/>CPF/CNPJ: {doc}<br/>WhatsApp: {whats}<br/>Cidade/UF: {cidade}"
+    story.append(Paragraph(p1, style_body))
+    story.append(Spacer(1, 10))
+    
+    p2 = "<b>2. CONTRATADO:</b><br/>Desenvolvedor: Vagner Souza (Ciência da Computação)<br/>WhatsApp: (31) 98968-4010"
+    story.append(Paragraph(p2, style_body))
+    story.append(Spacer(1, 10))
+    
+    p3 = "<b>3. OBJETO DO CONTRATO:</b><br/>Disponibilização de licença de uso do aplicativo web 'Peladinha FC' para gestão de presenças, sorteio de times e controle financeiro de peladas."
+    story.append(Paragraph(p3, style_body))
+    story.append(Spacer(1, 10))
+    
+    p4 = f"<b>4. VALOR E PAGAMENTO:</b><br/>O CONTRATANTE pagará o valor mensal de R$ {valor:.2f}, até o dia 10 de cada mês via Pix."
+    story.append(Paragraph(p4, style_body))
+    story.append(Spacer(1, 15))
+    
+    p5 = f"<b>5. ACEITE E ASSINATURA ELETRÔNICA:</b><br/>O CONTRATANTE declara ter lido e concordado com todos os termos deste instrumento contratual.<br/><br/>Data do Aceite: {data_ass}<br/>Assinado Digitalmente por: <b>{assinatura}</b>"
+    story.append(Paragraph(p5, style_body))
+    
+    doc_pdf.build(story)
+    buffer.seek(0)
+    return buffer
 
 # -----------------------------------------------------------------------------
 # ESTILIZAÇÃO CSS CUSTOMIZADA
@@ -88,7 +131,7 @@ st.markdown("""
         font-family: 'Courier New', Courier, monospace;
         font-size: 0.85rem;
         color: #1E293B;
-        height: 350px;
+        height: 300px;
         overflow-y: scroll;
         margin-bottom: 15px;
     }
@@ -142,7 +185,7 @@ def obter_tipo_p(p):
     return p.get("tipo", "Avulso") if isinstance(p, dict) else "Avulso"
 
 # -----------------------------------------------------------------------------
-# INICIALIZAÇÃO DE ESTADO DO SISTEMA (SESSION STATE)
+# INICIALIZAÇÃO DE ESTADO DO SISTEMA
 # -----------------------------------------------------------------------------
 if "jogadoras" not in st.session_state:
     st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
@@ -189,7 +232,6 @@ if "admin_nome" not in st.session_state:
 if "is_principal_admin" not in st.session_state:
     st.session_state.is_principal_admin = False
 
-# Estado do Simulador de Testes (Exclusivo do Admin Principal)
 if "simulacao_ativa" not in st.session_state:
     st.session_state.simulacao_ativa = False
 if "hora_simulada" not in st.session_state:
@@ -198,7 +240,7 @@ if "minuto_simulado" not in st.session_state:
     st.session_state.minuto_simulado = 30
 
 # -----------------------------------------------------------------------------
-# PROCESSAMENTO DA HORA VIGENTE (REAL OU SIMULADA)
+# PROCESSAMENTO DA HORA VIGENTE
 # -----------------------------------------------------------------------------
 if st.session_state.simulacao_ativa and st.session_state.is_principal_admin:
     hoje_dt = datetime.now(FUSO_BRASIL).replace(
@@ -214,41 +256,6 @@ data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
 
 # -----------------------------------------------------------------------------
-# REGRAS AUTOMÁTICAS DE HORÁRIO
-# -----------------------------------------------------------------------------
-if hoje_dt.hour >= 20:
-    if st.session_state.presencas or st.session_state.sorteio_oficial:
-        st.session_state.presencas = []
-        st.session_state.sorteio_oficial = {}
-        salvar_dados(PRESENCAS_FILE, [])
-        salvar_dados(SORTEIO_FILE, {})
-
-elif hoje_dt.hour >= 18:
-    sorteio_existente = st.session_state.sorteio_oficial
-    if not sorteio_existente or sorteio_existente.get("data") != data_hoje_id:
-        lista_atual = st.session_state.presencas
-        mensalistas_l = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
-        avulsas_l = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
-        vagas_sobrando = limite_vagas_at - len(mensalistas_l)
-        
-        conf_objs = (mensalistas_l + avulsas_l[:vagas_sobrando]) if vagas_sobrando > 0 else mensalistas_l[:limite_vagas_at]
-        confirmadas = [obter_nome_p(p) for p in conf_objs]
-
-        if len(confirmadas) >= 2:
-            temp = confirmadas.copy()
-            random.shuffle(temp)
-            res_times = {"Time 1": [], "Time 2": []}
-            for idx, p in enumerate(temp):
-                res_times[f"Time {idx % 2 + 1}"].append(p)
-
-            st.session_state.sorteio_oficial = {
-                "data": data_hoje_id,
-                "hora": f"{hoje_dt.strftime('%H:%M')} (Automático)",
-                "times": res_times
-            }
-            salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
-
-# -----------------------------------------------------------------------------
 # BANNER DA APLICAÇÃO
 # -----------------------------------------------------------------------------
 st.markdown("""
@@ -258,9 +265,6 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-if st.session_state.simulacao_ativa and st.session_state.is_principal_admin:
-    st.warning(f"🧪 **MODO DE TESTE ATIVO:** O horário do sistema está simulado em **{hoje_dt.strftime('%H:%M')}**")
-
 # -----------------------------------------------------------------------------
 # MENU LATERAL (SIDEBAR)
 # -----------------------------------------------------------------------------
@@ -269,19 +273,20 @@ st.sidebar.title("📌 Navegação")
 lista_menu = [
     "📌 Presença no Jogo", 
     "🔀 Sorteio de Times",
+    "📸 Foto do Jogo",
     "💸 Pagamento & Pix",
     "📜 Regulamento",
     "📋 Elenco de Jogadoras"
 ]
 
 if st.session_state.admin_logged:
-    lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
+    lista_menu.insert(3, "📊 Fluxo de Caixa (Admin)")
 
 lista_menu.append("⚙️ Painel Admin")
 menu = st.sidebar.radio("Ir para:", lista_menu)
 
 # -----------------------------------------------------------------------------
-# ÁREA DA JOGADORA (LOGIN & CADASTRO)
+# ÁREA DA JOGADORA (LOGIN & CADASTRO COM AUTOCORREÇÃO DE NOME)
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.title("👤 Área da Jogadora")
@@ -318,6 +323,7 @@ else:
             
             if btn_cad:
                 if c_nome_raw and c_user and c_pass:
+                    # Aplica a autocorreção de nome ao salvar
                     nome_formatado = formatar_nome_proprio(c_nome_raw)
                     st.session_state.jogadoras.append({
                         "nome": nome_formatado, "nascimento": c_nasc.strip(),
@@ -330,7 +336,7 @@ else:
                     st.rerun()
 
 # -----------------------------------------------------------------------------
-# ÁREA DO ADMINISTRADOR (LOGIN SIDEBAR)
+# ÁREA DO ADMINISTRADOR
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔒 Área do Administrador")
@@ -364,16 +370,11 @@ if menu == "📌 Presença no Jogo":
     limite = st.session_state.avisos.get("limite_vagas", 15)
     hora_atual = hoje_dt.hour
 
-    if hora_atual >= 20:
-        st.info("🌙 **Pelada encerrada!** A lista foi zerada e está aberta para novas confirmações.")
-
     st.markdown(f"""
     <div class='card-notice'>
-        📢 <b>AVISOS DA PELADA:</b> Limitado a <b>{limite} vagas</b> (Jogo às 19:00).<br>
+        📢 <b>AVISOS DA PELADA:</b> Limitado a <b>{limite} vagas</b>.<br>
         ⭐ <b>Mensalistas têm prioridade até às 17:00.</b><br>
-        ⏰ <b>Às 17:00:</b> As vagas restantes são preenchidas automaticamente pelas Avulsas na Fila!<br>
-        🎲 <b>Sorteio Oficial:</b> Realizado automaticamente às <b>18:00</b>.<br>
-        🔄 <b>Zeramento Automático:</b> Às <b>20:00</b> a lista limpa automaticamente.
+        🎲 <b>Sorteio Oficial:</b> Realizado automaticamente às <b>18:00</b>.
     </div>
     """, unsafe_allow_html=True)
 
@@ -397,17 +398,12 @@ if menu == "📌 Presença no Jogo":
 
     with col_lista:
         st.subheader("📋 Lista de Presença")
-
-        st.markdown(f"### 🟢 Confirmadas no Jogo ({len(confirmadas)}/{limite})")
+        st.markdown(f"### 🟢 Confirmadas ({len(confirmadas)}/{limite})")
         if not confirmadas:
             st.info("Nenhuma jogadora confirmada ainda.")
         else:
             for i, p in enumerate(confirmadas, 1):
-                nome_p = obter_nome_p(p)
-                hora_p = obter_hora_p(p)
-                tipo_p = obter_tipo_p(p)
-                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa Promovida"
-                st.write(f"**{i}.** {nome_p} `[{badge}]` — *(às {hora_p})*")
+                st.write(f"**{i}.** {obter_nome_p(p)} `[{obter_tipo_p(p)}]` — *(às {obter_hora_p(p)})*")
 
         st.markdown("---")
         st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
@@ -415,25 +411,19 @@ if menu == "📌 Presença no Jogo":
             st.caption("Nenhuma jogadora na fila de espera.")
         else:
             for i, p in enumerate(espera, 1):
-                nome_p = obter_nome_p(p)
-                hora_p = obter_hora_p(p)
-                tipo_p = obter_tipo_p(p)
-                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa"
-                st.write(f"**{i}º na espera:** {nome_p} `[{badge}]` — *(às {hora_p})*")
+                st.write(f"**{i}º na espera:** {obter_nome_p(p)} `[{obter_tipo_p(p)}]` — *(às {obter_hora_p(p)})*")
 
     with col_acoes:
         st.subheader("✍️ Minha Presença")
-        
         pode_mexer = st.session_state.usuario_logado or st.session_state.admin_logged
 
         if not pode_mexer:
-            st.warning("⚠️ **Você precisa estar logada para confirmar presença!**")
-            st.info("👈 Faça Login na **Área da Jogadora** no menu lateral.")
+            st.warning("⚠️ **Faça Login na Área da Jogadora para confirmar presença!**")
         else:
             with st.form("form_presenca_express"):
                 if st.session_state.admin_logged and not st.session_state.usuario_logado:
                     nomes_cad = [j["nome"] for j in st.session_state.jogadoras]
-                    jogadora_sel = st.selectbox("Selecione a jogadora para alterar:", nomes_cad) if nomes_cad else None
+                    jogadora_sel = st.selectbox("Selecione a jogadora:", nomes_cad) if nomes_cad else None
                 else:
                     jogadora_sel = st.session_state.usuario_logado
                     st.write(f"Conectada como: **{jogadora_sel}**")
@@ -445,12 +435,11 @@ if menu == "📌 Presença no Jogo":
             if jogadora_sel:
                 dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == jogadora_sel), None)
                 tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
-
                 ja_na_lista = any(obter_nome_p(p) == jogadora_sel for p in st.session_state.presencas)
 
                 if btn_confirmar:
                     if ja_na_lista:
-                        st.warning("Seu nome já está registrado na lista!")
+                        st.warning("Seu nome já está na lista!")
                     else:
                         st.session_state.presencas.append({
                             "nome": jogadora_sel, 
@@ -466,21 +455,18 @@ if menu == "📌 Presença no Jogo":
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.info("Presença cancelada!")
                         st.rerun()
-                    else:
-                        st.error("Seu nome não está na lista.")
 
 # -----------------------------------------------------------------------------
 # PÁGINA 2: SORTEIO DE TIMES
 # -----------------------------------------------------------------------------
 elif menu == "🔀 Sorteio de Times":
     st.subheader("🔀 Sorteio de Times")
-
-    tab_oficial, tab_quadra = st.tabs(["🏆 Sorteio Oficial (Pré-Jogo)", "⚡ Ajuste Rápido de Quadra"])
+    tab_oficial, tab_quadra = st.tabs(["🏆 Sorteio Oficial", "⚡ Ajuste Rápido de Quadra"])
 
     with tab_oficial:
         sorteio_salvo = st.session_state.sorteio_oficial
         if sorteio_salvo and "times" in sorteio_salvo:
-            st.success(f"✅ **Sorteio Oficial Realizado ({sorteio_salvo.get('hora', '')})**")
+            st.success(f"✅ **Sorteio Oficial ({sorteio_salvo.get('hora', '')})**")
             cols = st.columns(len(sorteio_salvo["times"]))
             for idx, (nome_time, membros) in enumerate(sorteio_salvo["times"].items()):
                 with cols[idx]:
@@ -489,59 +475,78 @@ elif menu == "🔀 Sorteio de Times":
                         st.write(f"• **{item}**")
                     st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.info("⏰ O Sorteio Oficial é realizado automaticamente às **18:00**.")
+            st.info("⏰ Sorteio Oficial realizado automaticamente às **18:00**.")
 
     with tab_quadra:
-        st.write("### ⚡ Sorteio na Quadra (Com as jogadoras presentes)")
-        st.caption("Use esta opção caso faltem jogadoras no momento do jogo.")
-        
+        st.write("### ⚡ Sorteio na Quadra")
         limite = st.session_state.avisos.get("limite_vagas", 15)
-        lista_atual = st.session_state.presencas
-        mensalistas_l = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
-        avulsas_l = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
-        vagas_sobrando = limite - len(mensalistas_l)
-        
-        conf_objs = (mensalistas_l + avulsas_l[:vagas_sobrando]) if vagas_sobrando > 0 else mensalistas_l[:limite]
+        conf_objs = st.session_state.presencas[:limite]
         todas_conf = [obter_nome_p(p) for p in conf_objs]
 
         if not todas_conf:
-            st.info("Nenhuma jogadora confirmada na lista.")
+            st.info("Nenhuma jogadora confirmada.")
         else:
-            presentes = st.multiselect("Marque as jogadoras que JÁ CHEGARAM na quadra:", todas_conf, default=todas_conf)
-            qtd_t_q = st.slider("Dividir em quantos times?", 2, 4, 2, key="slider_quadra")
+            presentes = st.multiselect("Marque quem chegou:", todas_conf, default=todas_conf)
+            qtd_t_q = st.slider("Dividir em quantos times?", 2, 4, 2)
 
-            if st.button("🎲 Sortear Apenas Presentes", use_container_width=True):
-                if len(presentes) < qtd_t_q:
-                    st.error("Selecione mais jogadoras presentes para sortear.")
-                else:
-                    temp = presentes.copy()
-                    random.shuffle(temp)
-                    times_q = [[] for _ in range(qtd_t_q)]
-                    for idx, p in enumerate(temp):
-                        times_q[idx % qtd_t_q].append(p)
+            if st.button("🎲 Sortear Quadra", use_container_width=True):
+                temp = presentes.copy()
+                random.shuffle(temp)
+                times_q = [[] for _ in range(qtd_t_q)]
+                for idx, p in enumerate(temp):
+                    times_q[idx % qtd_t_q].append(p)
 
-                    cols_q = st.columns(qtd_t_q)
-                    for i, t in enumerate(times_q):
-                        with cols_q[i]:
-                            st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1} (Quadra)</h3>", unsafe_allow_html=True)
-                            for item in t:
-                                st.write(f"• **{item}**")
-                            st.markdown("</div>", unsafe_allow_html=True)
+                cols_q = st.columns(qtd_t_q)
+                for i, t in enumerate(times_q):
+                    with cols_q[i]:
+                        st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1}</h3>", unsafe_allow_html=True)
+                        for item in t:
+                            st.write(f"• **{item}**")
+                        st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FLUXO DE CAIXA
+# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO PARA O WHATSAPP)
+# -----------------------------------------------------------------------------
+elif menu == "📸 Foto do Jogo":
+    st.subheader("📸 Registro da Pelada & Envio no WhatsApp")
+    st.caption("Tire a foto da galera no final do jogo ou selecione da galeria para enviar no grupo!")
+
+    foto_capturada = st.camera_input("📷 Acionar Câmera do Celular/PC")
+    foto_upload = st.file_uploader("🖼️ Ou escolha uma foto da Galeria", type=["jpg", "jpeg", "png"])
+
+    foto_final = foto_capturada if foto_capturada is not None else foto_upload
+
+    if foto_final is not None:
+        st.image(foto_final, caption="Foto Selecionada", use_column_width=True)
+        
+        st.success("✅ **Foto pronta!**")
+        st.info("💡 **Como enviar:** O WhatsApp Web/App por segurança não permite anexar arquivos de imagem automaticamente por link. Clique no botão abaixo para abrir o WhatsApp e **cole/anexe a foto capturada**!")
+
+        legenda = st.text_input("Escreva uma legenda para a foto:", value=f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥")
+        
+        msg_foto_wa = f"{legenda}\n\n_Enviado pelo App Peladinha FC_"
+        wa_foto_link = f"https://api.whatsapp.com/send?text={urllib.parse.quote(msg_foto_wa)}"
+
+        st.markdown(f"""
+            <a href="{wa_foto_link}" target="_blank" style="text-decoration: none;">
+                <div style="background-color: #25D366; color: white; padding: 14px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; margin-top: 10px;">
+                    📲 Abrir WhatsApp para Enviar com Legenda
+                </div>
+            </a>
+        """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# PÁGINA 4: FLUXO DE CAIXA
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
-    st.subheader("📊 Fluxo de Caixa do Clube (Histórico Anual)")
-    
+    st.subheader("📊 Fluxo de Caixa do Clube")
     col_f1, col_f2 = st.columns([1, 1.3])
     with col_f1:
-        st.markdown("### ➕ Registrar Lançamento")
         with st.form("form_financeiro"):
             tipo_trans = st.selectbox("Tipo", ["Entrada (Receita)", "Saída (Despesa)"])
-            desc_trans = st.text_input("Descrição (Ex: Mensalidade Ana, Aluguel Quadra)")
+            desc_trans = st.text_input("Descrição")
             valor_trans = st.number_input("Valor (R$)", min_value=0.0, step=5.0)
-            data_trans = st.date_input("Data do Lançamento", datetime.now(FUSO_BRASIL))
+            data_trans = st.date_input("Data", datetime.now(FUSO_BRASIL))
             btn_fin = st.form_submit_button("Registrar Transação")
             
             if btn_fin and valor_trans > 0:
@@ -552,80 +557,43 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                     "valor": valor_trans
                 })
                 salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                st.success("Lançamento adicionado com sucesso!")
+                st.success("Registrado!")
                 st.rerun()
 
     with col_f2:
-        st.markdown("### 📈 Resumo & Histórico Financeiro")
         if st.session_state.financeiro:
             df_fin = pd.DataFrame(st.session_state.financeiro)
-            
-            df_fin['data_dt'] = pd.to_datetime(df_fin['data'], format='%d/%m/%Y', errors='coerce')
-            df_fin['Ano'] = df_fin['data_dt'].dt.year.astype(str)
-            df_fin['Mês'] = df_fin['data_dt'].dt.strftime('%m/%Y')
-            
-            anos_disponiveis = ["Todos os Anos"] + sorted(list(df_fin['Ano'].dropna().unique()), reverse=True)
-            
-            c_fil1, c_fil2 = st.columns(2)
-            with c_fil1:
-                ano_sel = st.selectbox("📅 Filtrar por Ano:", anos_disponiveis)
-            with c_fil2:
-                tipo_sel = st.selectbox("🔍 Tipo de Transação:", ["Todas", "Entrada (Receita)", "Saída (Despesa)"])
-
-            df_filtrado = df_fin.copy()
-            if ano_sel != "Todos os Anos":
-                df_filtrado = df_filtrado[df_filtrado['Ano'] == ano_sel]
-            if tipo_sel != "Todas":
-                df_filtrado = df_filtrado[df_filtrado['tipo'] == tipo_sel]
-
-            entradas = sum(t["valor"] for t in df_filtrado.to_dict('records') if "Entrada" in t["tipo"])
-            saidas = sum(t["valor"] for t in df_filtrado.to_dict('records') if "Saída" in t["tipo"])
-            saldo = entradas - saidas
-
-            m1, m2, m3 = st.columns(3)
-            m1.metric("🟢 Entradas", f"R$ {entradas:.2f}")
-            m2.metric("🔴 Saídas", f"R$ {saidas:.2f}")
-            m3.metric("💰 Saldo Período", f"R$ {saldo:.2f}")
-
-            st.markdown("---")
-            cols_exibir_fin = [c for c in ["data", "tipo", "descricao", "valor"] if c in df_filtrado.columns]
-            st.dataframe(df_filtrado[cols_exibir_fin], use_container_width=True)
-        else:
-            st.info("Nenum lançamento registrado até o momento.")
+            st.dataframe(df_fin, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 4: PAGAMENTO & PIX
+# PÁGINA 5: PAGAMENTO & PIX
 # -----------------------------------------------------------------------------
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Dados para Pagamento")
     st.info(f"🔑 **Chave Pix:** {st.session_state.avisos.get('pix')}")
-    st.write(f"📅 **Vencimento das Mensalidades:** {st.session_state.avisos.get('vencimento')}")
+    st.write(f"📅 **Vencimento:** {st.session_state.avisos.get('vencimento')}")
     st.write(f"💬 **Recado:** {st.session_state.avisos.get('recado')}")
 
 # -----------------------------------------------------------------------------
-# PÁGINA 5: REGULAMENTO
+# PÁGINA 6: REGULAMENTO
 # -----------------------------------------------------------------------------
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Interno do Clube")
     for item in st.session_state.regulamento:
         st.markdown(f"#### {item['topico']}")
         st.write(item['regrinha'])
-        st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# PÁGINA 6: ELENCO DE JOGADORAS
+# PÁGINA 7: ELENCO DE JOGADORAS
 # -----------------------------------------------------------------------------
 elif menu == "📋 Elenco de Jogadoras":
     st.subheader("📋 Elenco Cadastrado")
     if st.session_state.jogadoras:
         df = pd.DataFrame(st.session_state.jogadoras)
-        cols_exibir = [c for c in ["nome", "tipo", "nascimento", "status"] if c in df.columns]
-        st.dataframe(df[cols_exibir], use_container_width=True)
-    else:
-        st.info("Nenhuma jogadora cadastrada no momento.")
+        st.dataframe(df[["nome", "tipo", "nascimento", "status"]], use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 7: PAINEL ADMIN (INCLUINDO CONTRATO DE PRESTAÇÃO DE SERVIÇO)
+# PÁGINA 8: PAINEL ADMIN (COM GERAÇÃO DE PDF E CORREÇÃO DE NOME)
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
@@ -646,63 +614,31 @@ elif menu == "⚙️ Painel Admin":
         tabs_objetos = st.tabs(tabs_titulos)
         idx_tab = 0
         
-        # --- TAB RESTRITA: LABORATÓRIO DE TESTES (APENAS ADMIN PRINCIPAL) ---
         if st.session_state.is_principal_admin:
             with tabs_objetos[idx_tab]:
-                st.markdown("### 🧪 Central de Simulação & Testes de Regras")
-                st.caption("🔒 **Acesso Exclusivo:** Desenvolvedor / Admin Principal.")
-
-                c_test1, c_test2 = st.columns(2)
-
-                with c_test1:
-                    st.markdown("#### 1️⃣ Simular Horário do Sistema")
-                    st.session_state.simulacao_ativa = st.checkbox("🟢 Ativar Simulação de Horário", value=st.session_state.simulacao_ativa)
-                    
-                    if st.session_state.simulacao_ativa:
-                        st.session_state.hora_simulada = st.slider("Escolha a Hora Simulada:", 0, 23, st.session_state.hora_simulada)
-                        st.session_state.minuto_simulado = st.slider("Escolha os Minutos Simulado:", 0, 59, st.session_state.minuto_simulado)
-                        st.warning(f"⏰ Horário Ativo no App: **{st.session_state.hora_simulada:02d}:{st.session_state.minuto_simulado:02d}**")
-
-                with c_test2:
-                    st.markdown("#### 2️⃣ Gerar Dados Rápidos para Testar")
-                    if st.button("🚀 Injetar Jogadoras de Teste na Lista", use_container_width=True):
-                        fakes = []
-                        for i in range(1, 11):
-                            fakes.append({"nome": f"Mensalista {i}", "hora": "14:00", "tipo": "Mensalista"})
-                        for i in range(1, 9):
-                            fakes.append({"nome": f"Avulsa {i}", "hora": f"14:{i:02d}", "tipo": "Avulso"})
-                        
-                        st.session_state.presencas = fakes
-                        salvar_dados(PRESENCAS_FILE, fakes)
-                        st.success("10 Mensalistas e 8 Avulsas inseridas!")
-                        st.rerun()
-
-                    st.markdown("---")
-                    if st.button("🧹 Zerar Lista e Sorteios (Reset Manual)", use_container_width=True):
-                        st.session_state.presencas = []
-                        salvar_dados(PRESENCAS_FILE, [])
-                        st.session_state.sorteio_oficial = {}
-                        salvar_dados(SORTEIO_FILE, {})
-                        st.info("Ambiente de teste zerado com sucesso!")
-                        st.rerun()
+                st.markdown("### 🧪 Central de Simulação & Testes")
+                st.session_state.simulacao_ativa = st.checkbox("🟢 Ativar Simulação de Horário", value=st.session_state.simulacao_ativa)
+                if st.session_state.simulacao_ativa:
+                    st.session_state.hora_simulada = st.slider("Hora Simulada:", 0, 23, st.session_state.hora_simulada)
             idx_tab += 1
 
-        # --- TAB: CONTRATO DE PRESTAÇÃO DE SERVIÇOS ---
+        # --- TAB: CONTRATO COM GERAÇÃO DE PDF & CORREÇÃO AUTOMÁTICA ---
         with tabs_objetos[idx_tab]:
             st.markdown("### 📜 Contrato de Prestação de Serviços & Licenciamento")
-            st.caption("Preencha os dados do responsável pelo clube e assine digitalmente para formalizar o uso do app.")
 
             c_cnt1, c_cnt2 = st.columns([1, 1])
 
             with c_cnt1:
                 st.markdown("#### 📝 Dados do Contratante")
-                cnt_nome_raw = st.text_input("Nome Completo do Responsável *")
+                cnt_nome_in = st.text_input("Nome Completo do Responsável *")
                 cnt_doc = st.text_input("CPF ou CNPJ *")
                 cnt_whats = st.text_input("WhatsApp do Responsável *")
-                cnt_cidade = st.text_input("Cidade / UF *", value="Contagem - MG")
+                cnt_cidade_in = st.text_input("Cidade / UF *", value="Contagem - MG")
                 cnt_valor = st.number_input("Valor da Mensalidade (R$)", value=39.90, step=5.0)
 
-            cnt_nome = formatar_nome_proprio(cnt_nome_raw)
+            # Aplica autocorreção de nome nas variáveis do contrato
+            cnt_nome = formatar_nome_proprio(cnt_nome_in)
+            cnt_cidade = formatar_nome_proprio(cnt_cidade_in)
 
             contrato_texto = f"""
 CONTRATO DE PRESTAÇÃO DE SERVIÇOS E LICENCIAMENTO DE SOFTWARE
@@ -737,15 +673,26 @@ Data do Aceite: {hoje_str}
 
             c_ass1, c_ass2 = st.columns([1, 1])
             with c_ass1:
-                ass_nome_raw = st.text_input("Digite seu Nome Completo para Assinar *")
-                ass_nome = formatar_nome_proprio(ass_nome_raw)
+                ass_nome_in = st.text_input("Digite seu Nome Completo para Assinar *")
+                ass_nome = formatar_nome_proprio(ass_nome_in)
                 aceite_box = st.checkbox("Li e aceito os termos do contrato de prestação de serviço acima.")
 
             with c_ass2:
                 if cnt_nome and cnt_doc and ass_nome and aceite_box:
-                    st.success("✅ **Contrato assinado e pronto para envio!**")
+                    st.success("✅ **Contrato assinado e validado!**")
                     
-                    # Mensagem formatada para o WhatsApp do Desenvolvedor
+                    # 1. Geração do arquivo PDF
+                    pdf_bytes = gerar_pdf_contrato(cnt_nome, cnt_doc, cnt_whats, cnt_cidade, cnt_valor, hoje_str, ass_nome)
+                    
+                    st.download_button(
+                        label="📄 Baixar Contrato em PDF",
+                        data=pdf_bytes,
+                        file_name=f"Contrato_PeladinhaFC_{cnt_nome.replace(' ', '_')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+
+                    # 2. Mensagem para WhatsApp do Desenvolvedor (31 989684010)
                     msg_wa = (
                         f"⚽ *NOVO CONTRATO ASSINADO - PELADINHA FC*\n\n"
                         f"*Contratante:* {cnt_nome}\n"
@@ -758,26 +705,25 @@ Data do Aceite: {hoje_str}
                         f"Declaro aceite integral aos termos do contrato prestado por Vagner Souza."
                     )
                     
-                    # Link oficial da API do WhatsApp para o seu número (31 989684010)
                     wa_link = f"https://api.whatsapp.com/send?phone=5531989684010&text={urllib.parse.quote(msg_wa)}"
                     
                     st.markdown(f"""
                         <a href="{wa_link}" target="_blank" style="text-decoration: none;">
-                            <div style="background-color: #25D366; color: white; padding: 12px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.1rem; margin-top: 10px;">
-                                📲 Enviar Contrato Assinado para o Desenvolvedor (Vagner Souza)
+                            <div style="background-color: #25D366; color: white; padding: 12px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.0rem; margin-top: 10px;">
+                                📲 Notificar Vagner Souza pelo WhatsApp
                             </div>
                         </a>
                     """, unsafe_allow_html=True)
                 else:
-                    st.info("💡 Preencha todos os campos do contratante, a assinatura e marque o aceite para liberar o botão de envio.")
+                    st.info("💡 Preencha os campos obrigatórios, a assinatura e marque o aceite para gerar o PDF e botão de envio.")
 
         idx_tab += 1
 
         # --- TAB: CONFIGURAÇÕES GERAIS ---
         with tabs_objetos[idx_tab]:
             st.markdown("### ⚙️ Ajustes do App")
-            limite_v = st.number_input("Limite de Vagas por Jogo:", value=st.session_state.avisos.get("limite_vagas", 15))
-            pix_v = st.text_input("Chave Pix de Pagamento:", value=st.session_state.avisos.get("pix", ""))
+            limite_v = st.number_input("Limite de Vagas:", value=st.session_state.avisos.get("limite_vagas", 15))
+            pix_v = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
             venc_v = st.text_input("Vencimento Mensalidade:", value=st.session_state.avisos.get("vencimento", ""))
             recado_v = st.text_area("Recado no Painel:", value=st.session_state.avisos.get("recado", ""))
             
@@ -792,7 +738,7 @@ Data do Aceite: {hoje_str}
 
         # --- TAB: CADASTRAR JOGADORA ---
         with tabs_objetos[idx_tab]:
-            st.markdown("### ➕ Cadastrar Nova Jogadora (Pelo Admin)")
+            st.markdown("### ➕ Cadastrar Nova Jogadora")
             with st.form("form_admin_cad_jog"):
                 adm_nome_raw = st.text_input("Nome Completo")
                 adm_tipo_j = st.selectbox("Tipo de Jogadora", ["Mensalista", "Avulso"])
@@ -802,6 +748,7 @@ Data do Aceite: {hoje_str}
                 
                 btn_adm_cad = st.form_submit_button("Salvar Jogadora")
                 if btn_adm_cad and adm_nome_raw:
+                    # Aplica a autocorreção de nome
                     adm_nome_fmt = formatar_nome_proprio(adm_nome_raw)
                     st.session_state.jogadoras.append({
                         "nome": adm_nome_fmt,
@@ -823,8 +770,6 @@ Data do Aceite: {hoje_str}
             if st.session_state.jogadoras:
                 df_adm = pd.DataFrame(st.session_state.jogadoras)
                 st.dataframe(df_adm, use_container_width=True)
-            else:
-                st.info("Nenhuma jogadora cadastrada.")
 
 # -----------------------------------------------------------------------------
 # RODAPÉ
