@@ -136,17 +136,16 @@ if "avisos" not in st.session_state:
         "vencimento": "Todo dia 10 de cada mês",
         "recado": "Favor chegarem 10 minutos antes para organizar o jogo!",
         "pix": "peladinhafc@email.com",
-        "limite_vagas": 10
+        "limite_vagas": 15
     })
 
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
-        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "As jogadoras MENSALISTAS têm prioridade na confirmação de presença até 24 horas antes da partida."},
-        {"topico": "⏳ 2. Fila de Espera e Horários", "regrinha": "Atingido o limite de vagas, as confirmações adicionais entram automaticamente na fila de espera."},
-        {"topico": "❌ 3. Desistências e Faltas", "regrinha": "Desistências devem ser avisadas com antecedência pelo aplicativo. Faltas sem aviso sujeitam à taxa avulsa."},
+        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "As jogadoras MENSALISTAS têm prioridade absoluta no preenchimento das vagas principais."},
+        {"topico": "⏳ 2. Fila de Espera para Avulsas", "regrinha": "Jogadoras avulsas entram na fila de espera e são promovidas caso as mensalistas não preencham as vagas."},
+        {"topico": "❌ 3. Desistências e Faltas", "regrinha": "Ao cancelar a presença, a primeira jogadora da fila de espera é incluída automaticamente no jogo."},
         {"topico": "💸 4. Mensalidades e Pagamento", "regrinha": "As mensalidades devem ser pagas via Pix até a data estipulada de vencimento."},
-        {"topico": "🤝 5. Fair Play e Respeito", "regrinha": "Respeito mútuo entre todas as jogadoras e administradores. Jogamos pela diversão e saúde!"},
-        {"topico": "📌 6. Sorteio Oficial e Ajuste de Quadra", "regrinha": "• Sorteio Oficial: Feito automaticamente pelo aplicativo às 18:00.\n• Ajuste na Quadra: No início do jogo, se faltar alguém do sorteio oficial, é feito um sorteio rápido na quadra apenas entre as presentes para não atrasar a partida."}
+        {"topico": "🤝 5. Fair Play e Respeito", "regrinha": "Respeito mútuo entre todas as jogadoras e administradores."}
     ])
 
 if "sorteio_oficial" not in st.session_state:
@@ -169,33 +168,7 @@ hoje_str = hoje_dt.strftime("%d/%m")
 mes_vigente_str = hoje_dt.strftime("%m/%Y")
 data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 
-limite_vagas_at = st.session_state.avisos.get("limite_vagas", 10)
-
-# 1. SORTEIO AUTOMÁTICO ÀS 18:00
-if hoje_dt.hour >= 18 and st.session_state.get("sorteio_auto_dia") != data_hoje_id:
-    confirmadas_nomes = [obter_nome_p(p) for p in st.session_state.presencas[:limite_vagas_at]]
-    if len(confirmadas_nomes) >= 2:
-        temp = confirmadas_nomes.copy()
-        random.shuffle(temp)
-        
-        t1 = temp[::2]
-        t2 = temp[1::2]
-        
-        st.session_state.sorteio_oficial = {
-            "data": data_hoje_id,
-            "hora": "18:00 (Automático)",
-            "times": {"Time 1": t1, "Time 2": t2}
-        }
-        salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
-        st.session_state.sorteio_auto_dia = data_hoje_id
-
-# 2. ZERAR LISTA AUTOMATICAMENTE APÓS AS 20:00
-if hoje_dt.hour >= 20 and st.session_state.get("ultima_zeragem") != data_hoje_id:
-    st.session_state.presencas = []
-    salvar_dados(PRESENCAS_FILE, [])
-    st.session_state.sorteio_oficial = {}
-    salvar_dados(SORTEIO_FILE, {})
-    st.session_state.ultima_zeragem = data_hoje_id
+limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
 
 # -----------------------------------------------------------------------------
 # BANNER DA APLICAÇÃO
@@ -329,12 +302,12 @@ else:
 # PÁGINA 1: PRESENÇA NO JOGO
 # -----------------------------------------------------------------------------
 if menu == "📌 Presença no Jogo":
-    limite = st.session_state.avisos.get("limite_vagas", 10)
+    limite = st.session_state.avisos.get("limite_vagas", 15)
 
     st.markdown(f"""
     <div class='card-notice'>
         📢 <b>AVISOS:</b> Limitado a <b>{limite} vagas</b>. <br>
-        ⭐ <b>Mensalistas têm prioridade nas vagas principais!</b><br>
+        ⭐ <b>Mensalistas têm prioridade absoluta nas 15 vagas principais! Jogadoras Avulsas ficam na Fila de Espera.</b><br>
         💡 <i>{st.session_state.avisos.get('recado')}</i><br>
         ⏰ <i>Sorteio oficial automático realizado diariamente às <b>18:00</b>.</i>
     </div>
@@ -342,43 +315,40 @@ if menu == "📌 Presença no Jogo":
 
     col_lista, col_acoes = st.columns([1, 1])
 
-    # ORGANIZAÇÃO DA LISTA DE PRESENÇA COM PRIORIDADE MENSALISTA
+    # REGRA DE NEGÓCIO:
+    # 1. Mensalistas ocupam exclusivamente a lista de confirmadas (até o limite)
+    # 2. Avulsas vão diretamente para a Fila de Espera
     lista_atual = st.session_state.presencas
     
-    # Separa mensalistas e avulsas mantendo a ordem de chegada
     mensalistas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Mensalista"]
     avulsas_lista = [p for p in lista_atual if obter_tipo_p(p) == "Avulso"]
     
-    # As vagas do jogo são preenchidas pelas mensalistas e depois pelas avulsas
-    ordenadas = mensalistas_lista + avulsas_lista
-    confirmadas = ordenadas[:limite]
-    espera = ordenadas[limite:]
+    confirmadas = mensalistas_lista[:limite]
+    espera = mensalistas_lista[limite:] + avulsas_lista
 
     with col_lista:
         st.subheader("📋 Lista de Presença")
 
         st.markdown(f"### 🟢 Confirmadas no Jogo ({len(confirmadas)}/{limite})")
         if not confirmadas:
-            st.info("Nenhuma presença confirmada ainda.")
+            st.info("Nenhuma mensalista confirmada ainda.")
         else:
             for i, p in enumerate(confirmadas, 1):
-                nome_p = obter_nome_p(p)
+                nome_p = filter_p = obter_nome_p(p)
                 hora_p = obter_hora_p(p)
-                tipo_p = obter_tipo_p(p)
-                badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa"
-                txt_hora = f" — *(às {hora_p})*" if hora_p else ""
-                st.write(f"**{i}.** {nome_p} `[{badge}]`{txt_hora}")
+                st.write(f"**{i}.** {nome_p} `[* Mensalista]` — *(às {hora_p})*")
 
-        if espera:
-            st.markdown("---")
-            st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
+        st.markdown("---")
+        st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
+        if not espera:
+            st.caption("Nenhuma jogadora na fila de espera.")
+        else:
             for i, p in enumerate(espera, 1):
                 nome_p = obter_nome_p(p)
                 hora_p = obter_hora_p(p)
                 tipo_p = obter_tipo_p(p)
                 badge = "⭐ Mensalista" if tipo_p == "Mensalista" else "🏃 Avulsa"
-                txt_hora = f" — *(às {hora_p})*" if hora_p else ""
-                st.write(f"**{i}º na espera:** {nome_p} `[{badge}]`{txt_hora}")
+                st.write(f"**{i}º na espera:** {nome_p} `[{badge}]` — *(às {hora_p})*")
 
     with col_acoes:
         st.subheader("✍️ Marcar Minha Presença")
@@ -389,32 +359,39 @@ if menu == "📌 Presença no Jogo":
             st.warning("⚠️ **Você precisa estar logada para confirmar presença!**")
             st.info("👈 Faça Login na **Área da Jogadora** no menu lateral.")
         else:
-            if st.session_state.admin_logged and not st.session_state.usuario_logado:
-                nomes_cad = [j["nome"] for j in st.session_state.jogadoras]
-                jogadora_sel = st.selectbox("Selecione a jogadora para alterar:", nomes_cad) if nomes_cad else None
-            else:
-                jogadora_sel = st.session_state.usuario_logado
-                st.success(f"Conectada como: **{jogadora_sel}**")
+            with st.form("form_presenca_express"):
+                if st.session_state.admin_logged and not st.session_state.usuario_logado:
+                    nomes_cad = [j["nome"] for j in st.session_state.jogadoras]
+                    jogadora_sel = st.selectbox("Selecione a jogadora para alterar:", nomes_cad) if nomes_cad else None
+                else:
+                    jogadora_sel = st.session_state.usuario_logado
+                    st.write(f"Conectada como: **{jogadora_sel}**")
+
+                c1, c2 = st.columns(2)
+                btn_confirmar = c1.form_submit_button("👍 Confirmar Presença", use_container_width=True)
+                btn_cancelar = c2.form_submit_button("❌ Cancelar Presença", use_container_width=True)
 
             if jogadora_sel:
-                # Busca os dados cadastrais da jogadora logada
                 dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == jogadora_sel), None)
                 tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
 
                 pos_confirmada = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == jogadora_sel), None)
                 pos_espera = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == jogadora_sel), None)
 
-                # NOTIFICAÇÕES AUTOMÁTICAS DE STATUS DA JOGADORA
+                # MENSAGENS EXATAS DE CONFIRMAÇÃO E POSIÇÃO
                 if pos_confirmada:
                     st.success(f"🎉 **VOCÊ ESTÁ NO JOGO!** Posição **{pos_confirmada}** entre as confirmadas.")
                 elif pos_espera:
-                    st.warning(f"⏳ **VOCÊ ESTÁ NA FILA DE ESPERA!** Posição **{pos_espera}º** na fila. Se alguém desistir, você entra automaticamente!")
+                    st.warning(f"⏳ **VOCÊ ESTÁ NA FILA DE ESPERA!** Posição **{pos_espera}º** na fila de espera.")
+                else:
+                    if tipo_j == "Avulso":
+                        st.info("ℹ️ *Aviso: Como você é jogadora **Avulsa**, ao confirmar você entrará na **Fila de Espera**.*")
 
                 ja_na_lista = pos_confirmada is not None or pos_espera is not None
 
-                if st.button("👍 Confirmar Presença", use_container_width=True):
+                if btn_confirmar:
                     if ja_na_lista:
-                        st.warning("Seu nome já está na lista!")
+                        st.warning("Seu nome já está registrado na lista!")
                     else:
                         hora_agora = datetime.now().strftime("%H:%M")
                         st.session_state.presencas.append({
@@ -425,11 +402,11 @@ if menu == "📌 Presença no Jogo":
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.rerun()
 
-                if st.button("❌ Cancelar Presença", use_container_width=True):
+                if btn_cancelar:
                     if ja_na_lista:
                         st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != jogadora_sel]
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.info("Presença cancelada. A fila de espera foi atualizada automaticamente!")
+                        st.info("Presença cancelada com sucesso!")
                         st.rerun()
                     else:
                         st.error("Seu nome não está na lista.")
@@ -471,11 +448,10 @@ elif menu == "🔀 Sorteio de Times":
         if st.session_state.admin_logged:
             st.markdown("---")
             st.write("#### 🛠️ Forçar Novo Sorteio Oficial (Admin)")
-            limite = st.session_state.avisos.get("limite_vagas", 10)
+            limite = st.session_state.avisos.get("limite_vagas", 15)
             
             mensalistas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Mensalista"]
-            avulsas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Avulso"]
-            confirmadas = [obter_nome_p(p) for p in (mensalistas_l + avulsas_l)[:limite]]
+            confirmadas = [obter_nome_p(p) for p in mensalistas_l[:limite]]
 
             qtd_t = st.slider("Dividir em quantos times?", 2, 4, 2, key="slider_oficial")
             
@@ -502,10 +478,9 @@ elif menu == "🔀 Sorteio de Times":
         st.write("### ⚡ Sorteio na Quadra (Com as jogadoras presentes)")
         st.caption("Use esta opção no momento do apito inicial caso faltem jogadoras do sorteio oficial.")
         
-        limite = st.session_state.avisos.get("limite_vagas", 10)
+        limite = st.session_state.avisos.get("limite_vagas", 15)
         mensalistas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Mensalista"]
-        avulsas_l = [p for p in st.session_state.presencas if obter_tipo_p(p) == "Avulso"]
-        todas_conf = [obter_nome_p(p) for p in (mensalistas_l + avulsas_l)[:limite]]
+        todas_conf = [obter_nome_p(p) for p in mensalistas_l[:limite]]
 
         if not todas_conf:
             st.info("Nenhuma jogadora confirmada na lista.")
@@ -660,7 +635,7 @@ elif menu == "⚙️ Painel Admin":
         ])
         
         with t_conf:
-            limite_v = st.number_input("Limite de Vagas do Jogo:", value=st.session_state.avisos.get("limite_vagas", 10))
+            limite_v = st.number_input("Limite de Vagas do Jogo:", value=st.session_state.avisos.get("limite_vagas", 15))
             pix_v = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
             venc_v = st.text_input("Vencimento:", value=st.session_state.avisos.get("vencimento", ""))
             rec_v = st.text_area("Recado/Aviso:", value=st.session_state.avisos.get("recado", ""))
@@ -780,7 +755,7 @@ elif menu == "⚙️ Painel Admin":
             st.write("### 📜 Gerenciar Tópicos do Regulamento")
             
             if not st.session_state.regulamento:
-                st.info("Nenhum tópico cadastrado no regulamento.")
+                st.info("Nenum tópico cadastrado no regulamento.")
             
             sub_t_edit, sub_t_add, sub_t_del = st.tabs([
                 "✏️ Editar Regra Existente", 
