@@ -1,4 +1,9 @@
-import streamlit as st
+# Vamos ler o código existente ou reescrever o app.py atualizado garantindo que haja um botão super simples no Painel Admin para zerar absolutamente todos os dados de testes.
+# O usuário quer "só um botão no próprio app para apagar tudo dos testes".
+
+# Vamos criar uma versão atualizada e completa do app.py contendo o botão "💥 Apagar Todos os Dados de Teste"
+
+app_code = '''import streamlit as st
 import pandas as pd
 import json
 import os
@@ -6,7 +11,7 @@ import random
 import urllib.parse
 import base64
 from io import BytesIO
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw
 from datetime import datetime, timezone, timedelta
 import html
 
@@ -721,6 +726,43 @@ elif menu == "⚙️ Painel Admin":
                             salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                             st.success(f"Comprovante de TESTE gerado para **{j_teste}**! Confira na aba '💳 Aprovar Comprovantes'.")
 
+                st.markdown("---")
+                st.markdown("### 💥 ZERAR TODOS OS DADOS DE TESTE DA DEMO")
+                st.warning("⚠️ **Atenção:** Ao clicar no botão abaixo, a lista de presenças, os comprovantes enviados, os lançamentos do caixa e os sorteios serão completamente ZERADOS para a próxima demonstração.")
+                
+                col_m1, col_m2 = st.columns([1, 1])
+                with col_m1:
+                    manter_jogadoras = st.checkbox("Manter o cadastro das Jogadoras", value=True)
+                
+                if st.button("💥 APAGAR TUDO E ZERAR SISTEMA", use_container_width=True, type="primary"):
+                    # 1. Zerar Presenças
+                    st.session_state.presencas = []
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    
+                    # 2. Zerar Comprovantes
+                    st.session_state.comprovantes = []
+                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+
+                    # 3. Zerar Financeiro
+                    st.session_state.financeiro = []
+                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+
+                    # 4. Zerar Sorteio
+                    st.session_state.sorteio_oficial = {}
+                    salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
+
+                    # 5. Resetar Status de Pagamento das Jogadoras
+                    for j in st.session_state.jogadoras:
+                        j["status_pagamento"] = "Pendente"
+                    
+                    if not manter_jogadoras:
+                        st.session_state.jogadoras = []
+                    
+                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+
+                    st.success("🎉 **TODOS OS DADOS FORAM ZERADOS COM SUCESSO! O APP ESTÁ PRONTO PARA A DEMONSTRAÇÃO.**")
+                    st.rerun()
+
             idx_tab += 1
 
         # --- TAB: APROVAR COMPROVANTES ---
@@ -932,3 +974,9 @@ Data do Aceite: {hoje_str}
 # RODAPÉ
 # -----------------------------------------------------------------------------
 st.markdown("<div class='developer-footer'>Desenvolvido por <b>Vagner Souza / Ciência da Computação</b></div>", unsafe_allow_html=True)
+'''
+
+with open("app.py", "w", encoding="utf-8") as f:
+    f.write(app_code)
+
+print("Arquivo app.py atualizado com sucesso!")
