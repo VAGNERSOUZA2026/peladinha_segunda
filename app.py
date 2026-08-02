@@ -14,7 +14,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# PERSISTÊNCIA E DADOS (JSON)
+# DADOS E ARQUIVOS (JSON)
 # -----------------------------------------------------------------------------
 DATA_FILE = "jogadoras.json"
 PRESENCAS_FILE = "presencas.json"
@@ -35,6 +35,7 @@ def salvar_dados(filename, data):
     except Exception:
         pass
 
+# Lista Padrão (só usada se o arquivo jogadoras.json não existir)
 ELENCO_PADRAO = [
     {"nome": "Carol", "login": "carol", "senha": "123", "tipo": "Mensalista", "status": "Ativo"},
     {"nome": "Debora", "login": "debora", "senha": "123", "tipo": "Mensalista", "status": "Ativo"},
@@ -56,52 +57,48 @@ if "presencas" not in st.session_state:
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
 
 if "usuario_logado" not in st.session_state:
-    st.session_state.usuario_logado = "kelly" # Usuário atual logado
+    st.session_state.usuario_logado = None  # NINGUÉM LOGADO POR PADRÃO
 
 if "admin_logged" not in st.session_state:
-    st.session_state.admin_logged = False
+    st.session_state.admin_logged = False  # ADMIN DESLOGADO POR PADRÃO
 
 if "tela_atual" not in st.session_state:
     st.session_state.tela_atual = "Home"
 
 # -----------------------------------------------------------------------------
-# CABEÇALHO DO APP
+# CABEÇALHO
 # -----------------------------------------------------------------------------
 st.title("⚽ Peladinha FC")
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (AUTENTICAÇÃO E PERFIS)
+# BARRA LATERAL (MENU LIMPO)
 # -----------------------------------------------------------------------------
 with st.sidebar:
-    st.header("👤 Status da Conta")
+    st.header("👤 Área de Acesso")
     
     if st.session_state.admin_logged:
-        st.success("🔑 Logado como: **ADMINISTRADOR**")
-        if st.button("🚪 Sair do Modo Admin"):
+        st.success("🔑 Conectado: **ADMINISTRADOR**")
+        if st.button("🚪 Sair do Admin", use_container_width=True):
             st.session_state.admin_logged = False
+            st.session_state.tela_atual = "Home"
             st.rerun()
-    elif st.session_state.usuario_logado:
-        st.info(f"⚽ Logada como: **{st.session_state.usuario_logado}**")
-        if st.button("🚪 Sair da Conta"):
-            st.session_state.usuario_logado = None
-            st.rerun()
-    else:
-        st.warning("⚠️ Você não está logada(o)")
 
-    st.markdown("---")
-    st.subheader("🔑 Alternar Login")
-    
-    col_l1, col_l2 = st.columns(2)
-    with col_l1:
-        if st.button("Entrar Admin"):
-            st.session_state.admin_logged = True
+    elif st.session_state.usuario_logado:
+        st.info(f"⚽ Jogadora: **{st.session_state.usuario_logado}**")
+        if st.button("🚪 Sair da Conta", use_container_width=True):
             st.session_state.usuario_logado = None
+            st.session_state.tela_atual = "Home"
             st.rerun()
-    with col_l2:
-        if st.button("Entrar Kelly"):
-            st.session_state.usuario_logado = "kelly"
-            st.session_state.admin_logged = False
+
+    else:
+        st.warning("🔒 Ninguém Conectado")
+        if st.button("🔑 Entrar (Jogadora)", use_container_width=True):
+            st.session_state.tela_atual = "Login Jogadora"
+            st.rerun()
+            
+        if st.button("🔐 Entrar como Admin", use_container_width=True):
+            st.session_state.tela_atual = "Login Admin"
             st.rerun()
 
     st.markdown("---")
@@ -110,9 +107,42 @@ with st.sidebar:
         st.rerun()
 
 # -----------------------------------------------------------------------------
+# TELAS DE LOGIN DE VERDADE (COM SENHA)
+# -----------------------------------------------------------------------------
+if st.session_state.tela_atual == "Login Jogadora":
+    st.subheader("🔑 Login da Jogadora")
+    with st.form("form_login_player"):
+        u = st.text_input("Usuário (ex: kelly, carol, debora)")
+        s = st.text_input("Senha", type="password")
+        if st.form_submit_button("Entrar"):
+            user = next((j for j in st.session_state.jogadoras if j.get("login") == u.strip().lower() and j.get("senha") == s), None)
+            if user:
+                st.session_state.usuario_logado = user["nome"]
+                st.session_state.admin_logged = False
+                st.session_state.tela_atual = "Home"
+                st.rerun()
+            else:
+                st.error("Usuário ou senha incorretos!")
+
+elif st.session_state.tela_atual == "Login Admin":
+    st.subheader("🔐 Login do Administrador")
+    with st.form("form_login_admin"):
+        u_adm = st.text_input("Login do Administrador")
+        s_adm = st.text_input("Senha do Administrador", type="password")
+        if st.form_submit_button("Acessar Painel"):
+            # Credenciais do Admin: admin / 1980
+            if u_adm.strip() == "admin" and s_adm == "1980":
+                st.session_state.admin_logged = True
+                st.session_state.usuario_logado = None
+                st.session_state.tela_atual = "Home"
+                st.rerun()
+            else:
+                st.error("Credenciais de administrador incorretas!")
+
+# -----------------------------------------------------------------------------
 # TELA 1: HOME
 # -----------------------------------------------------------------------------
-if st.session_state.tela_atual == "Home":
+elif st.session_state.tela_atual == "Home":
     c1, c2 = st.columns(2)
 
     with c1:
@@ -142,36 +172,34 @@ if st.session_state.tela_atual == "Home":
             st.rerun()
 
 # -----------------------------------------------------------------------------
-# TELA 2: LISTA DE PRESENÇA (REGRAS DE SEGURANÇA CORRIGIDAS)
+# TELA 2: LISTA DE PRESENÇA
 # -----------------------------------------------------------------------------
 elif st.session_state.tela_atual == "Confirmar Presenca":
     st.subheader("📌 Lista de Presença")
 
-    # REGRA DE SEGURANÇA
     if st.session_state.admin_logged:
-        st.info("💡 Modo Admin: Você tem permissão para confirmar ou remover qualquer jogadora.")
+        st.info("💡 Modo Admin: Escolha qualquer jogadora para confirmar.")
         lista_nomes = [j["nome"] for j in st.session_state.jogadoras]
-        jogadora_para_confirmar = st.selectbox("Selecione a jogadora:", lista_nomes)
+        jogadora_alvo = st.selectbox("Selecione a jogadora:", lista_nomes)
     elif st.session_state.usuario_logado:
-        jogadora_para_confirmar = st.session_state.usuario_logado
-        st.success(f"Confirmando presença para: **{jogadora_para_confirmar}**")
+        jogadora_alvo = st.session_state.usuario_logado
+        st.success(f"Confirmando vaga para: **{jogadora_alvo}**")
     else:
-        st.warning("🔒 Você precisa fazer login para confirmar sua presença.")
-        jogadora_para_confirmar = None
+        st.warning("🔒 Você precisa fazer login para confirmar sua presença na lista.")
+        jogadora_alvo = None
 
-    if jogadora_para_confirmar:
-        if st.button(f"✅ Confirmar Presença de {jogadora_para_confirmar}"):
-            if jogadora_para_confirmar not in st.session_state.presencas:
-                st.session_state.presencas.append(jogadora_para_confirmar)
+    if jogadora_alvo:
+        if st.button(f"✅ Confirmar Presença ({jogadora_alvo})"):
+            if jogadora_alvo not in st.session_state.presencas:
+                st.session_state.presencas.append(jogadora_alvo)
                 salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                st.success(f"Presença de {jogadora_para_confirmar} confirmada!")
+                st.success(f"Presença de {jogadora_alvo} confirmada!")
                 st.rerun()
             else:
-                st.warning(f"{jogadora_para_confirmar} já está na lista!")
+                st.warning("Esta jogadora já está na lista de presença.")
 
     st.markdown("---")
     
-    # EXIBIÇÃO DAS VAGAS
     LIMITE_VAGAS = 12
     confirmadas = st.session_state.presencas[:LIMITE_VAGAS]
     espera = st.session_state.presencas[LIMITE_VAGAS:]
@@ -183,15 +211,14 @@ elif st.session_state.tela_atual == "Confirmar Presenca":
             with col_nome:
                 st.write(f"**{idx}. {nome}** ✅")
             with col_del:
-                # Só o Admin ou a própria pessoa pode cancelar
-                pode_cancelar = st.session_state.admin_logged or (st.session_state.usuario_logado == nome)
-                if pode_cancelar:
+                # Cancelamento permitido se for Admin ou a própria jogadora logada
+                if st.session_state.admin_logged or (st.session_state.usuario_logado == nome):
                     if st.button("❌ Remover", key=f"del_{nome}"):
                         st.session_state.presencas.remove(nome)
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.rerun()
     else:
-        st.info("Nenhuma jogadora confirmou presença ainda.")
+        st.info("Nenhuma jogadora na lista ainda.")
 
     if espera:
         st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
@@ -207,16 +234,16 @@ elif st.session_state.tela_atual == "Confirmar Presenca":
 # DEMAIS TELAS
 # -----------------------------------------------------------------------------
 elif st.session_state.tela_atual == "Regulamento":
-    st.subheader("📜 Regulamento Interno")
+    st.subheader("📜 Regulamento")
     st.write("1. Mensalistas têm prioridade de vaga na lista até as 17h de Segunda-Feira.")
-    st.write("2. Tolerância máxima de atraso: 15 minutos.")
+    st.write("2. Tolerância de atraso: 15 minutos.")
     st.markdown("---")
     if st.button("⬅️ Voltar ao Início"): st.session_state.tela_atual = "Home"; st.rerun()
 
 elif st.session_state.tela_atual == "Sorteio":
     st.subheader("🔀 Sorteio de Times")
     if len(st.session_state.presencas) < 4:
-        st.warning("Mínimo de 4 jogadoras confirmadas na lista para sortear.")
+        st.warning("É preciso pelo menos 4 jogadoras confirmadas para sortear.")
     else:
         if st.button("🎲 Realizar Sorteio"):
             import random
@@ -246,7 +273,7 @@ elif st.session_state.tela_atual == "Pagamento Pix":
     if st.button("⬅️ Voltar ao Início"): st.session_state.tela_atual = "Home"; st.rerun()
 
 elif st.session_state.tela_atual == "Elenco":
-    st.subheader("📋 Elenco")
+    st.subheader("📋 Elenco Cadastrado")
     st.dataframe(pd.DataFrame(st.session_state.jogadoras)[["nome", "tipo", "status"]], use_container_width=True)
     st.markdown("---")
     if st.button("⬅️ Voltar ao Início"): st.session_state.tela_atual = "Home"; st.rerun()
@@ -254,13 +281,13 @@ elif st.session_state.tela_atual == "Elenco":
 elif st.session_state.tela_atual == "Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
     if not st.session_state.admin_logged:
-        st.error("🔒 Acesso restrito ao Administrador. Mude a conta na barra lateral.")
+        st.error("🔒 Você precisa fazer login como Administrador para acessar esta página.")
     else:
-        st.success("Bem-vindo, Vagner!")
-        if st.button("🚨 Limpar Lista de Presença"):
+        st.success("Painel do Administrador ativo!")
+        if st.button("🚨 Zerar/Limpar Lista de Presença"):
             st.session_state.presencas = []
             salvar_dados(PRESENCAS_FILE, [])
-            st.success("Lista limpa com sucesso!")
+            st.success("Lista limpa!")
             st.rerun()
 
     st.markdown("---")
