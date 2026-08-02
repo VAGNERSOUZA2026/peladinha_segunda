@@ -144,7 +144,7 @@ if "avisos" not in st.session_state:
     })
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
-        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade. Após esse horário, a fila de espera sobe."},
+        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade na lista principal. Avulsas vão para a fila de espera e sobem após esse horário se houver vagas."},
         {"topico": "⏳ 2. Fila de Espera", "regrinha": "Jogadoras avulsas entram na fila de espera por ordem de chegada."},
         {"topico": "❌ 3. Desistências", "regrinha": "Ao cancelar, a primeira da fila é incluída no jogo."},
         {"topico": "💸 4. Mensalidades", "regrinha": "Pagas via Pix até a data estipulada."}
@@ -268,52 +268,42 @@ else:
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# LÓGICA DE ORDENAÇÃO DE PRESENÇA (SEGUNDA-FEIRA ATÉ 17:00)
+# LÓGICA DE ORDENAÇÃO DE PRESENÇA (MENSALISTAS x AVULSAS)
 # -----------------------------------------------------------------------------
-def calcular_prioridade(p):
-    # Recupera o timestamp exato em que a pessoa confirmou
-    dt_str = p.get("dt_confirmacao")
-    if dt_str:
-        try:
-            dt_conf = datetime.fromisoformat(dt_str)
-        except:
-            dt_conf = hoje_dt
-    else:
-        dt_conf = hoje_dt
-        
-    tipo = p.get("tipo", "Avulso")
-    
-    # Se a confirmação foi feita numa Segunda-feira APÓS as 17:00, perde a prioridade de Mensalista
-    perdeu_prioridade = False
-    if dt_conf.weekday() == 0 and dt_conf.hour >= 17:
-        perdeu_prioridade = True
-        
-    # Retorna uma tupla: (Nível de Prioridade, Data/Hora da Confirmação)
-    # Nível 0 = Mensalista no prazo. Nível 1 = Avulsas + Mensalistas atrasadas.
-    if tipo == "Mensalista" and not perdeu_prioridade:
-        return (0, dt_conf)
-    else:
-        return (1, dt_conf)
+# 1. Ordenamos todo mundo por ordem de confirmação (quem chegou primeiro)
+lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
 
-# Processa a lista
-lista_atual = st.session_state.presencas
-lista_ordenada = sorted(lista_atual, key=calcular_prioridade)
+# 2. Separamos quem é Mensalista e quem é Avulso
+mensalistas = [p for p in lista_atual if p.get("tipo") == "Mensalista"]
+avulsas = [p for p in lista_atual if p.get("tipo") == "Avulso"]
 
 limite = st.session_state.avisos.get("limite_vagas", 15)
-confirmadas = lista_ordenada[:limite]
-espera = lista_ordenada[limite:]
+
+# 3. Mensalistas ocupam as vagas principais imediatamente
+confirmadas = mensalistas[:limite]
+
+# 4. Fila de espera recebe o excedente de mensalistas + todas as avulsas
+espera = mensalistas[limite:] + avulsas
+
+# 5. Após as 17:00 de segunda-feira, as avulsas na fila sobem caso sobram vagas
+passou_prazo = hoje_dt.weekday() == 0 and hoje_dt.hour >= 17
+
+if passou_prazo and len(confirmadas) < limite:
+    vagas_sobrando = limite - len(confirmadas)
+    promovidas = espera[:vagas_sobrando]
+    confirmadas.extend(promovidas)
+    espera = espera[vagas_sobrando:]
 
 # -----------------------------------------------------------------------------
 # SORTEIO AUTOMÁTICO (SEGUNDA-FEIRA ÀS 18:30)
 # -----------------------------------------------------------------------------
-# Segunda-feira é 0 no Python. Verifica se passou das 18:30
 if hoje_dt.weekday() == 0 and (hoje_dt.hour > 18 or (hoje_dt.hour == 18 and hoje_dt.minute >= 30)):
     sorteio_salvo = st.session_state.sorteio_oficial
-    if sorteio_salvo.get("data") != data_hoje_id: # Evita sortear de novo se já sorteou hoje
+    if sorteio_salvo.get("data") != data_hoje_id:
         nomes_confirmadas = [obter_nome_p(p) for p in confirmadas]
-        if len(nomes_confirmadas) >= 2: # Só sorteia se tiver pelo menos 2
+        if len(nomes_confirmadas) >= 2:
             random.shuffle(nomes_confirmadas)
-            qtd_t = 2 # Padrão: 2 times
+            qtd_t = 2
             res_times = {f"Time {i+1}": [] for i in range(qtd_t)}
             for idx, p in enumerate(nomes_confirmadas):
                 res_times[f"Time {idx % qtd_t + 1}"].append(p)
@@ -333,7 +323,7 @@ if menu == "📌 Presença no Jogo":
     st.markdown(f"""
     <div class='card-notice'>
         📢 <b>AVISOS:</b> Limitado a <b>{limite} vagas</b>. <br>
-        ⭐ <b>Mensalistas têm prioridade se confirmarem até SEGUNDA-FEIRA às 17:00!</b> Após isso, a fila de espera sobe por ordem de chegada.<br>
+        ⭐ <b>Mensalistas têm prioridade até SEGUNDA-FEIRA às 17:00!</b> Avulsas ficam na fila de espera e sobem após esse horário caso haja vagas.<br>
         💡 <i>{st.session_state.avisos.get('recado')}</i><br>
         ⏰ <i>Sorteio oficial automático: <b>Segunda-feira às 18:30</b>.</i>
     </div>
@@ -358,7 +348,7 @@ if menu == "📌 Presença no Jogo":
         else:
             for i, p in enumerate(espera, 1):
                 nome_p, hora_p, tipo_p = obter_nome_p(p), obter_hora_p(p), obter_tipo_p(p)
-                badge = "⭐ Mensalista (Fora do prazo)" if tipo_p == "Mensalista" else "🏃 Avulsa"
+                badge = "🏃 Avulsa" if tipo_p == "Avulso" else "⭐ Mensalista"
                 st.write(f"**{i}º na espera:** {nome_p} `[{badge}]` — *(às {hora_p})*")
 
     with col_acoes:
@@ -389,9 +379,6 @@ if menu == "📌 Presença no Jogo":
                     st.success(f"🎉 **VOCÊ ESTÁ NO JOGO!** Posição **{pos_confirmada}**.")
                 elif pos_espera:
                     st.warning(f"⏳ **VOCÊ ESTÁ NA FILA DE ESPERA!** Posição **{pos_espera}º**.")
-                else:
-                    if tipo_j == "Avulso":
-                        st.info("ℹ️ *Você é Avulsa, entrará na Fila de Espera (ou confirmada caso hajam vagas vazias).*")
 
                 ja_na_lista = pos_confirmada is not None or pos_espera is not None
 
