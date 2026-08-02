@@ -3,16 +3,21 @@ import pandas as pd
 import json
 import os
 import random
+import urllib.parse
 from datetime import datetime, timedelta, timezone
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
+# CONFIGURAÇÃO DE FUSO HORÁRIO E DIRETÓRIOS
 # -----------------------------------------------------------------------------
 fuso_br = timezone(timedelta(hours=-3))
 hoje_dt = datetime.now(fuso_br)
 hoje_str = hoje_dt.strftime("%d/%m")
 mes_vigente_str = hoje_dt.strftime("%m/%Y")
 data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
+
+COMPROVANTES_DIR = "comprovantes_imgs"
+if not os.path.exists(COMPROVANTES_DIR):
+    os.makedirs(COMPROVANTES_DIR)
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
@@ -176,18 +181,29 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# ANIVERSARIANTES DO DIA
+# ANIVERSARIANTES DO DIA E WHATSAPP
 # -----------------------------------------------------------------------------
-aniversariantes_hoje = [j["nome"] for j in st.session_state.jogadoras if j.get("nascimento", "").strip() == hoje_str]
-if aniversariantes_hoje:
-    nomes_aniver = " e ".join(aniversariantes_hoje)
+aniversariantes_hoje_obj = [j for j in st.session_state.jogadoras if j.get("nascimento", "").strip() == hoje_str]
+if aniversariantes_hoje_obj:
     st.balloons()
-    st.markdown(f"""
-    <div class='card-bday'>
-        🎂 🎉 <b>PARABÉNS, {nomes_aniver.upper()}!</b> 🎉 🎂<br>
-        O Peladinha FC deseja a você um FELIZ ANIVERSÁRIO! Muita saúde e gols! ⚽🎈
-    </div>
-    """, unsafe_allow_html=True)
+    for j_aniv in aniversariantes_hoje_obj:
+        nome_aniv = j_aniv["nome"]
+        tel_aniv = j_aniv.get("contato", "").strip()
+        msg_wapp = urllib.parse.quote(f"Parabéns, {nome_aniv}! O Peladinha FC deseja a você um feliz aniversário! Muita saúde e gols! ⚽🎂")
+        link_wapp = f"https://wa.me/55{tel_aniv.replace(' ', '').replace('-', '').replace('(', '').replace(')', '')}?text={msg_wapp}" if tel_aniv else "#"
+        
+        st.markdown(f"""
+        <div class='card-bday'>
+            🎂 🎉 <b>PARABÉNS, {nome_aniv.upper()}!</b> 🎉 🎂<br>
+            O Peladinha FC deseja a você um FELIZ ANIVERSÁRIO! Muita saúde e gols! ⚽🎈
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.session_state.admin_logged:
+            if tel_aniv:
+                st.markdown(f"<a href='{link_wapp}' target='_blank'><button style='background-color:#25D366; color:white; border:none; padding:8px 16px; border-radius:6px; cursor:pointer; font-weight:bold; margin-bottom:15px;'>📱 Enviar Mensagem de Aniversário via WhatsApp</button></a>", unsafe_allow_html=True)
+            else:
+                st.caption(f"⚠️ A jogadora {nome_aniv} não tem número de WhatsApp/contato cadastrado.")
 
 # -----------------------------------------------------------------------------
 # MENU LATERAL (SIDEBAR)
@@ -228,6 +244,7 @@ else:
         with st.form("form_cad_player", clear_on_submit=True):
             c_nome = st.text_input("Seu Nome *")
             c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+            c_cont = st.text_input("WhatsApp / Contato", placeholder="Ex: 31999999999")
             c_user = st.text_input("Escolha um Login *")
             c_pass = st.text_input("Escolha uma Senha *", type="password")
             if st.form_submit_button("📝 Criar Conta", use_container_width=True):
@@ -239,7 +256,7 @@ else:
                             "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
                             "login": c_user.strip(), "senha": c_pass.strip(),
                             "tipo": "Avulso", "mes_vigente": mes_vigente_str,
-                            "contato": "", "status": "Ativo"
+                            "contato": c_cont.strip(), "status": "Ativo", "status_pagamento": "Pendente"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.session_state.aba_ativa = "Entrar"
@@ -270,7 +287,7 @@ else:
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# LÓGICA DE ORDENAÇÃO DE PRESENÇA (MENSALISTAS x AVULSAS)
+# LÓGICA DE ORDENAÇÃO DE PRESENÇA
 # -----------------------------------------------------------------------------
 lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
 mensalistas = [p for p in lista_atual if p.get("tipo") == "Mensalista"]
@@ -289,7 +306,7 @@ if passou_prazo and len(confirmadas) < limite:
     espera = espera[vagas_sobrando:]
 
 # -----------------------------------------------------------------------------
-# SORTEIO AUTOMÁTICO (SEGUNDA-FEIRA ÀS 18:30)
+# SORTEIO AUTOMÁTICO
 # -----------------------------------------------------------------------------
 if hoje_dt.weekday() == 0 and (hoje_dt.hour > 18 or (hoje_dt.hour == 18 and hoje_dt.minute >= 30)):
     sorteio_salvo = st.session_state.sorteio_oficial
@@ -546,7 +563,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Dados para Pagamento e Envio de Comprovante")
     
-    # Exibição facilitada da chave Pix para copiar
     st.markdown("### 🔑 Chave Pix Atual")
     pix_atual = st.session_state.avisos.get('pix', 'Não informada')
     st.code(pix_atual, language="text")
@@ -554,7 +570,6 @@ elif menu == "💸 Pagamento & Pix":
 
     st.markdown("---")
 
-    # Opção para o Administrador editar a Chave Pix diretamente aqui também
     if st.session_state.admin_logged:
         with st.expander("🛠️ [Admin] Editar Chave Pix e Vencimento"):
             with st.form("form_edit_pix_direto"):
@@ -568,35 +583,47 @@ elif menu == "💸 Pagamento & Pix":
                     st.rerun()
         st.markdown("---")
 
-    # Envio de comprovante
     st.subheader("📤 Enviar Comprovante de Pagamento")
+    
+    # Validação de acesso rigorosa: apenas se estiver logada como jogadora ou como admin
     if not st.session_state.usuario_logado and not st.session_state.admin_logged:
-        st.warning("⚠️ **Faça login na sua conta no menu lateral para enviar o comprovante automaticamente em seu nome!**")
+        st.warning("⚠️ **Você precisa estar logada na sua conta no menu lateral para enviar o comprovante!**")
     else:
         with st.form("form_enviar_comprovante", clear_on_submit=True):
             if st.session_state.admin_logged and not st.session_state.usuario_logado:
                 nomes_j_todas = [j["nome"] for j in st.session_state.jogadoras]
-                remetente_sel = st.selectbox("Enviar em nome de:", nomes_j_todas) if nomes_j_todas else "Admin"
+                remetente_sel = st.selectbox("Enviar em nome de (Painel Admin):", nomes_j_todas) if nomes_j_todas else None
             else:
                 remetente_sel = st.session_state.usuario_logado
                 st.write(f"Enviando comprovante como: **{remetente_sel}**")
 
             detalhes_pag = st.text_input("Detalhes / Observação (Ex: Mensalidade Referente a Agosto)")
+            arquivo_sub = st.file_uploader("📎 Imagem do Comprovante (Obrigatório)", type=["png", "jpg", "jpeg", "pdf"])
             
-            if st.form_submit_button("🚀 Enviar Comprovante", use_container_width=True):
-                if remetente_sel:
+            btn_envio = st.form_submit_button("🚀 Enviar Comprovante", use_container_width=True)
+
+            if btn_envio:
+                if not arquivo_sub:
+                    st.error("❌ ERRO: É estritamente obrigatório anexar a imagem do comprovante!")
+                elif not remetente_sel:
+                    st.error("❌ ERRO: Nenhuma jogadora válida selecionada.")
+                else:
+                    file_ext = arquivo_sub.name.split('.')[-1]
+                    file_name = f"{int(datetime.now().timestamp())}_{random.randint(1000,9999)}.{file_ext}"
+                    file_path = os.path.join(COMPROVANTES_DIR, file_name)
+                    with open(file_path, "wb") as f:
+                        f.write(arquivo_sub.getbuffer())
+
                     st.session_state.comprovantes.append({
                         "nome": remetente_sel,
                         "detalhes": detalhes_pag.strip() if detalhes_pag else "Pagamento Pix",
                         "data": hoje_dt.strftime("%d/%m/%Y %H:%M"),
+                        "arquivo": file_path,
                         "status": "Pendente"
                     })
                     salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                    st.success("Comprovante enviado com sucesso para a análise da administração!")
-                else:
-                    st.error("Erro ao identificar a jogadora.")
+                    st.success("✅ Comprovante enviado com sucesso com a imagem anexada!")
 
-    # Visualização de comprovantes para o Administrador aprovar
     if st.session_state.admin_logged:
         st.markdown("---")
         st.subheader("📥 Comprovantes Recebidos (Admin)")
@@ -604,28 +631,52 @@ elif menu == "💸 Pagamento & Pix":
             st.info("Nenhum comprovante enviado no momento.")
         else:
             for idx, comp in enumerate(st.session_state.comprovantes):
-                col_c1, col_c2, col_c3 = st.columns([2, 2, 1])
-                col_c1.write(f"**{comp['nome']}**")
-                col_c2.write(f"{comp['detalhes']} — *{comp['data']}*")
-                
-                if comp.get("status") == "Pendente":
-                    if col_c3.button("✅ Confirmar", key=f"conf_comp_{idx}"):
-                        # Adiciona automaticamente no caixa como entrada
-                        st.session_state.financeiro.append({
-                            "data": hoje_dt.strftime("%d/%m/%Y"),
-                            "descricao": f"Mensalidade - {comp['nome']}",
-                            "tipo": "Entrada",
-                            "valor": 0.0 # Valor padrão ou ajustável
-                        })
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                with st.expander(f"📄 Comprovante de: {comp['nome']} — ({comp['data']}) [Status: {comp.get('status', 'Pendente')}]"):
+                    st.write(f"**Observação:** {comp['detalhes']}")
+                    if os.path.exists(comp.get("arquivo", "")):
+                        st.image(comp["arquivo"], caption=f"Comprovante de {comp['nome']}", width=350)
+                    else:
+                        st.warning("⚠️ Imagem do comprovante não encontrada no servidor.")
+
+                    col_acao1, col_acao2 = st.columns(2)
+                    if comp.get("status") == "Pendente":
+                        valor_pg = st.number_input(f"Valor a dar baixa (R$) para {comp['nome']}:", min_value=0.0, value=50.0, step=5.0, key=f"val_comp_{idx}")
                         
-                        # Remove dos comprovantes pendentes
-                        st.session_state.comprovantes.pop(idx)
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                        st.success(f"Pagamento de {comp['nome']} confirmado e adicionado ao caixa!")
-                        st.rerun()
-                else:
-                    col_c3.write("Aprovado")
+                        if col_acao1.button("✅ Confirmar Pagamento", key=f"conf_comp_{idx}"):
+                            # 1. Adicionar ao Fluxo de Caixa
+                            st.session_state.financeiro.append({
+                                "data": hoje_dt.strftime("%d/%m/%Y"),
+                                "descricao": f"Mensalidade - {comp['nome']}",
+                                "tipo": "Entrada",
+                                "valor": float(valor_pg)
+                            })
+                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+
+                            # 2. Marcar como pago na lista da jogadora (atualizando status_pagamento para Pago)
+                            for j in st.session_state.jogadoras:
+                                if j["nome"] == comp["nome"]:
+                                    j["mes_vigente"] = mes_vigente_str
+                                    j["status_pagamento"] = "Pago"
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+
+                            # 3. Atualizar status do comprovante
+                            st.session_state.comprovantes[idx]["status"] = "Confirmado"
+                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                            st.success(f"Pagamento de {comp['nome']} confirmado, inserido no caixa e marcado como Pago!")
+                            st.rerun()
+
+                        if col_acao2.button("❌ Rejeitar Pagamento", key=f"rej_comp_{idx}"):
+                            for j in st.session_state.jogadoras:
+                                if j["nome"] == comp["nome"]:
+                                    j["status_pagamento"] = "Pendente"
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+
+                            st.session_state.comprovantes[idx]["status"] = "Rejeitado"
+                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                            st.warning(f"Comprovante de {comp['nome']} marcado como rejeitado.")
+                            st.rerun()
+                    else:
+                        st.info(f"Este comprovante já foi processado como: **{comp.get('status')}**")
 
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento do Peladinha FC")
@@ -643,8 +694,10 @@ elif menu == "📋 Elenco de Jogadoras":
         for j in st.session_state.jogadoras:
             if "mes_vigente" not in j:
                 j["mes_vigente"] = mes_vigente_str
+            if "status_pagamento" not in j:
+                j["status_pagamento"] = "Pendente"
 
-        cols_visiveis = [c for c in ["nome", "tipo", "nascimento", "status"] if c in df.columns]
+        cols_visiveis = [c for c in ["nome", "tipo", "nascimento", "status_pagamento", "status"] if c in df.columns]
         
         with tab_elenco:
             st.dataframe(df[cols_visiveis], use_container_width=True, hide_index=True)
@@ -688,16 +741,16 @@ elif menu == "⚙️ Painel Admin":
                 a_nome = st.text_input("Nome Completo *")
                 a_nasc = st.text_input("Data de Nascimento (DD/MM)")
                 a_tipo = st.selectbox("Categoria Inicial", ["Mensalista", "Avulso"])
+                a_cont = st.text_input("WhatsApp / Contato")
                 a_user = st.text_input("Login")
                 a_pass = st.text_input("Senha", type="password")
-                a_cont = st.text_input("WhatsApp")
 
                 if st.form_submit_button("➕ Cadastrar Jogadora", use_container_width=True):
                     if a_nome.strip():
                         st.session_state.jogadoras.append({
                             "nome": a_nome.strip(), "nascimento": a_nasc.strip(), "tipo": a_tipo,
                             "mes_vigente": mes_vigente_str, "login": a_user.strip(), "senha": a_pass.strip(),
-                            "contato": a_cont.strip(), "status": "Ativo"
+                            "contato": a_cont.strip(), "status": "Ativo", "status_pagamento": "Pendente"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success(f"Jogadora {a_nome} cadastrada!")
@@ -715,13 +768,16 @@ elif menu == "⚙️ Painel Admin":
                     ej_nome = st.text_input("Nome", value=j_obj.get("nome", ""))
                     ej_tipo = st.selectbox("Categoria", ["Mensalista", "Avulso"], index=0 if j_obj.get("tipo") == "Mensalista" else 1)
                     ej_nasc = st.text_input("Nascimento (DD/MM)", value=j_obj.get("nascimento", ""))
+                    ej_cont = st.text_input("WhatsApp / Contato", value=j_obj.get("contato", ""))
                     ej_user = st.text_input("Login", value=j_obj.get("login", ""))
                     ej_pass = st.text_input("Senha", value=j_obj.get("senha", ""), type="password")
+                    ej_pag = st.selectbox("Status Pagamento", ["Pendente", "Pago"], index=0 if j_obj.get("status_pagamento") != "Pago" else 1)
 
                     if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
                         st.session_state.jogadoras[idx_j_sel].update({
                             "nome": ej_nome.strip(), "nascimento": ej_nasc.strip(), "tipo": ej_tipo,
-                            "login": ej_user.strip(), "senha": ej_pass.strip()
+                            "contato": ej_cont.strip(), "login": ej_user.strip(), "senha": ej_pass.strip(),
+                            "status_pagamento": ej_pag
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success(f"Dados atualizados!")
