@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
 # -----------------------------------------------------------------------------
-# Fuso horário de Brasília (UTC-3) garante que a hora bate com o computador
 fuso_br = timezone(timedelta(hours=-3))
 hoje_dt = datetime.now(fuso_br)
 hoje_str = hoje_dt.strftime("%d/%m")
@@ -100,6 +99,7 @@ FINANCE_FILE = "financeiro.json"
 ADMINS_FILE = "administradores.json"
 REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
+COMPROVANTES_FILE = "comprovantes.json"
 
 def carregar_dados(filename, default):
     if os.path.exists(filename):
@@ -132,6 +132,8 @@ if "presencas" not in st.session_state:
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
 if "financeiro" not in st.session_state:
     st.session_state.financeiro = carregar_dados(FINANCE_FILE, [])
+if "comprovantes" not in st.session_state:
+    st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
 if "administradores" not in st.session_state:
     def_admins = [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "principal": True}]
     st.session_state.administradores = carregar_dados(ADMINS_FILE, def_admins)
@@ -270,22 +272,14 @@ else:
 # -----------------------------------------------------------------------------
 # LÓGICA DE ORDENAÇÃO DE PRESENÇA (MENSALISTAS x AVULSAS)
 # -----------------------------------------------------------------------------
-# 1. Ordenamos todo mundo por ordem de confirmação (quem chegou primeiro)
 lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
-
-# 2. Separamos quem é Mensalista e quem é Avulso
 mensalistas = [p for p in lista_atual if p.get("tipo") == "Mensalista"]
 avulsas = [p for p in lista_atual if p.get("tipo") == "Avulso"]
-
 limite = st.session_state.avisos.get("limite_vagas", 15)
 
-# 3. Mensalistas ocupam as vagas principais imediatamente
 confirmadas = mensalistas[:limite]
-
-# 4. Fila de espera recebe o excedente de mensalistas + todas as avulsas
 espera = mensalistas[limite:] + avulsas
 
-# 5. Após as 17:00 de segunda-feira, as avulsas na fila sobem caso sobram vagas
 passou_prazo = hoje_dt.weekday() == 0 and hoje_dt.hour >= 17
 
 if passou_prazo and len(confirmadas) < limite:
@@ -314,7 +308,6 @@ if hoje_dt.weekday() == 0 and (hoje_dt.hour > 18 or (hoje_dt.hour == 18 and hoje
                 "times": res_times
             }
             salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
-
 
 # -----------------------------------------------------------------------------
 # PÁGINAS DO SISTEMA
@@ -486,7 +479,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         st.subheader("📊 Fluxo de Caixa")
         df_fin = pd.DataFrame(st.session_state.financeiro) if st.session_state.financeiro else pd.DataFrame(columns=["data", "descricao", "tipo", "valor"])
         
-        # Filtro de Mês
         if not df_fin.empty:
             df_fin["mes_ano"] = df_fin["data"].apply(lambda x: x[3:10] if isinstance(x, str) and len(x) >= 10 else "Geral")
             meses_disp = df_fin["mes_ano"].unique().tolist()
@@ -552,21 +544,88 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                     st.rerun()
 
 elif menu == "💸 Pagamento & Pix":
-    st.subheader("💸 Dados para Pagamento")
-    st.info(f"🔑 **Chave Pix:** {st.session_state.avisos.get('pix', 'Não informada')}")
+    st.subheader("💸 Dados para Pagamento e Envio de Comprovante")
+    
+    # Exibição facilitada da chave Pix para copiar
+    st.markdown("### 🔑 Chave Pix Atual")
+    pix_atual = st.session_state.avisos.get('pix', 'Não informada')
+    st.code(pix_atual, language="text")
     st.write(f"📅 **Vencimento:** {st.session_state.avisos.get('vencimento')}")
 
+    st.markdown("---")
+
+    # Opção para o Administrador editar a Chave Pix diretamente aqui também
     if st.session_state.admin_logged:
-        with st.expander("🛠️ Editar Dados de Pagamento (Admin)"):
-            with st.form("form_edit_pix"):
-                novo_pix = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
+        with st.expander("🛠️ [Admin] Editar Chave Pix e Vencimento"):
+            with st.form("form_edit_pix_direto"):
+                novo_pix = st.text_input("Chave Pix", value=pix_atual)
                 novo_venc = st.text_input("Dia de Vencimento", value=st.session_state.avisos.get("vencimento", ""))
-                if st.form_submit_button("💾 Salvar Dados"):
+                if st.form_submit_button("💾 Atualizar Chave Pix"):
                     st.session_state.avisos["pix"] = novo_pix
                     st.session_state.avisos["vencimento"] = novo_venc
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Pix atualizado!")
+                    st.success("Chave Pix atualizada com sucesso!")
                     st.rerun()
+        st.markdown("---")
+
+    # Envio de comprovante
+    st.subheader("📤 Enviar Comprovante de Pagamento")
+    if not st.session_state.usuario_logado and not st.session_state.admin_logged:
+        st.warning("⚠️ **Faça login na sua conta no menu lateral para enviar o comprovante automaticamente em seu nome!**")
+    else:
+        with st.form("form_enviar_comprovante", clear_on_submit=True):
+            if st.session_state.admin_logged and not st.session_state.usuario_logado:
+                nomes_j_todas = [j["nome"] for j in st.session_state.jogadoras]
+                remetente_sel = st.selectbox("Enviar em nome de:", nomes_j_todas) if nomes_j_todas else "Admin"
+            else:
+                remetente_sel = st.session_state.usuario_logado
+                st.write(f"Enviando comprovante como: **{remetente_sel}**")
+
+            detalhes_pag = st.text_input("Detalhes / Observação (Ex: Mensalidade Referente a Agosto)")
+            
+            if st.form_submit_button("🚀 Enviar Comprovante", use_container_width=True):
+                if remetente_sel:
+                    st.session_state.comprovantes.append({
+                        "nome": remetente_sel,
+                        "detalhes": detalhes_pag.strip() if detalhes_pag else "Pagamento Pix",
+                        "data": hoje_dt.strftime("%d/%m/%Y %H:%M"),
+                        "status": "Pendente"
+                    })
+                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                    st.success("Comprovante enviado com sucesso para a análise da administração!")
+                else:
+                    st.error("Erro ao identificar a jogadora.")
+
+    # Visualização de comprovantes para o Administrador aprovar
+    if st.session_state.admin_logged:
+        st.markdown("---")
+        st.subheader("📥 Comprovantes Recebidos (Admin)")
+        if not st.session_state.comprovantes:
+            st.info("Nenhum comprovante enviado no momento.")
+        else:
+            for idx, comp in enumerate(st.session_state.comprovantes):
+                col_c1, col_c2, col_c3 = st.columns([2, 2, 1])
+                col_c1.write(f"**{comp['nome']}**")
+                col_c2.write(f"{comp['detalhes']} — *{comp['data']}*")
+                
+                if comp.get("status") == "Pendente":
+                    if col_c3.button("✅ Confirmar", key=f"conf_comp_{idx}"):
+                        # Adiciona automaticamente no caixa como entrada
+                        st.session_state.financeiro.append({
+                            "data": hoje_dt.strftime("%d/%m/%Y"),
+                            "descricao": f"Mensalidade - {comp['nome']}",
+                            "tipo": "Entrada",
+                            "valor": 0.0 # Valor padrão ou ajustável
+                        })
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        
+                        # Remove dos comprovantes pendentes
+                        st.session_state.comprovantes.pop(idx)
+                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                        st.success(f"Pagamento de {comp['nome']} confirmado e adicionado ao caixa!")
+                        st.rerun()
+                else:
+                    col_c3.write("Aprovado")
 
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento do Peladinha FC")
@@ -612,10 +671,14 @@ elif menu == "⚙️ Painel Admin":
         with t_conf:
             limite_v = st.number_input("Limite de Vagas do Jogo:", value=st.session_state.avisos.get("limite_vagas", 15))
             rec_v = st.text_area("Recado/Aviso Geral:", value=st.session_state.avisos.get("recado", ""))
+            pix_cfg = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
+            venc_cfg = st.text_input("Vencimento:", value=st.session_state.avisos.get("vencimento", ""))
             
             if st.button("💾 Salvar Configurações", use_container_width=True):
                 st.session_state.avisos["limite_vagas"] = int(limite_v)
                 st.session_state.avisos["recado"] = rec_v
+                st.session_state.avisos["pix"] = pix_cfg
+                st.session_state.avisos["vencimento"] = venc_cfg
                 salvar_dados(AVISOS_FILE, st.session_state.avisos)
                 st.success("Configurações salvas!")
                 st.rerun()
