@@ -4,9 +4,6 @@ import json
 import os
 import random
 import urllib.parse
-import base64
-from io import BytesIO
-from PIL import Image, ImageDraw
 from datetime import datetime, timezone, timedelta
 import html
 
@@ -41,27 +38,6 @@ def formatar_nome_proprio(texto):
         else:
             resultado.append(palavra_lower.capitalize())
     return " ".join(resultado)
-
-# -----------------------------------------------------------------------------
-# FUNÇÃO PARA GERAR COMPROVANTE SINTÉTICO PARA TESTES
-# -----------------------------------------------------------------------------
-def gerar_comprovante_teste(nome_jogadora, valor, data_str):
-    img = Image.new('RGB', (400, 250), color=(245, 247, 250))
-    d = ImageDraw.Draw(img)
-    
-    d.rectangle([(10, 10), (390, 240)], outline=(15, 23, 42), width=3)
-    d.rectangle([(10, 10), (390, 50)], fill=(15, 23, 42))
-    d.text((20, 20), "COMPROVANTE DE TESTE - PIX", fill=(255, 255, 255))
-    
-    d.text((30, 70), f"Pagador: {nome_jogadora}", fill=(15, 23, 42))
-    d.text((30, 100), f"Recebedor: Peladinha FC", fill=(15, 23, 42))
-    d.text((30, 130), f"Valor: R$ {valor:.2f}", fill=(34, 197, 94))
-    d.text((30, 160), f"Data: {data_str}", fill=(100, 116, 139))
-    d.text((30, 190), f"Status: SIMULAÇÃO DE TESTE", fill=(239, 68, 68))
-    
-    buffered = BytesIO()
-    img.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA GERAR DOCUMENTO DO CONTRATO
@@ -198,7 +174,6 @@ FINANCE_FILE = "financeiro.json"
 ADMINS_FILE = "administradores.json"
 REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
-COMPROVANTES_FILE = "comprovantes.json"
 
 def carregar_dados(filename, default):
     if os.path.exists(filename):
@@ -236,9 +211,6 @@ if "presencas" not in st.session_state:
 
 if "financeiro" not in st.session_state:
     st.session_state.financeiro = carregar_dados(FINANCE_FILE, [])
-
-if "comprovantes" not in st.session_state:
-    st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
 
 if "administradores" not in st.session_state:
     def_admins = [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "principal": True}]
@@ -299,11 +271,6 @@ mes_vigente_str = hoje_dt.strftime("%m/%Y")
 data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 limite_vagas_at = st.session_state.avisos.get("limite_vagas", 15)
 
-# Garantir campo de pagamento em jogadoras antigas
-for j in st.session_state.jogadoras:
-    if "status_pagamento" not in j:
-        j["status_pagamento"] = "Pendente"
-
 # -----------------------------------------------------------------------------
 # BANNER DA APLICAÇÃO
 # -----------------------------------------------------------------------------
@@ -322,19 +289,20 @@ st.sidebar.title("📌 Navegação")
 lista_menu = [
     "📌 Presença no Jogo", 
     "🔀 Sorteio de Times",
+    "📸 Foto do Jogo",
     "💸 Pagamento & Pix",
     "📜 Regulamento",
     "📋 Elenco de Jogadoras"
 ]
 
 if st.session_state.admin_logged:
-    lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
+    lista_menu.insert(3, "📊 Fluxo de Caixa (Admin)")
 
 lista_menu.append("⚙️ Painel Admin")
 menu = st.sidebar.radio("Ir para:", lista_menu)
 
 # -----------------------------------------------------------------------------
-# ÁREA DA JOGADORA
+# ÁREA DA JOGADORA (LOGIN & CADASTRO COM AUTOCORREÇÃO DE NOME)
 # -----------------------------------------------------------------------------
 st.sidebar.markdown("---")
 st.sidebar.title("👤 Área da Jogadora")
@@ -376,7 +344,7 @@ else:
                         "nome": nome_formatado, "nascimento": c_nasc.strip(),
                         "login": c_user.strip(), "senha": c_pass.strip(),
                         "tipo": "Avulso", "mes_vigente": mes_vigente_str,
-                        "contato": "", "status": "Ativo", "status_pagamento": "Pendente"
+                        "contato": "", "status": "Ativo"
                     })
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
                     st.success(f"Conta criada para **{nome_formatado}**! Faça login.")
@@ -552,7 +520,61 @@ elif menu == "🔀 Sorteio de Times":
                         st.markdown("</div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 3: FLUXO DE CAIXA
+# PÁGINA 3: FOTO DO JOGO (CÂMERA E ENVIO VIA WHATSAPP OPTIMIZADO)
+# -----------------------------------------------------------------------------
+elif menu == "📸 Foto do Jogo":
+    st.subheader("📸 Registro da Pelada & Envio no WhatsApp")
+    st.caption("Tire a foto da galera no final do jogo ou selecione da galeria para enviar!")
+
+    foto_capturada = st.camera_input("📷 Acionar Câmera do Celular/PC")
+    foto_upload = st.file_uploader("🖼️ Ou escolha uma foto da Galeria", type=["jpg", "jpeg", "png"])
+
+    foto_final = foto_capturada if foto_capturada is not None else foto_upload
+
+    if foto_final is not None:
+        bytes_foto = foto_final.getvalue()
+        
+        st.image(bytes_foto, caption="Foto Selecionada", use_column_width=True)
+        
+        st.success("✅ **Foto Pronta!**")
+        
+        # Passo a Passo para o usuário
+        st.markdown("""
+        #### 📲 Como enviar pelo celular/PC:
+        1. Clique no botão abaixo **'📥 Baixar Foto'** para salvar a imagem no seu aparelho.
+        2. Clique em **'💬 Abrir WhatsApp'** para abrir a conversa com o número **(31) 98968-4010**.
+        3. No WhatsApp, toque no ícone de **Anexo/Câmera** e envie a foto baixada!
+        """)
+
+        col_f1, col_f2 = st.columns(2)
+        
+        with col_f1:
+            st.download_button(
+                label="📥 1º Baixar Foto para o Celular",
+                data=bytes_foto,
+                file_name=f"Foto_PeladinhaFC_{hoje_dt.strftime('%d_%m_%Y')}.jpg",
+                mime="image/jpeg",
+                use_container_width=True
+            )
+
+        legenda_padrao = f"📸 Registro da Peladinha FC do dia {hoje_str}! ⚽🔥"
+        msg_foto_wa = f"{legenda_padrao}\n\n_Enviado pelo App Peladinha FC_"
+        
+        # Link nativo otimizado para abrir direto o aplicativo do WhatsApp em celular/PC
+        wa_numero_teste = "5531989684010"
+        wa_foto_link = f"https://wa.me/{wa_numero_teste}?text={urllib.parse.quote(msg_foto_wa)}"
+
+        with col_f2:
+            st.markdown(f"""
+                <a href="{wa_foto_link}" target="_blank" style="text-decoration: none;">
+                    <div style="background-color: #25D366; color: white; padding: 10px 15px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 0.95rem; line-height: 1.4;">
+                        💬 2º Abrir WhatsApp (31 98968-4010)
+                    </div>
+                </a>
+            """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# PÁGINA 4: FLUXO DE CAIXA
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa (Admin)":
     st.subheader("📊 Fluxo de Caixa do Clube")
@@ -582,70 +604,16 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             st.dataframe(df_fin, use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 4: PAGAMENTO & PIX
+# PÁGINA 5: PAGAMENTO & PIX
 # -----------------------------------------------------------------------------
 elif menu == "💸 Pagamento & Pix":
-    st.subheader("💸 Dados para Pagamento & Envio de Comprovante")
-    
-    col_p1, col_p2 = st.columns([1, 1])
-
-    with col_p1:
-        st.markdown("### 🔑 Informações do Pix")
-        st.info(f"**Chave Pix:** `{st.session_state.avisos.get('pix')}`")
-        st.write(f"📅 **Vencimento:** {st.session_state.avisos.get('vencimento')}")
-        st.write(f"💬 **Recado:** {st.session_state.avisos.get('recado')}")
-
-    with col_p2:
-        st.markdown("### 📤 Enviar Comprovante")
-        
-        if not st.session_state.usuario_logado:
-            st.warning("⚠️ **Faça login na barra lateral para enviar seu comprovante!**")
-        else:
-            jogadora_atual = next((j for j in st.session_state.jogadoras if j["nome"] == st.session_state.usuario_logado), None)
-            
-            status_p = jogadora_atual.get("status_pagamento", "Pendente") if jogadora_atual else "Pendente"
-            
-            if status_p == "Pago":
-                st.success(f"✅ **Seu pagamento do mês ({mes_vigente_str}) já está APROVADO!**")
-            else:
-                st.warning(f"Status Atual: **{status_p}**")
-                
-                with st.form("form_upload_comprovante", clear_on_submit=True):
-                    file_up = st.file_uploader("Selecione a foto ou PDF do Comprovante:", type=["png", "jpg", "jpeg"])
-                    valor_pago = st.number_input("Valor Pago (R$)", value=39.90 if jogadora_atual.get("tipo") == "Mensalista" else 15.00, step=5.0)
-                    btn_env = st.form_submit_button("📤 Enviar Comprovante para Análise", use_container_width=True)
-                    
-                    if btn_env and file_up:
-                        img_bytes = file_up.read()
-                        b64_img = base64.b64encode(img_bytes).decode("utf-8")
-                        
-                        st.session_state.comprovantes.append({
-                            "id": f"COMP_{random.randint(1000, 9999)}",
-                            "jogadora": st.session_state.usuario_logado,
-                            "data_envio": hoje_str,
-                            "hora_envio": hoje_dt.strftime("%H:%M"),
-                            "valor": valor_pago,
-                            "status": "Em Análise",
-                            "imagem_b64": b64_img
-                        })
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                        st.success("Comprovante enviado com sucesso! O administrador irá analisar em breve.")
-                        st.rerun()
-
-    # Histórico de comprovantes do usuário
-    if st.session_state.usuario_logado:
-        st.markdown("---")
-        st.markdown("### 📋 Meus Comprovantes Enviados")
-        meus_comp = [c for c in st.session_state.comprovantes if c["jogadora"] == st.session_state.usuario_logado]
-        if not meus_comp:
-            st.caption("Você ainda não enviou nenhum comprovante este mês.")
-        else:
-            for c in reversed(meus_comp):
-                badge = "🟡" if c['status'] == "Em Análise" else ("🟢" if c['status'] == "Aprovado" else "🔴")
-                st.write(f"{badge} **Data:** {c['data_envio']} às {c['hora_envio']} | **Valor:** R$ {c['valor']:.2f} | **Status:** {c['status']}")
+    st.subheader("💸 Dados para Pagamento")
+    st.info(f"🔑 **Chave Pix:** {st.session_state.avisos.get('pix')}")
+    st.write(f"📅 **Vencimento:** {st.session_state.avisos.get('vencimento')}")
+    st.write(f"💬 **Recado:** {st.session_state.avisos.get('recado')}")
 
 # -----------------------------------------------------------------------------
-# PÁGINA 5: REGULAMENTO
+# PÁGINA 6: REGULAMENTO
 # -----------------------------------------------------------------------------
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Interno do Clube")
@@ -654,16 +622,16 @@ elif menu == "📜 Regulamento":
         st.write(item['regrinha'])
 
 # -----------------------------------------------------------------------------
-# PÁGINA 6: ELENCO DE JOGADORAS
+# PÁGINA 7: ELENCO DE JOGADORAS
 # -----------------------------------------------------------------------------
 elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("📋 Elenco Cadastrado & Status de Pagamento")
+    st.subheader("📋 Elenco Cadastrado")
     if st.session_state.jogadoras:
         df = pd.DataFrame(st.session_state.jogadoras)
-        st.dataframe(df[["nome", "tipo", "status_pagamento", "nascimento", "status"]], use_container_width=True)
+        st.dataframe(df[["nome", "tipo", "nascimento", "status"]], use_container_width=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA 7: PAINEL ADMIN
+# PÁGINA 8: PAINEL ADMIN
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Painel do Administrador")
@@ -675,7 +643,6 @@ elif menu == "⚙️ Painel Admin":
             tabs_titulos.append("🧪 Laboratório de Testes (Dev)")
         
         tabs_titulos.extend([
-            "💳 Aprovar Comprovantes",
             "📜 Contrato de Serviço",
             "⚙️ Configurações Gerais", 
             "➕ Cadastrar Jogadora", 
@@ -691,132 +658,7 @@ elif menu == "⚙️ Painel Admin":
                 st.session_state.simulacao_ativa = st.checkbox("🟢 Ativar Simulação de Horário", value=st.session_state.simulacao_ativa)
                 if st.session_state.simulacao_ativa:
                     st.session_state.hora_simulada = st.slider("Hora Simulada:", 0, 23, st.session_state.hora_simulada)
-
-                st.markdown("---")
-                st.markdown("### 🧪 Gerador de Comprovantes de Teste")
-                st.caption("Simule o envio de comprovantes de pagamento para testar a aprovação/recusa sem precisar carregar fotos reais.")
-                
-                nomes_jog = [j["nome"] for j in st.session_state.jogadoras]
-                if not nomes_jog:
-                    st.info("Cadastre jogadoras para testar o envio de comprovantes.")
-                else:
-                    col_t1, col_t2 = st.columns(2)
-                    with col_t1:
-                        j_teste = st.selectbox("Selecione a Jogadora para o Teste:", nomes_jog)
-                        val_teste = st.number_input("Valor do Comprovante (R$):", value=39.90, step=5.0)
-                    with col_t2:
-                        st.write(" ")
-                        st.write(" ")
-                        if st.button("🚀 Gerar & Enviar Comprovante de Teste", use_container_width=True):
-                            b64_sim = gerar_comprovante_teste(j_teste, val_teste, hoje_str)
-                            st.session_state.comprovantes.append({
-                                "id": f"TESTE_{random.randint(1000, 9999)}",
-                                "jogadora": j_teste,
-                                "data_envio": hoje_str,
-                                "hora_envio": hoje_dt.strftime("%H:%M"),
-                                "valor": val_teste,
-                                "status": "Em Análise",
-                                "imagem_b64": b64_sim
-                            })
-                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                            st.success(f"Comprovante de TESTE gerado para **{j_teste}**! Confira na aba '💳 Aprovar Comprovantes'.")
-
-                st.markdown("---")
-                st.markdown("### 💥 ZERAR TODOS OS DADOS DE TESTE DA DEMO")
-                st.warning("⚠️ **Atenção:** Ao clicar no botão abaixo, a lista de presenças, os comprovantes enviados, os lançamentos do caixa e os sorteios serão completamente ZERADOS para a próxima demonstração.")
-                
-                col_m1, col_m2 = st.columns([1, 1])
-                with col_m1:
-                    manter_jogadoras = st.checkbox("Manter o cadastro das Jogadoras", value=True)
-                
-                # BOTÃO QUE ZERA OS DADOS
-                if st.button("💥 APAGAR TUDO E ZERAR SISTEMA", use_container_width=True, type="primary"):
-                    # 1. Zerar Presenças
-                    st.session_state.presencas = []
-                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    
-                    # 2. Zerar Comprovantes
-                    st.session_state.comprovantes = []
-                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-
-                    # 3. Zerar Financeiro
-                    st.session_state.financeiro = []
-                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-
-                    # 4. Zerar Sorteio
-                    st.session_state.sorteio_oficial = {}
-                    salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
-
-                    # 5. Resetar Status de Pagamento das Jogadoras
-                    for j in st.session_state.jogadoras:
-                        j["status_pagamento"] = "Pendente"
-                    
-                    if not manter_jogadoras:
-                        st.session_state.jogadoras = []
-                    
-                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
-
-                    st.success("🎉 **TODOS OS DADOS FORAM ZERADOS COM SUCESSO! O APP ESTÁ PRONTO PARA A DEMONSTRAÇÃO.**")
-                    st.rerun()
-
             idx_tab += 1
-
-        # --- TAB: APROVAR COMPROVANTES ---
-        with tabs_objetos[idx_tab]:
-            st.markdown("### 💳 Análise e Aprovação de Comprovantes")
-            
-            pendentes = [c for c in st.session_state.comprovantes if c.get("status") == "Em Análise"]
-            
-            if not pendentes:
-                st.info("🎉 Nenhum comprovante pendente de análise no momento!")
-            else:
-                for comp in pendentes:
-                    with st.expander(f"📄 Comprovante de {comp['jogadora']} — R$ {comp['valor']:.2f} ({comp['data_envio']} às {comp['hora_envio']})", expanded=True):
-                        c_img, c_info = st.columns([1, 1])
-                        
-                        with c_img:
-                            if "imagem_b64" in comp and comp["imagem_b64"]:
-                                try:
-                                    img_data = base64.b64decode(comp["imagem_b64"])
-                                    st.image(img_data, caption=f"Comprovante {comp['id']}", use_container_width=True)
-                                except Exception:
-                                    st.error("Erro ao carregar a imagem do comprovante.")
-                        
-                        with c_info:
-                            st.write(f"**Jogadora:** {comp['jogadora']}")
-                            st.write(f"**Valor Informado:** R$ {comp['valor']:.2f}")
-                            st.write(f"**Data de Envio:** {comp['data_envio']} às {comp['hora_envio']}")
-                            
-                            c_btn1, c_btn2 = st.columns(2)
-                            
-                            if c_btn1.button(f"✅ Aprovar Pagamento", key=f"ap_{comp['id']}", use_container_width=True):
-                                comp["status"] = "Aprovado"
-                                # Atualizar status da jogadora para PAGO
-                                for j in st.session_state.jogadoras:
-                                    if j["nome"] == comp["jogadora"]:
-                                        j["status_pagamento"] = "Pago"
-                                
-                                # Lançar no Caixa Automático
-                                st.session_state.financeiro.append({
-                                    "data": hoje_str,
-                                    "tipo": "Entrada (Receita)",
-                                    "descricao": f"Mensalidade/Pix - {comp['jogadora']}",
-                                    "valor": comp["valor"]
-                                })
-                                
-                                salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                                salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                                salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                                st.success(f"Pagamento de **{comp['jogadora']}** APROVADO com sucesso!")
-                                st.rerun()
-
-                            if c_btn2.button(f"❌ Recusar Comprovante", key=f"rec_{comp['id']}", use_container_width=True):
-                                comp["status"] = "Recusado"
-                                salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                                st.warning(f"Comprovante de **{comp['jogadora']}** recusado.")
-                                st.rerun()
-
-        idx_tab += 1
 
         # --- TAB: CONTRATO ---
         with tabs_objetos[idx_tab]:
@@ -898,17 +740,15 @@ Data do Aceite: {hoje_str}
                         f"Declaro aceite integral aos termos do contrato prestado por Vagner Souza."
                     )
                     
-                    num_wa = "5531989684010"
-                    txt_enc = urllib.parse.quote(msg_wa)
+                    wa_link = f"https://wa.me/5531989684010?text={urllib.parse.quote(msg_wa)}"
                     
-                    link_mob = f"whatsapp://send?phone={num_wa}&text={txt_enc}"
-                    link_pc = f"https://wa.me/{num_wa}?text={txt_enc}"
-
-                    col_cnt_w1, col_cnt_w2 = st.columns(2)
-                    with col_cnt_w1:
-                        st.link_button("📱 Abrir no App (Celular)", link_mob, use_container_width=True)
-                    with col_cnt_w2:
-                        st.link_button("💻 WhatsApp Web (PC)", link_pc, use_container_width=True)
+                    st.markdown(f"""
+                        <a href="{wa_link}" target="_blank" style="text-decoration: none;">
+                            <div style="background-color: #25D366; color: white; padding: 12px 20px; border-radius: 8px; text-align: center; font-weight: bold; font-size: 1.0rem; margin-top: 10px;">
+                                📲 Notificar Vagner Souza pelo WhatsApp
+                            </div>
+                        </a>
+                    """, unsafe_allow_html=True)
                 else:
                     st.info("💡 Preencha os campos obrigatórios, a assinatura e marque o aceite para gerar o documento e botão de envio.")
 
@@ -952,8 +792,7 @@ Data do Aceite: {hoje_str}
                         "senha": adm_pass_j.strip(),
                         "mes_vigente": mes_vigente_str,
                         "contato": "",
-                        "status": "Ativo",
-                        "status_pagamento": "Pendente"
+                        "status": "Ativo"
                     })
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
                     st.success(f"Jogadora **{adm_nome_fmt}** cadastrada com sucesso!")
