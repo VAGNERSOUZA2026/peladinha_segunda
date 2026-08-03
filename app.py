@@ -1,222 +1,613 @@
-import streamlit as st
+import base64
+import io
+import json
+import os
+import urllib.parse
 import pandas as pd
+import streamlit as st
+from PIL import Image
 
-# Configuração da página
-st.set_page_config(page_title="Peladinha Segunda", layout="wide")
+try:
+    import cv2
+    import numpy as np
 
-# ==========================================
-# ARQUIVOS E VARIÁVEIS DE SUPORTE
-# ==========================================
-DATA_FILE = "jogadoras.json"
-REGULAMENTO_FILE = "regulamento.json"
-AVISOS_FILE = "avisos.json"
-ADMINS_FILE = "admins.json"
+    OPENCV_DISPONIVEL = True
+except ImportError:
+    OPENCV_DISPONIVEL = False
 
-def salvar_dados(arquivo, dados):
-    # Função padrão de salvamento do seu sistema
-    pass
+try:
+    from pyzbar.pyzbar import decode as pyzbar_decode
 
-# Inicialização de dados no session_state
-if "admin_logged" not in st.session_state:
-    st.session_state.admin_logged = False
+    PYZBAR_DISPONIVEL = True
+except ImportError:
+    PYZBAR_DISPONIVEL = False
 
-if "admins_lista" not in st.session_state:
-    st.session_state.admins_lista = [{"usuario": "dev", "senha": "123"}]
+URL_LOGO_GITHUB = "https://raw.githubusercontent.com/Vagner-Souza/mapa-estoque-galpao-premium/main/logo.png"
 
-if "jogadoras" not in st.session_state:
-    st.session_state.jogadoras = []
+st.set_page_config(
+    page_title="Mapa Estoque - Galpão Premium",
+    page_icon="logo.png",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
-if "regulamento" not in st.session_state:
-    st.session_state.regulamento = []
+st.markdown(
+    f"""
+    <head>
+        <link rel="apple-touch-icon" sizes="180x180" href="{URL_LOGO_GITHUB}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{URL_LOGO_GITHUB}">
+        <link rel="shortcut icon" href="{URL_LOGO_GITHUB}">
+    </head>
+""",
+    unsafe_allow_html=True,
+)
 
-if "avisos" not in st.session_state:
-    st.session_state.avisos = {"limite_vagas": 15, "recado": "Favor chegarem adiantadas!"}
+st.markdown(
+    """
+    <style>
+    html, body {
+        overscroll-behavior-y: contain;
+    }
+    .stApp {
+        background-color: #FAFAFA;
+    }
+    .header-container {
+        text-align: center;
+        padding: 10px 0 15px 0;
+    }
+    .main-title {
+        font-size: 1.8rem;
+        font-weight: 800;
+        color: #581825;
+        margin-top: 5px;
+        letter-spacing: -0.5px;
+    }
+    .sub-title {
+        font-size: 0.9rem;
+        color: #777777;
+        margin-bottom: 10px;
+    }
+    .wine-card {
+        background-color: #FFFFFF;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 15px;
+        border: 1px solid #E2E8F0;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+    }
+    .wine-title {
+        color: #581825;
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }
+    .badge-pallet {
+        background-color: #581825;
+        color: #FFFFFF;
+        padding: 4px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.8rem;
+        display: inline-block;
+    }
+    .badge-info {
+        background-color: #F1F5F9;
+        color: #334155;
+        padding: 4px 8px;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        margin-left: 4px;
+        display: inline-block;
+    }
+    @media print {
+        .sidebar, .stButton, header, footer, .stSelectbox {
+            display: none !important;
+        }
+    }
+    </style>
+""",
+    unsafe_allow_html=True,
+)
 
-# ==========================================
-# BARRA LATERAL (MENU E LOGIN)
-# ==========================================
-st.sidebar.title("⚽ Peladinha FC")
-st.sidebar.markdown("---")
+SENHA_ACESSO = "1980"
+NOME_ARQUIVO = "estoque_galpao.json"
+URL_APLICATIVO = (
+    "https://mapa-estoque-galpao-premium-vbewrgwbe5ktw8ptefwxmf.streamlit.app"
+)
 
-if not st.session_state.admin_logged:
-    st.sidebar.subheader("🔒 Acesso Restrito (Admin)")
-    with st.sidebar.form("form_login_lateral"):
-        u_input = st.text_input("Usuário Admin")
-        s_input = st.text_input("Senha", type="password")
-        btn_entrar = st.form_submit_button("Entrar")
-        
-        if btn_entrar:
-            valido = (u_input == "dev" and s_input == "123") or any(a["usuario"] == u_input and a["senha"] == s_input for a in st.session_state.admins_lista)
-            if valido:
-                st.session_state.admin_logged = True
-                st.success("Logado com sucesso!")
-                st.rerun()
-            else:
-                st.error("Usuário ou senha incorretos.")
-else:
-    st.sidebar.success("Sessão Admin Ativa")
-    if st.sidebar.button("Sair / Logout"):
-        st.session_state.admin_logged = False
-        st.rerun()
+NOME_DEV = "Vagner Souza"
+TITULO_DEV = "Cientista da Computação"
+FONE_DEV = "(31) 98968-4010"
 
-st.sidebar.markdown("---")
+LISTA_CORREDORES = [f"Corredor {i:02d}" for i in range(1, 26)]
+LISTA_PALLETS = [f"Pallet {i:02d}" for i in range(1, 26)]
+LISTA_LADOS = ["Direito", "Esquerdo", "Centro / Único"]
 
-# Menu dinâmico (Fluxo de Caixa e Painel Admin protegidos)
-opcoes_menu = [
-    "Presença no Jogo", 
-    "Sorteio de Times", 
-    "Pagamento & Pix", 
-    "📜 Regulamento", 
-    "📋 Elenco de Jogadoras"
+ANOS_SAFRA = [str(ano) for ano in range(2026, 1989, -1)]
+OPCOES_SAFRA = ["Sem Safra (NV)", "Outra / Mais antiga"] + ANOS_SAFRA
+
+OPCOES_CAIXA = [
+    "Caixa com 12 garrafas",
+    "Caixa com 6 garrafas",
+    "Caixa com 3 garrafas",
+    "Garrafa Avulsa (1 un)",
+    "Outra quantidade",
 ]
 
-if st.session_state.admin_logged:
-    opcoes_menu.extend(["📊 Fluxo de Caixa (Admin)", "⚙️ Painel Admin"])
+estoque_padrao = [{
+    "nome": "Château Margaux Premier Grand Cru",
+    "tipo": "Tinto",
+    "safra": "2015",
+    "pallet": "Corredor 01 - Pallet 01",
+    "lado": "Direito",
+    "caixa": "Caixa com 12 garrafas",
+    "volume": "750ml",
+    "foto": None,
+}]
 
-menu = st.sidebar.radio("Navegação", opcoes_menu)
 
-# ==========================================
-# ROTAS / PÁGINAS
-# ==========================================
+def carregar_dados():
+    if os.path.exists(NOME_ARQUIVO):
+        try:
+            with open(NOME_ARQUIVO, "r", encoding="utf-8") as f:
+                dados = json.load(f)
+                if isinstance(dados, list) and len(dados) > 0:
+                    return dados
+        except Exception:
+            pass
+    return [dict(item) for item in estoque_padrao]
 
-if menu == "Presença no Jogo":
-    st.subheader("📌 Presença no Jogo")
-    st.write("Gerenciamento de confirmação das jogadoras para a próxima partida.")
-    st.info(f"Limite máximo de vagas configurado: {st.session_state.avisos.get('limite_vagas', 15)}")
-    st.write(f"Aviso do dia: {st.session_state.avisos.get('recado', '')}")
 
-elif menu == "Sorteio de Times":
-    st.subheader("⚽ Sorteio de Times")
-    st.write("Área para sortear os times de forma equilibrada.")
+def salvar_dados(estoque):
+    try:
+        with open(NOME_ARQUIVO, "w", encoding="utf-8") as f:
+            json.dump(estoque, f, ensure_ascii=False, indent=4)
+    except Exception as e:
+        st.error(f"Erro ao salvar dados: {e}")
 
-elif menu == "Pagamento & Pix":
-    st.subheader("💰 Pagamento & Pix")
-    st.write("Chave Pix e controle de comprovação de pagamentos.")
 
-elif menu == "📊 Fluxo de Caixa (Admin)" and st.session_state.admin_logged:
-    st.subheader("📊 Fluxo de Caixa (Área Administrativa)")
-    st.info("Painel financeiro protegido.")
-    st.metric(label="Saldo em Caixa", value="R$ 550,00")
+def converter_imagem_base64(uploaded_file):
+    if uploaded_file is not None:
+        bytes_data = uploaded_file.getvalue()
+        return base64.b64encode(bytes_data).decode("utf-8")
+    return None
 
-elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento Oficial do Peladinha FC")
-    
-    if not st.session_state.regulamento:
-        st.info("Nenhuma regra cadastrada.")
+
+def calcular_hash_simples(img):
+    img = img.convert("L").resize((8, 8), Image.Resampling.LANCZOS)
+    pixels = list(img.getdata())
+    media = sum(pixels) / len(pixels)
+    return "".join(["1" if p > media else "0" for p in pixels])
+
+
+def comparar_hashes(h1, h2):
+    return sum(c1 != c2 for c1, c2 in zip(h1, h2))
+
+
+def decodificar_qr_code(imagem_bytes):
+    img_pil = Image.open(io.BytesIO(imagem_bytes))
+
+    if PYZBAR_DISPONIVEL:
+        try:
+            resultados = pyzbar_decode(img_pil)
+            if resultados:
+                return resultados[0].data.decode("utf-8")
+        except Exception:
+            pass
+
+    if OPENCV_DISPONIVEL:
+        try:
+            file_bytes = np.asarray(bytearray(imagem_bytes), dtype=np.uint8)
+            img_cv = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+            detector = cv2.QRCodeDetector()
+
+            data, bbox, _ = detector.detectAndDecode(img_cv)
+            if data:
+                return data
+
+            gray = cv2.cvtColor(img_cv, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+            gray_enhanced = clahe.apply(gray)
+            data, bbox, _ = detector.detectAndDecode(gray_enhanced)
+            if data:
+                return data
+
+            _, thresh = cv2.threshold(
+                gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+            )
+            data, bbox, _ = detector.detectAndDecode(thresh)
+            if data:
+                return data
+
+            _, thresh_inv = cv2.threshold(
+                gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+            )
+            data, bbox, _ = detector.detectAndDecode(thresh_inv)
+            if data:
+                return data
+
+        except Exception:
+            pass
+
+    return None
+
+
+if "estoque" not in st.session_state:
+    st.session_state.estoque = carregar_dados()
+
+if "form_key" not in st.session_state:
+    st.session_state.form_key = 0
+
+query_params = st.query_params
+auth_param = query_params.get("auth")
+pallet_param = query_params.get("pallet")
+
+if auth_param == SENHA_ACESSO:
+    st.session_state.autenticado = True
+
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+if not st.session_state.autenticado:
+    st.markdown(
+        """
+        <div class="header-container">
+            <h1 class="main-title">🍷 GALPÃO PREMIUM</h1>
+            <p class="sub-title">Controle de Estoque e Localização</p>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    with st.form("login_form"):
+        senha_digitada = st.text_input("🔑 Senha de Acesso:", type="password")
+        btn_login = st.form_submit_button(
+            "Entrar no Sistema", use_container_width=True
+        )
+
+        if btn_login:
+            if senha_digitada == SENHA_ACESSO:
+                st.session_state.autenticado = True
+                st.query_params["auth"] = SENHA_ACESSO
+                st.success("Acesso Autorizado!")
+                st.rerun()
+            else:
+                st.error("Senha incorreta!")
+    st.stop()
+
+if pallet_param:
+    pallet_nome = urllib.parse.unquote_plus(pallet_param)
+    st.markdown(
+        f"""
+    <div class="header-container">
+        <h1 class="main-title">📍 RESULTADO DO PALLET</h1>
+        <p class="sub-title">Consultando: <b>{pallet_nome}</b></p>
+    </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+    vinhos_no_pallet = [
+        v for v in st.session_state.estoque if v.get("pallet") == pallet_nome
+    ]
+
+    if vinhos_no_pallet:
+        st.success(
+            f"📦 Encontrado(s) {len(vinhos_no_pallet)} vinho(s) nesta posição:"
+        )
+        for v in vinhos_no_pallet:
+            st.markdown(
+                f"""
+                <div class="wine-card">
+                    <div class="wine-title">🍷 {v.get('nome')} ({v.get('safra')})</div>
+                    <p><span class="badge-pallet">📍 {v.get('pallet')}</span> <span class="badge-info">Lado: {v.get('lado')}</span></p>
+                    <p style="margin-top:8px; font-size:0.9rem;"><b>Tipo:</b> {v.get('tipo')} | <b>Embalagem:</b> {v.get('caixa')}</p>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            if v.get("foto"):
+                st.image(
+                    base64.b64decode(v.get("foto")),
+                    caption="📸 Rótulo do Vinho (Toque para Zoom)",
+                    use_container_width=True,
+                )
+                st.markdown("---")
     else:
-        for idx, r in enumerate(st.session_state.regulamento):
-            st.markdown(f"**{idx + 1}. {r.get('topico')}**")
-            st.write(r.get("regrinha"))
-            
-            # Opção de excluir regra para o admin diretamente na listagem
-            if st.session_state.admin_logged:
-                if st.button("🗑️ Excluir Regra", key=f"del_reg_{idx}"):
-                    st.session_state.regulamento.pop(idx)
-                    salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                    st.success("Regra excluída!")
-                    st.rerun()
-            st.markdown("---")
+        st.warning(f"⚠️ Nenhum vinho cadastrado no **{pallet_nome}** até o momento.")
 
-    if st.session_state.admin_logged:
-        with st.expander("🛠️ [Admin] Adicionar / Editar Regulamento"):
-            with st.form("form_novo_reg"):
-                novo_topico = st.text_input("Título do Tópico")
-                nova_regrinha = st.text_area("Descrição da Regra")
-                if st.form_submit_button("Adicionar Regra"):
-                    if novo_topico and nova_regrinha:
-                        st.session_state.regulamento.append({"topico": novo_topico, "regrinha": nova_regrinha})
-                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                        st.success("Regra adicionada!")
-                        st.rerun()
+    if st.button("⬅️ Voltar ao Painel Principal", use_container_width=True):
+        st.query_params.clear()
+        st.query_params["auth"] = SENHA_ACESSO
+        st.rerun()
 
-elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("📋 Elenco Cadastrado")
-    if not st.session_state.jogadoras:
-        st.info("Nenhuma jogadora cadastrada.")
-    else:
-        df_joga = pd.DataFrame(st.session_state.jogadoras)
-        cols_mostrar = ["nome", "tipo", "status", "nascimento", "contato"]
-        cols_disponiveis = [c for c in cols_mostrar if c in df_joga.columns]
-        st.dataframe(df_joga[cols_disponiveis], use_container_width=True, hide_index=True)
+    st.stop()
 
-        if st.session_state.admin_logged:
-            st.markdown("---")
-            st.subheader("🛠️ Gerenciar Elenco (Admin)")
-            
-            for index, joga in enumerate(st.session_state.jogadoras):
-                with st.expander(f"⚙️ Editar / Excluir: {joga.get('nome')} ({joga.get('tipo', 'Mensalista')})"):
-                    with st.form(f"form_edit_joga_{index}"):
-                        novo_nome = st.text_input("Nome", value=joga.get("nome", ""))
-                        
-                        tipo_atual = joga.get("tipo", "Mensalista")
-                        idx_tipo = 0 if tipo_atual == "Mensalista" else 1
-                        novo_tipo = st.selectbox("Categoria", ["Mensalista", "Avulsa"], index=idx_tipo, key=f"t_{index}")
-                        
-                        status_atual = joga.get("status", "Ativo")
-                        idx_status = 0 if status_atual == "Ativo" else 1
-                        novo_status = st.selectbox("Status", ["Ativo", "Inativo"], index=idx_status, key=f"s_{index}")
-                        
-                        col_btn1, col_btn2 = st.columns(2)
-                        with col_btn1:
-                            salvar_alt = st.form_submit_button("💾 Salvar Alterações")
-                        with col_btn2:
-                            excluir_btn = st.form_submit_button("🗑️ Excluir Definitivamente", type="primary")
-                            
-                        if salvar_alt:
-                            st.session_state.jogadoras[index]["nome"] = novo_nome
-                            st.session_state.jogadoras[index]["tipo"] = novo_tipo
-                            st.session_state.jogadoras[index]["status"] = novo_status
-                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success(f"Jogadora {novo_nome} atualizada!")
-                            st.rerun()
-                            
-                        if excluir_btn:
-                            nome_removido = joga.get("nome")
-                            st.session_state.jogadoras.pop(index)
-                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success(f"Jogadora {nome_removido} excluída com sucesso!")
-                            st.rerun()
+with st.sidebar:
+    st.markdown(
+        "<h2 style='color:#581825;'>🍷 Galpão Premium</h2>", unsafe_allow_html=True
+    )
 
-elif menu == "⚙️ Painel Admin":
-    st.subheader("⚙️ Configurações Gerais do Sistema")
-    if not st.session_state.admin_logged:
-        st.error("🔒 Faça login como Administrador na barra lateral para acessar estas configurações.")
-    else:
-        tab_cfg, tab_admins = st.tabs(["🛠️ Configurações do Jogo", "🔑 Gerenciar Administradores"])
-        
-        with tab_cfg:
-            with st.form("form_config_geral"):
-                novo_limite = st.number_input("Limite Máximo de Vagas no Jogo", min_value=1, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
-                novo_recado = st.text_input("Recado / Aviso Principal", value=st.session_state.avisos.get("recado", ""))
-                if st.form_submit_button("💾 Salvar Configurações"):
-                    st.session_state.avisos["limite_vagas"] = int(novo_limite)
-                    st.session_state.avisos["recado"] = novo_recado
-                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Configurações atualizadas com sucesso!")
-                    st.rerun()
-                    
-        with tab_admins:
-            st.subheader("Cadastrar Novos Administradores")
-            with st.form("form_novo_admin"):
-                novo_user = st.text_input("Novo Usuário Admin")
-                nova_senha = st.text_input("Senha do Novo Admin", type="password")
-                btn_cad_adm = st.form_submit_button("Cadastrar Administrador")
-                
-                if btn_cad_adm:
-                    if novo_user and nova_senha:
-                        if any(a["usuario"] == novo_user for a in st.session_state.admins_lista):
-                            st.error("Este usuário já existe!")
-                        else:
-                            st.session_state.admins_lista.append({"usuario": novo_user, "senha": nova_senha})
-                            salvar_dados(ADMINS_FILE, st.session_state.admins_lista)
-                            st.success(f"Administrador '{novo_user}' cadastrado com sucesso!")
-                            st.rerun()
-                    else:
-                        st.warning("Preencha usuário e senha.")
-            
-            st.markdown("### Administradores Cadastrados:")
-            for adm in st.session_state.admins_lista:
-                st.text(f"👤 Usuário: {adm['usuario']}")
+    menu = st.radio(
+        "Menu Principal:",
+        [
+            "🔍 Buscar vinho",
+            "🍷 Ver estoque completo",
+            "➕ Cadastrar novo vinho",
+            "✏️ Editar vinho",
+            "🗑️ Excluir vinho",
+            "📥 Importar planilha (CSV/Excel)",
+            "📤 Exportar planilha (CSV)",
+            "🏷️ Gerar QR Code do Pallet",
+            "📷 Escanear QR Code",
+        ],
+    )
+    st.markdown("---")
 
-# Rodapé
-st.markdown("<div style='text-align: center; color: #94A3B8; margin-top: 40px; font-size: 0.85rem;'>Peladinha FC ⚽ — Todos os direitos reservados</div>", unsafe_allow_html=True)
+    if st.button("🔒 Sair do Sistema", use_container_width=True):
+        st.session_state.autenticado = False
+        st.query_params.clear()
+        st.rerun()
+
+    st.markdown(
+        f"""
+        <div style="
+            background: linear-gradient(135deg, #581825 0%, #2D0C13 100%);
+            padding: 14px;
+            border-radius: 12px;
+            color: white;
+            text-align: center;
+            margin-top: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+        ">
+            <p style="margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: #D1A3AB;">
+                Desenvolvimento & Arq.
+            </p>
+            <h4 style="margin: 4px 0 2px 0; color: #FFFFFF; font-size: 1.05rem; font-weight: 700;">
+                {NOME_DEV}
+            </h4>
+            <p style="margin: 0 0 8px 0; font-size: 0.78rem; color: #E2E8F0; font-weight: 500;">
+                🎓 {TITULO_DEV}
+            </p>
+            <div style="border-top: 1px solid rgba(255,255,255,0.2); padding-top: 6px; margin-top: 6px;">
+                <p style="margin: 0; font-size: 0.78rem; color: #FFD700; font-weight: bold;">
+                    📞 {FONE_DEV}
+                </p>
+            </div>
+        </div>
+    """,
+        unsafe_allow_html=True,
+    )
+
+st.markdown(
+    """
+    <div class="header-container">
+        <h1 class="main-title">🍷 MAPA ESTOQUE GALPÃO</h1>
+        <p class="sub-title">Painel de Localização em Tempo Real</p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <div style="
+        background: linear-gradient(135deg, #FFF5F7 0%, #FED7D7 100%);
+        border-left: 5px solid #581825;
+        padding: 12px 18px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        color: #581825;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.03);
+    ">
+        <h4 style="margin: 0; font-size: 1.05rem; font-weight: 700;">👋 Olá, Seja muito bem-vindo!</h4>
+        <p style="margin: 4px 0 0 0; font-size: 0.88rem; color: #7B341E;">
+            O sistema de mapeamento de vinhos está pronto e sincronizado. Use o menu ao lado para buscar vinhos, ler QR Codes ou cadastrar novas caixas.
+        </p>
+    </div>
+""",
+    unsafe_allow_html=True,
+)
+
+if menu == "🔍 Buscar vinho":
+    st.subheader("🔍 Localizar Vinho no Galpão")
+
+    aba_texto, aba_foto = st.tabs(
+        ["🔎 Buscar por Texto / Pallet", "📸 Buscar por Foto do Rótulo"]
+    )
+
+    with aba_texto:
+        c_tipo, c_busca = st.columns([1, 2])
+        with c_tipo:
+            sub_op = st.selectbox(
+                "Filtrar por:",
+                ["Por Nome", "Por Tipo", "Por Safra", "Por Pallet / Corredor"],
+            )
+        with c_busca:
+            termo = st.text_input("Digite o que procura:").strip().lower()
+
+        if termo:
+            resultados = [
+                v
+                for v in st.session_state.estoque
+                if termo in str(v.get(sub_op.split()[-1].lower(), "")).lower()
+                or termo in str(v.get("nome", "")).lower()
+            ]
+            if not resultados:
+                st.warning("⚠️ Nenhum vinho encontrado.")
+            else:
+                for v in resultados:
+                    st.markdown(
+                        f"""
+                    <div class="wine-card">
+                        <div class="wine-title">🍷 {v.get('nome')} ({v.get('safra')})</div>
+                        <p><span class="badge-pallet">📍 {v.get('pallet')}</span> <span class="badge-info">Lado: {v.get('lado')}</span></p>
+                        <p style="margin-top:8px; font-size:0.9rem;"><b>Tipo:</b> {v.get('tipo')} | <b>Embalagem:</b> {v.get('caixa')}</p>
+                    </div>
+                    """,
+                        unsafe_allow_html=True,
+                    )
+                    if v.get("foto"):
+                        with st.expander("🔍 Ver / Aumentar Foto do Rótulo", expanded=True):
+                            st.image(
+                                base64.b64decode(v.get("foto")),
+                                caption="Toque na imagem para ver em Tela Cheia",
+                                use_container_width=True,
+                            )
+                    st.markdown("---")
+
+    with aba_foto:
+        st.write("Tire uma foto ou envie a imagem do rótulo para pesquisar:")
+        foto_pesquisa = st.file_uploader(
+            "Selecione a foto da garrafa:", type=["jpg", "jpeg", "png"]
+        )
+
+        if foto_pesquisa is not None:
+            try:
+                img_pesquisa = Image.open(foto_pesquisa)
+                st.image(
+                    img_pesquisa,
+                    caption="Foto para Busca (Toque para Zoom)",
+                    width=280,
+                )
+
+                hash_pesquisa = calcular_hash_simples(img_pesquisa)
+                encontrados = []
+
+                for item in st.session_state.estoque:
+                    if item.get("foto"):
+                        try:
+                            bytes_banco = base64.b64decode(item["foto"])
+                            img_banco = Image.open(io.BytesIO(bytes_banco))
+                            hash_banco = calcular_hash_simples(img_banco)
+
+                            dif = comparar_hashes(hash_pesquisa, hash_banco)
+                            if dif <= 18:
+                                encontrados.append((dif, item))
+                        except Exception:
+                            pass
+
+                encontrados.sort(key=lambda x: x[0])
+
+                st.markdown("---")
+                if encontrados:
+                    st.success(
+                        f"🎯 Encontrado(s) {len(encontrados)} resultado(s) parecido(s):"
+                    )
+                    for diff, v in encontrados:
+                        st.markdown(
+                            f"""
+                        <div class="wine-card">
+                            <div class="wine-title">🍷 {v.get('nome')}</div>
+                            <p><span class="badge-pallet">📍 {v.get('pallet')}</span> <span class="badge-info">Lado: {v.get('lado')}</span></p>
+                            <p style="margin-top:8px; font-size:0.9rem;"><b>Safra:</b> {v.get('safra')} | <b>Caixa:</b> {v.get('caixa')}</p>
+                        </div>
+                        """,
+                            unsafe_allow_html=True,
+                        )
+                        if v.get("foto"):
+                            with st.expander("🔍 Ver / Aumentar Foto do Rótulo"):
+                                st.image(
+                                    base64.b64decode(v.get("foto")),
+                                    caption="Rótulo Cadastrado",
+                                    use_container_width=True,
+                                )
+                        st.markdown("---")
+                else:
+                    st.warning(
+                        "⚠️ Nenhum vinho idêntico ou similar encontrado no cadastro."
+                    )
+            except Exception as e:
+                st.error(f"Erro ao processar foto: {e}")
+
+elif menu == "🍷 Ver estoque completo":
+    st.subheader("📋 Tabela do Estoque Completo")
+    if st.session_state.estoque:
+        df = pd.DataFrame(st.session_state.estoque)
+        if "foto" in df.columns:
+            df = df.drop(columns=["foto"])
+        st.dataframe(df, use_container_width=True)
+
+elif menu == "➕ Cadastrar novo vinho":
+    st.subheader("➕ Novo Cadastro no Galpão")
+
+    with st.form(f"form_cadastrar_{st.session_state.form_key}"):
+        nome = st.text_input("Nome do Vinho / Marca:").strip()
+
+        c_tipo, c_safra = st.columns(2)
+        with c_tipo:
+            tipo = st.text_input("Tipo (ex: Tinto, Branco):").strip()
+        with c_safra:
+            safra = st.selectbox("📅 Safra:", OPCOES_SAFRA)
+
+        c_corr, c_pal, c_lad = st.columns(3)
+        with c_corr:
+            sel_corredor = st.selectbox("🛣️ Corredor:", LISTA_CORREDORES)
+        with c_pal:
+            sel_pallet = st.selectbox("📦 Pos./Pallet:", LISTA_PALLETS)
+        with c_lad:
+            lado = st.selectbox("↔️ Lado:", LISTA_LADOS)
+
+        c_cx, c_vol = st.columns(2)
+        with c_cx:
+            caixa = st.selectbox("📦 Formato da Caixa:", OPCOES_CAIXA)
+        with c_vol:
+            volume = st.selectbox("🧪 Volume:", ["750ml", "375ml", "1500ml"])
+
+        foto_upload = st.file_uploader(
+            "📸 Foto do Rótulo (Opcional):", type=["jpg", "jpeg", "png"]
+        )
+
+        btn_salvar = st.form_submit_button(
+            "✅ Salvar Vinho", use_container_width=True
+        )
+
+        if btn_salvar:
+            pallet_final = f"{sel_corredor} - {sel_pallet}"
+            if nome and tipo:
+                foto_b64 = converter_imagem_base64(foto_upload)
+
+                novo_vinho = {
+                    "nome": nome,
+                    "tipo": tipo,
+                    "safra": safra,
+                    "pallet": pallet_final,
+                    "lado": lado,
+                    "caixa": caixa,
+                    "volume": volume,
+                    "foto": foto_b64,
+                }
+                st.session_state.estoque.append(novo_vinho)
+                salvar_dados(st.session_state.estoque)
+
+                st.session_state.form_key += 1
+                st.success(f"✅ '{nome}' cadastrado com sucesso!")
+                st.rerun()
+            else:
+                st.error("⚠️ Preencha pelo menos o Nome e o Tipo.")
+
+elif menu == "✏️ Editar vinho":
+    st.subheader("✏️ Alterar Cadastro")
+    if st.session_state.estoque:
+        opcoes = [
+            f"{i + 1}. {v.get('nome')} - {v.get('pallet')}"
+            for i, v in enumerate(st.session_state.estoque)
+        ]
+        idx = st.selectbox(
+            "Selecione:", range(len(opcoes)), format_func=lambda x: opcoes[x]
+        )
+        vinho = st.session_state.estoque[idx]
+
+        with st.form("form_edit"):
+            novo_nome = st.text_input("Nome:", vinho.get("nome"))
+            novo_pallet = st.text_input("Pallet:", vinho.get("pallet"))
+            nova_caixa = st.selectbox("Caixa:", OPCOES_CAIXA)
+            foto_nova = st.file_uploader(
+                "Atualizar Foto:", type=["jpg", "jpeg", "png"]
+            )
+
+            if st.form_submit_button("💾 Salvar"):
+                vinho["nome"] = novo_nome
+                vinho["pallet"] = novo_pallet
+                vinho["caixa"] = nova_caixa
+                if foto_nov
