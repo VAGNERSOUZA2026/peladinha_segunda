@@ -1,5 +1,10 @@
 import streamlit as st
-
+[theme]
+primaryColor = "#228B22"        # Verde grama vibrante
+backgroundColor = "#F4F9F4"     # Fundo da página com um tom bem claro e limpo
+secondaryBackgroundColor = "#E2F0D9" # Fundo da barra lateral e blocos em verde suave
+textColor = "#1B3B1A"           # Texto em tom escuro esverdeado
+font = "sans serif"
 st.set_page_config(
     page_title="Peladinha FC ⚽",  # Nome que aparece na aba do navegador
     page_icon="⚽",                 # Emoji que aparece na aba
