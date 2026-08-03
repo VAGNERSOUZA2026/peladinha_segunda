@@ -184,7 +184,7 @@ if "regulamento" not in st.session_state:
     ])
 if "sorteio_oficial" not in st.session_state:
     st.session_state.sorteio_oficial = carregar_dados(SORTEIO_FILE, {})
-if "usuario_logado" not in st.session_state:
+    if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "admin_logged" not in st.session_state:
     st.session_state.admin_logged = False
