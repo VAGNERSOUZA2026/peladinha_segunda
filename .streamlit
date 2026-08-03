@@ -1,31 +1,6 @@
-import streamlit as st
-
-# Configuração da página e ícone de futebol
-st.set_page_config(
-    page_title="Peladinha FC ⚽",
-    page_icon="⚽",
-    layout="wide"
-)
-
-# Estilo personalizado para lembrar uma quadra sintética
-st.markdown("""
-    <style>
-    /* Estilização dos botões principais */
-    .stButton>button {
-        background-color: #2E8B57;
-        color: white;
-        border-radius: 8px;
-        border: none;
-        font-weight: bold;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        background-color: #228B22;
-        color: white;
-    }
-    /* Estilização dos títulos */
-    h1, h2, h3 {
-        color: #1B3B1A !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+[theme]
+primaryColor = "#228B22"
+backgroundColor = "#F4F9F4"
+secondaryBackgroundColor = "#E2F0D9"
+textColor = "#1B3B1A"
+font = "sans serif"
