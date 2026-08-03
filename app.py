@@ -7,7 +7,6 @@ import pandas as pd
 import streamlit as st
 from PIL import Image
 
-# Importações seguras para processamento de imagem e decodificação de QR Code
 try:
     import cv2
     import numpy as np
@@ -23,10 +22,8 @@ try:
 except ImportError:
     PYZBAR_DISPONIVEL = False
 
-# URL da imagem no seu repositório GitHub
 URL_LOGO_GITHUB = "https://raw.githubusercontent.com/Vagner-Souza/mapa-estoque-galpao-premium/main/logo.png"
 
-# 1. Configuração da página Streamlit
 st.set_page_config(
     page_title="Mapa Estoque - Galpão Premium",
     page_icon="logo.png",
@@ -34,7 +31,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Injeção de Meta Tags para Ícone da Tela Inicial no Celular e Navegadores
 st.markdown(
     f"""
     <head>
@@ -46,7 +42,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# 2. Estilização CSS Personalizada
 st.markdown(
     """
     <style>
@@ -114,14 +109,12 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- CONFIGURAÇÕES DO GALPÃO ---
 SENHA_ACESSO = "1980"
 NOME_ARQUIVO = "estoque_galpao.json"
 URL_APLICATIVO = (
     "https://mapa-estoque-galpao-premium-vbewrgwbe5ktw8ptefwxmf.streamlit.app"
 )
 
-# DADOS DO DESENVOLVEDOR
 NOME_DEV = "Vagner Souza"
 TITULO_DEV = "Cientista da Computação"
 FONE_DEV = "(31) 98968-4010"
@@ -239,7 +232,6 @@ def decodificar_qr_code(imagem_bytes):
     return None
 
 
-# --- ESTADO DE SESSÃO ---
 if "estoque" not in st.session_state:
     st.session_state.estoque = carregar_dados()
 
@@ -256,7 +248,6 @@ if auth_param == SENHA_ACESSO:
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
-# --- TELA DE LOGIN ---
 if not st.session_state.autenticado:
     st.markdown(
         """
@@ -284,7 +275,6 @@ if not st.session_state.autenticado:
                 st.error("Senha incorreta!")
     st.stop()
 
-# --- CONSULTA DIRETA VIA LINK DE QR CODE ---
 if pallet_param:
     pallet_nome = urllib.parse.unquote_plus(pallet_param)
     st.markdown(
@@ -333,7 +323,6 @@ if pallet_param:
 
     st.stop()
 
-# --- MENU LATERAL ---
 with st.sidebar:
     st.markdown(
         "<h2 style='color:#581825;'>🍷 Galpão Premium</h2>", unsafe_allow_html=True
@@ -390,7 +379,6 @@ with st.sidebar:
         unsafe_allow_html=True,
     )
 
-# --- CABEÇALHO PRINCIPAL ---
 st.markdown(
     """
     <div class="header-container">
@@ -401,7 +389,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- BANNER DE BOAS-VINDAS ---
 st.markdown(
     """
     <div style="
@@ -422,7 +409,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- NAVEGAÇÃO ENTRE TELAS DO MENU ---
 if menu == "🔍 Buscar vinho":
     st.subheader("🔍 Localizar Vinho no Galpão")
 
@@ -612,4 +598,16 @@ elif menu == "✏️ Editar vinho":
         )
         vinho = st.session_state.estoque[idx]
 
-        with st.
+        with st.form("form_edit"):
+            novo_nome = st.text_input("Nome:", vinho.get("nome"))
+            novo_pallet = st.text_input("Pallet:", vinho.get("pallet"))
+            nova_caixa = st.selectbox("Caixa:", OPCOES_CAIXA)
+            foto_nova = st.file_uploader(
+                "Atualizar Foto:", type=["jpg", "jpeg", "png"]
+            )
+
+            if st.form_submit_button("💾 Salvar"):
+                vinho["nome"] = novo_nome
+                vinho["pallet"] = novo_pallet
+                vinho["caixa"] = nova_caixa
+                if foto_nov
