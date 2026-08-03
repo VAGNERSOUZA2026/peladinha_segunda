@@ -713,4 +713,4 @@ elif menu == "⚙️ Painel Admin":
                 st.rerun()
 
 # Rodapé
-st.markdown("<div style='text-align: center; 
+st.markdown("<div style='text-align: center; color: #94A3B8; margin-top: 40px; font-size: 0.85rem;'>Peladinha FC ⚽ — Todos os direitos reservados</div>", unsafe_allow_html=True)
