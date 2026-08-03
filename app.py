@@ -1,4 +1,5 @@
 import streamlit as st
+
 [theme]
 primaryColor = "#228B22"        # Verde grama vibrante
 backgroundColor = "#F4F9F4"     # Fundo da página com um tom bem claro e limpo
