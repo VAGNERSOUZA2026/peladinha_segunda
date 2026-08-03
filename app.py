@@ -325,8 +325,19 @@ else:
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# LÓGICA DE ORDENAÇÃO DE PRESENÇA
+# LÓGICA DE ORDENAÇÃO DE PRESENÇA COM LIMPEZA AUTOMÁTICA
 # -----------------------------------------------------------------------------
+# Pega a lista de nomes de todas as jogadoras que atualmente estão cadastradas
+nomes_jogadoras_validas = [j["nome"] for j in st.session_state.jogadoras]
+
+# Filtra a lista de presença removendo qualquer jogadora que tenha sido excluída do cadastro
+st.session_state.presencas = [
+    p for p in st.session_state.presencas 
+    if obter_nome_p(p) in nomes_jogadoras_validas
+]
+salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+
+# Prossegue com a ordenação normal
 lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
 mensalistas = [p for p in lista_atual if p.get("tipo") == "Mensalista"]
 avulsas = [p for p in lista_atual if p.get("tipo") == "Avulso"]
