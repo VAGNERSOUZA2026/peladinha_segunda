@@ -251,8 +251,7 @@ if st.session_state.usuario_logado:
         st.session_state.usuario_logado = None
         st.rerun()
 else:
-    # Usamos radio button para alternar a visão na barra lateral sem conflito de forms
-    modo_acesso = st.sidebar.radio("Escolha:", ["Entrar", "Cadastrar"], horizontal=True, label_visibility="collapsed")
+    modo_acesso = st.sidebar.radio("Escolha:", ["Entrar", "Cadastrar"], horizontal=True, label_visibility="collapsed", key="radio_modo_acesso")
 
     if modo_acesso == "Entrar":
         if st.session_state.get("msg_cadastro_sucesso", False):
@@ -302,73 +301,8 @@ else:
                         st.rerun()
                 else:
                     st.sidebar.error("Preencha Nome, Login e Senha!")
-                    
-    with tab_cad:
-        with st.form("form_cad_player", clear_on_submit=True):
-            c_nome = st.text_input("Seu Nome *")
-            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
-            c_cont = st.text_input("WhatsApp / Contato", placeholder="Ex: 31999999999")
-            c_tipo = st.selectbox("Tipo de Jogadora *", ["Avulso", "Mensalista"])
-            c_user = st.text_input("Escolha um Login *")
-            c_pass = st.text_input("Escolha uma Senha *", type="password")
-            
-            if st.form_submit_button("📝 Criar Conta", use_container_width=True):
-                if c_nome and c_user and c_pass:
-                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
-                        st.error("Este Login já está em uso. Escolha outro!")
-                    else:
-                        st.session_state.jogadoras.append({
-                            "nome": c_nome.strip(), 
-                            "nascimento": c_nasc.strip(),
-                            "login": c_user.strip(), 
-                            "senha": c_pass.strip(),
-                            "tipo": c_tipo,
-                            "mes_vigente": mes_vigente_str,
-                            "contato": c_cont.strip(), 
-                            "status": "Ativo", 
-                            "status_pagamento": "Pendente"
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.session_state.aba_ativa = "Entrar"
-                        st.session_state.msg_cadastro_sucesso = True
-                        st.rerun()
-                else:
-                    st.error("Preencha Nome, Login e Senha!")
-with tab_cad:
-        with st.form("form_cad_player", clear_on_submit=True):
-            c_nome = st.text_input("Seu Nome *")
-            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
-            c_cont = st.text_input("WhatsApp / Contato", placeholder="Ex: 31999999999")
-            
-            # ADICIONADO AQUI: Opção para escolher o tipo de jogadora
-            c_tipo = st.selectbox("Tipo de Jogadora *", ["Avulso", "Mensalista"])
-            
-            c_user = st.text_input("Escolha um Login *")
-            c_pass = st.text_input("Escolha uma Senha *", type="password")
-            
-            if st.form_submit_button("📝 Criar Conta", use_container_width=True):
-                if c_nome and c_user and c_pass:
-                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
-                        st.error("Este Login já está em uso. Escolha outro!")
-                    else:
-                        st.session_state.jogadoras.append({
-                            "nome": c_nome.strip(), 
-                            "nascimento": c_nasc.strip(),
-                            "login": c_user.strip(), 
-                            "senha": c_pass.strip(),
-                            "tipo": c_tipo,  # <--- AGORA USA A VARIÁVEL ESCOLHIDA NO FORMULÁRIO
-                            "mes_vigente": mes_vigente_str,
-                            "contato": c_cont.strip(), 
-                            "status": "Ativo", 
-                            "status_pagamento": "Pendente"
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.session_state.aba_ativa = "Entrar"
-                        st.session_state.msg_cadastro_sucesso = True
-                        st.rerun()
-                else:
-                    st.error("Preencha Nome, Login e Senha!")
 
+# --- ÁREA DO ADMINISTRADOR SEMPRE VISÍVEL NA BARRA LATERAL ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔒 Área do Administrador")
 
@@ -385,7 +319,7 @@ if not st.session_state.admin_logged:
                 st.error("Senha/Login Admin incorreto!")
 else:
     st.sidebar.info(f"🔑 Admin: **{st.session_state.admin_nome}**")
-    if st.sidebar.button("Sair do Admin"):
+    if st.sidebar.button("Sair do Admin", use_container_width=True):
         st.session_state.admin_logged = False
         st.session_state.admin_nome = ""
         st.rerun()
