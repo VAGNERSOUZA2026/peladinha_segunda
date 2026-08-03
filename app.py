@@ -12,7 +12,7 @@ REGULAMENTO_FILE = "regulamento.json"
 AVISOS_FILE = "avisos.json"
 
 def salvar_dados(arquivo, dados):
-    # Função padrão de salvamento do seu sistema
+    # Função de salvamento do seu sistema
     pass
 
 # Inicialização de dados no session_state
@@ -20,7 +20,6 @@ if "admin_logged" not in st.session_state:
     st.session_state.admin_logged = False
 
 if "admins_lista" not in st.session_state:
-    # Acesso de desenvolvedor padrão
     st.session_state.admins_lista = [{"usuario": "dev", "senha": "123"}]
 
 if "jogadoras" not in st.session_state:
@@ -40,7 +39,7 @@ st.sidebar.markdown("---")
 
 # CAMPO DE LOGIN DE ADMINISTRADOR NA BARRA LATERAL
 if not st.session_state.admin_logged:
-    st.sidebar.subheader("🔒 Acesso Restrito")
+    st.sidebar.subheader("🔒 Acesso Restrito (Admin)")
     with st.sidebar.form("form_login_lateral"):
         u_input = st.text_input("Usuário Admin")
         s_input = st.text_input("Senha", type="password")
@@ -68,7 +67,8 @@ opcoes_menu = [
     "Sorteio de Times", 
     "Pagamento & Pix", 
     "📜 Regulamento", 
-    "📋 Elenco de Jogadoras"
+    "📋 Elenco de Jogadoras",
+    "👤 Área da Jogadora (Cadastro / Login)"
 ]
 
 if st.session_state.admin_logged:
@@ -93,6 +93,60 @@ elif menu == "Sorteio de Times":
 elif menu == "Pagamento & Pix":
     st.subheader("💰 Pagamento & Pix")
     st.write("Chave Pix e controle de comprovação de pagamentos.")
+
+elif menu == "👤 Área da Jogadora (Cadastro / Login)":
+    st.subheader("👤 Área da Jogadora")
+    
+    tab_login_joga, tab_cadastro_joga = st.tabs(["🔑 Já tenho cadastro (Entrar)", "📝 Quero me Cadastrar"])
+    
+    with tab_login_joga:
+        st.write("Digite seu nome cadastrado para acessar suas informações:")
+        with st.form("form_login_jogadora"):
+            nome_busca = st.text_input("Seu Nome Completo")
+            btn_entrar_joga = st.form_submit_button("Acessar Meu Perfil")
+            
+            if btn_entrar_joga:
+                if not nome_busca:
+                    st.warning("Digite o seu nome.")
+                else:
+                    encontrada = next((j for j in st.session_state.jogadoras if j["nome"].strip().lower() == nome_busca.strip().lower()), None)
+                    if encontrada:
+                        st.success(f"Bem-vinda de volta, {encontrada['nome']}! ⚽")
+                        st.info(f"**Categoria:** {encontrada.get('tipo', 'Mensalista')} | **Status:** {encontrada.get('status', 'Ativo')}")
+                        st.write(f"**Contato:** {encontrada.get('contato', 'Não informado')}")
+                    else:
+                        st.error("Jogadora não encontrada. Verifique se o nome está correto ou faça o cadastro na aba ao lado.")
+
+    with tab_cadastro_joga:
+        st.subheader("Faça seu Cadastro no Elenco")
+        with st.form("form_novo_cadastro_jogadora"):
+            novo_nome = st.text_input("Nome Completo")
+            novo_tipo = st.selectbox("Você será:", ["Mensalista", "Avulsa"])
+            novo_nasc = st.text_input("Data de Nascimento (Ex: DD/MM/AAAA)")
+            novo_contato = st.text_input("WhatsApp / Contato")
+            
+            btn_cadastrar = st.form_submit_button("Concluir Cadastro")
+            
+            if btn_cadastrar:
+                if not novo_nome:
+                    st.error("O campo de nome é obrigatório.")
+                else:
+                    ja_existe = any(j["nome"].strip().lower() == novo_nome.strip().lower() for j in st.session_state.jogadoras)
+                    
+                    if ja_existe:
+                        st.warning("Já existe uma jogadora cadastrada com este nome!")
+                    else:
+                        nova_jogadora = {
+                            "nome": novo_nome,
+                            "tipo": novo_tipo,
+                            "status": "Ativo",
+                            "nascimento": novo_nasc,
+                            "contato": novo_contato
+                        }
+                        st.session_state.jogadoras.append(nova_jogadora)
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success(f"Parabéns, {novo_nome}! Cadastro realizado com sucesso.")
+                        st.balloons()
 
 elif menu == "📊 Fluxo de Caixa (Admin)" and st.session_state.admin_logged:
     st.subheader("📊 Fluxo de Caixa (Área Administrativa)")
@@ -219,3 +273,4 @@ elif menu == "⚙️ Painel Admin" and st.session_state.admin_logged:
 
 # Rodapé
 st.markdown("<div style='text-align: center; color: #94A3B8; margin-top: 40px; font-size: 0.85rem;'>Peladinha FC ⚽ — Todos os direitos reservados</div>", unsafe_allow_html=True)
+                            
