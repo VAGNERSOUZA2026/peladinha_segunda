@@ -251,7 +251,12 @@ if st.session_state.usuario_logado:
         st.session_state.usuario_logado = None
         st.rerun()
 else:
-    tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"] if st.session_state.aba_ativa == "Entrar" else ["Cadastrar", "Entrar"])
+    # Criação segura das abas apenas quando não houver ninguém logado
+    if st.session_state.aba_ativa == "Entrar":
+        tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"])
+    else:
+        tab_cad, tab_log = st.sidebar.tabs(["Cadastrar", "Entrar"])
+
     with tab_log:
         if st.session_state.msg_cadastro_sucesso:
             st.success("🎉 Cadastro realizado com sucesso! Faça login:")
@@ -266,6 +271,38 @@ else:
                     st.rerun()
                 else:
                     st.error("Login ou senha incorretos!")
+                    
+    with tab_cad:
+        with st.form("form_cad_player", clear_on_submit=True):
+            c_nome = st.text_input("Seu Nome *")
+            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+            c_cont = st.text_input("WhatsApp / Contato", placeholder="Ex: 31999999999")
+            c_tipo = st.selectbox("Tipo de Jogadora *", ["Avulso", "Mensalista"])
+            c_user = st.text_input("Escolha um Login *")
+            c_pass = st.text_input("Escolha uma Senha *", type="password")
+            
+            if st.form_submit_button("📝 Criar Conta", use_container_width=True):
+                if c_nome and c_user and c_pass:
+                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
+                        st.error("Este Login já está em uso. Escolha outro!")
+                    else:
+                        st.session_state.jogadoras.append({
+                            "nome": c_nome.strip(), 
+                            "nascimento": c_nasc.strip(),
+                            "login": c_user.strip(), 
+                            "senha": c_pass.strip(),
+                            "tipo": c_tipo,
+                            "mes_vigente": mes_vigente_str,
+                            "contato": c_cont.strip(), 
+                            "status": "Ativo", 
+                            "status_pagamento": "Pendente"
+                        })
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.session_state.aba_ativa = "Entrar"
+                        st.session_state.msg_cadastro_sucesso = True
+                        st.rerun()
+                else:
+                    st.error("Preencha Nome, Login e Senha!")
 with tab_cad:
         with st.form("form_cad_player", clear_on_submit=True):
             c_nome = st.text_input("Seu Nome *")
