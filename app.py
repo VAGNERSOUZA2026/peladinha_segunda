@@ -247,30 +247,61 @@ st.sidebar.title("👤 Área da Jogadora")
 
 if st.session_state.usuario_logado:
     st.sidebar.success(f"Logada: **{st.session_state.usuario_logado}**")
-    if st.sidebar.button("🚪 Sair da Conta"):
+    if st.sidebar.button("🚪 Sair da Conta", use_container_width=True):
         st.session_state.usuario_logado = None
         st.rerun()
 else:
-    # Criação segura das abas apenas quando não houver ninguém logado
-    if st.session_state.aba_ativa == "Entrar":
-        tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"])
-    else:
-        tab_cad, tab_log = st.sidebar.tabs(["Cadastrar", "Entrar"])
+    # Usamos radio button para alternar a visão na barra lateral sem conflito de forms
+    modo_acesso = st.sidebar.radio("Escolha:", ["Entrar", "Cadastrar"], horizontal=True, label_visibility="collapsed")
 
-    with tab_log:
-        if st.session_state.msg_cadastro_sucesso:
-            st.success("🎉 Cadastro realizado com sucesso! Faça login:")
+    if modo_acesso == "Entrar":
+        if st.session_state.get("msg_cadastro_sucesso", False):
+            st.sidebar.success("🎉 Cadastro realizado! Faça login:")
             st.session_state.msg_cadastro_sucesso = False
-        with st.form("form_login_player"):
+            
+        with st.sidebar.form("form_login_player"):
+            st.write("🔑 **Fazer Login**")
             l_user = st.text_input("Login")
             l_pass = st.text_input("Senha", type="password")
-            if st.form_submit_button("🔑 Entrar", use_container_width=True):
+            if st.form_submit_button("Entrar", use_container_width=True):
                 user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
                 if user_found:
                     st.session_state.usuario_logado = user_found["nome"]
                     st.rerun()
                 else:
                     st.error("Login ou senha incorretos!")
+                    
+    else:
+        with st.sidebar.form("form_cad_player", clear_on_submit=True):
+            st.write("📝 **Criar Nova Conta**")
+            c_nome = st.text_input("Seu Nome *")
+            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+            c_cont = st.text_input("WhatsApp / Contato", placeholder="Ex: 31999999999")
+            c_tipo = st.selectbox("Tipo de Jogadora *", ["Avulso", "Mensalista"])
+            c_user = st.text_input("Escolha um Login *")
+            c_pass = st.text_input("Escolha uma Senha *", type="password")
+            
+            if st.form_submit_button("Cadastrar Conta", use_container_width=True):
+                if c_nome and c_user and c_pass:
+                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
+                        st.sidebar.error("Este Login já está em uso!")
+                    else:
+                        st.session_state.jogadoras.append({
+                            "nome": c_nome.strip(), 
+                            "nascimento": c_nasc.strip(),
+                            "login": c_user.strip(), 
+                            "senha": c_pass.strip(),
+                            "tipo": c_tipo,
+                            "mes_vigente": mes_vigente_str,
+                            "contato": c_cont.strip(), 
+                            "status": "Ativo", 
+                            "status_pagamento": "Pendente"
+                        })
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.session_state.msg_cadastro_sucesso = True
+                        st.rerun()
+                else:
+                    st.sidebar.error("Preencha Nome, Login e Senha!")
                     
     with tab_cad:
         with st.form("form_cad_player", clear_on_submit=True):
