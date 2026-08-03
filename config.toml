@@ -1,6 +1,6 @@
 [theme]
-primaryColor = "#2e7d32"        # Cor principal (ex: um verde gramado para futebol)
-backgroundColor = "#ffffff"     # Cor do fundo da página
-secondaryBackgroundColor = "#f0f2f6" # Cor da barra lateral e dos blocos
-textColor = "#262730"           # Cor do texto principal
-font = "sans serif"             # Tipo de letra (sans serif, serif ou monospace)
+primaryColor = "#228B22"
+backgroundColor = "#F4F9F4"
+secondaryBackgroundColor = "#E2F0D9"
+textColor = "#1B3B1A"
+font = "sans serif"
