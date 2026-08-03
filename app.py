@@ -665,43 +665,37 @@ elif menu == "💸 Pagamento & Pix":
     if st.session_state.admin_logged:
         st.markdown("---")
         st.subheader("📥 Comprovantes Recebidos (Admin)")
+        
+        # 1. Filtro automático: Remove comprovantes de jogadoras que foram excluídas do cadastro
+        nomes_cadastradas = [j["nome"] for j in st.session_state.jogadoras]
+        st.session_state.comprovantes = [
+            c for c in st.session_state.comprovantes 
+            if c["nome"] in nomes_cadastradas
+        ]
+        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+
         if not st.session_state.comprovantes:
-            st.info("Nenhum comprovante enviado no momento.")
+            st.info("Nenhum comprovante pendente de jogadoras ativas no momento.")
         else:
             for idx, comp in enumerate(st.session_state.comprovantes):
                 with st.expander(f"📄 Comprovante de: {comp['nome']} — ({comp['data']}) [Status: {comp.get('status', 'Pendente')}]"):
                     st.write(f"**Observação:** {comp['detalhes']}")
                     if os.path.exists(comp.get("arquivo", "")):
-                        st.image(comp["arquivo"], caption=f"Comprovante de {comp['nome']}", width=350)
-                    else:
-                        st.warning("⚠️ Imagem do comprovante não encontrada no servidor.")
-
-                    col_acao1, col_acao2 = st.columns(2)
-                    if comp.get("status") == "Pendente":
-                        valor_pg = st.number_input(f"Valor a dar baixa (R$) para {comp['nome']}:", min_value=0.0, value=50.0, step=5.0, key=f"val_comp_{idx}")
-                        
-                        if col_acao1.button("✅ Confirmar Pagamento", key=f"conf_comp_{idx}"):
-                            # 1. Adicionar ao Fluxo de Caixa
-                            st.session_state.financeiro.append({
-                                "data": hoje_dt.strftime("%d/%m/%Y"),
-                                "descricao": f"Mensalidade - {comp['nome']}",
-                                "tipo": "Entrada",
-                                "valor": float(valor_pg)
-                            })
-                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-
-                            # 2. Marcar como pago na lista da jogadora (atualizando status_pagamento para Pago)
-                            for j in st.session_state.jogadoras:
-                                if j["nome"] == comp["nome"]:
-                                    j["mes_vigente"] = mes_vigente_str
-                                    j["status_pagamento"] = "Pago"
-                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-
-                            # 3. Atualizar status do comprovante
-                            st.session_state.comprovantes[idx]["status"] = "Confirmado"
-                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                            st.success(f"Pagamento de {comp['nome']} confirmado, inserido no caixa e marcado como Pago!")
-                            st.rerun()
+                        st.image(comp["arquivo"], caption=f"Comprovante de {comp['nome']}", width=400)
+                    
+                    # Botão para o admin excluir o comprovante manualmente se desejar
+                    col_b1, col_b2 = st.columns(2)
+                    if col_b1.button(f"🗑️ Excluir Comprovante #{idx}", key=f"del_comp_{idx}"):
+                        # Opcional: Se o arquivo físico existir, remove da pasta
+                        if os.path.exists(comp.get("arquivo", "")):
+                            try:
+                                os.remove(comp["arquivo"])
+                            except:
+                                pass
+                        st.session_state.comprovantes.pop(idx)
+                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                        st.success("Comprovante removido com sucesso!")
+                        st.rerun()
 
                         if col_acao2.button("❌ Rejeitar Pagamento", key=f"rej_comp_{idx}"):
                             for j in st.session_state.jogadoras:
