@@ -1,4 +1,10 @@
 import streamlit as st
+
+st.set_page_config(
+    page_title="Peladinha FC ⚽",  # Nome que aparece na aba do navegador
+    page_icon="⚽",                 # Emoji que aparece na aba
+    layout="wide",                  # "centered" (centralizado) ou "wide" (ocupa a tela toda)
+)
 import pandas as pd
 import json
 import os
