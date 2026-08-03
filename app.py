@@ -10,9 +10,10 @@ st.set_page_config(page_title="Peladinha Segunda", layout="wide")
 DATA_FILE = "jogadoras.json"
 REGULAMENTO_FILE = "regulamento.json"
 AVISOS_FILE = "avisos.json"
+ADMINS_FILE = "admins.json"
 
 def salvar_dados(arquivo, dados):
-    # Função de salvamento do seu sistema
+    # Função padrão de salvamento do seu sistema
     pass
 
 # Inicialização de dados no session_state
@@ -37,7 +38,6 @@ if "avisos" not in st.session_state:
 st.sidebar.title("⚽ Peladinha FC")
 st.sidebar.markdown("---")
 
-# CAMPO DE LOGIN DE ADMINISTRADOR NA BARRA LATERAL
 if not st.session_state.admin_logged:
     st.sidebar.subheader("🔒 Acesso Restrito (Admin)")
     with st.sidebar.form("form_login_lateral"):
@@ -61,14 +61,13 @@ else:
 
 st.sidebar.markdown("---")
 
-# MENU DINÂMICO (Fluxo de Caixa e Painel Admin só aparecem se logado!)
+# Menu dinâmico (Fluxo de Caixa e Painel Admin protegidos)
 opcoes_menu = [
     "Presença no Jogo", 
     "Sorteio de Times", 
     "Pagamento & Pix", 
     "📜 Regulamento", 
-    "📋 Elenco de Jogadoras",
-    "👤 Área da Jogadora (Cadastro / Login)"
+    "📋 Elenco de Jogadoras"
 ]
 
 if st.session_state.admin_logged:
@@ -94,60 +93,6 @@ elif menu == "Pagamento & Pix":
     st.subheader("💰 Pagamento & Pix")
     st.write("Chave Pix e controle de comprovação de pagamentos.")
 
-elif menu == "👤 Área da Jogadora (Cadastro / Login)":
-    st.subheader("👤 Área da Jogadora")
-    
-    tab_login_joga, tab_cadastro_joga = st.tabs(["🔑 Já tenho cadastro (Entrar)", "📝 Quero me Cadastrar"])
-    
-    with tab_login_joga:
-        st.write("Digite seu nome cadastrado para acessar suas informações:")
-        with st.form("form_login_jogadora"):
-            nome_busca = st.text_input("Seu Nome Completo")
-            btn_entrar_joga = st.form_submit_button("Acessar Meu Perfil")
-            
-            if btn_entrar_joga:
-                if not nome_busca:
-                    st.warning("Digite o seu nome.")
-                else:
-                    encontrada = next((j for j in st.session_state.jogadoras if j["nome"].strip().lower() == nome_busca.strip().lower()), None)
-                    if encontrada:
-                        st.success(f"Bem-vinda de volta, {encontrada['nome']}! ⚽")
-                        st.info(f"**Categoria:** {encontrada.get('tipo', 'Mensalista')} | **Status:** {encontrada.get('status', 'Ativo')}")
-                        st.write(f"**Contato:** {encontrada.get('contato', 'Não informado')}")
-                    else:
-                        st.error("Jogadora não encontrada. Verifique se o nome está correto ou faça o cadastro na aba ao lado.")
-
-    with tab_cadastro_joga:
-        st.subheader("Faça seu Cadastro no Elenco")
-        with st.form("form_novo_cadastro_jogadora"):
-            novo_nome = st.text_input("Nome Completo")
-            novo_tipo = st.selectbox("Você será:", ["Mensalista", "Avulsa"])
-            novo_nasc = st.text_input("Data de Nascimento (Ex: DD/MM/AAAA)")
-            novo_contato = st.text_input("WhatsApp / Contato")
-            
-            btn_cadastrar = st.form_submit_button("Concluir Cadastro")
-            
-            if btn_cadastrar:
-                if not novo_nome:
-                    st.error("O campo de nome é obrigatório.")
-                else:
-                    ja_existe = any(j["nome"].strip().lower() == novo_nome.strip().lower() for j in st.session_state.jogadoras)
-                    
-                    if ja_existe:
-                        st.warning("Já existe uma jogadora cadastrada com este nome!")
-                    else:
-                        nova_jogadora = {
-                            "nome": novo_nome,
-                            "tipo": novo_tipo,
-                            "status": "Ativo",
-                            "nascimento": novo_nasc,
-                            "contato": novo_contato
-                        }
-                        st.session_state.jogadoras.append(nova_jogadora)
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Parabéns, {novo_nome}! Cadastro realizado com sucesso.")
-                        st.balloons()
-
 elif menu == "📊 Fluxo de Caixa (Admin)" and st.session_state.admin_logged:
     st.subheader("📊 Fluxo de Caixa (Área Administrativa)")
     st.info("Painel financeiro protegido.")
@@ -157,14 +102,15 @@ elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Oficial do Peladinha FC")
     
     if not st.session_state.regulamento:
-        st.info("Nenhuma regra cadastrada ainda.")
+        st.info("Nenhuma regra cadastrada.")
     else:
         for idx, r in enumerate(st.session_state.regulamento):
             st.markdown(f"**{idx + 1}. {r.get('topico')}**")
             st.write(r.get("regrinha"))
             
+            # Opção de excluir regra para o admin diretamente na listagem
             if st.session_state.admin_logged:
-                if st.button(f"🗑️ Excluir Regra {idx + 1}", key=f"del_reg_{idx}"):
+                if st.button("🗑️ Excluir Regra", key=f"del_reg_{idx}"):
                     st.session_state.regulamento.pop(idx)
                     salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
                     st.success("Regra excluída!")
@@ -214,63 +160,63 @@ elif menu == "📋 Elenco de Jogadoras":
                         with col_btn1:
                             salvar_alt = st.form_submit_button("💾 Salvar Alterações")
                         with col_btn2:
-                            excluir_btn = st.form_submit_button("🗑️ Excluir Jogadora", type="primary")
+                            excluir_btn = st.form_submit_button("🗑️ Excluir Definitivamente", type="primary")
                             
                         if salvar_alt:
                             st.session_state.jogadoras[index]["nome"] = novo_nome
                             st.session_state.jogadoras[index]["tipo"] = novo_tipo
                             st.session_state.jogadoras[index]["status"] = novo_status
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success(f"Dados de {novo_nome} atualizados!")
+                            st.success(f"Jogadora {novo_nome} atualizada!")
                             st.rerun()
                             
                         if excluir_btn:
                             nome_removido = joga.get("nome")
                             st.session_state.jogadoras.pop(index)
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.warning(f"Jogadora {nome_removido} excluída com sucesso!")
+                            st.success(f"Jogadora {nome_removido} excluída com sucesso!")
                             st.rerun()
 
-elif menu == "⚙️ Painel Admin" and st.session_state.admin_logged:
+elif menu == "⚙️ Painel Admin":
     st.subheader("⚙️ Configurações Gerais do Sistema")
-    
-    tab_cfg, tab_admins = st.tabs(["🛠️ Configurações e Vagas", "🔑 Gerenciar Administradores"])
-    
-    with tab_cfg:
-        with st.form("form_config_geral"):
-            novo_limite = st.number_input("Limite Máximo de Vagas no Jogo", min_value=1, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
-            novo_recado = st.text_input("Recado / Aviso Principal", value=st.session_state.avisos.get("recado", ""))
-            if st.form_submit_button("💾 Salvar Configurações"):
-                st.session_state.avisos["limite_vagas"] = int(novo_limite)
-                st.session_state.avisos["recado"] = novo_recado
-                salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                st.success("Configurações atualizadas com sucesso!")
-                st.rerun()
+    if not st.session_state.admin_logged:
+        st.error("🔒 Faça login como Administrador na barra lateral para acessar estas configurações.")
+    else:
+        tab_cfg, tab_admins = st.tabs(["🛠️ Configurações do Jogo", "🔑 Gerenciar Administradores"])
+        
+        with tab_cfg:
+            with st.form("form_config_geral"):
+                novo_limite = st.number_input("Limite Máximo de Vagas no Jogo", min_value=1, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
+                novo_recado = st.text_input("Recado / Aviso Principal", value=st.session_state.avisos.get("recado", ""))
+                if st.form_submit_button("💾 Salvar Configurações"):
+                    st.session_state.avisos["limite_vagas"] = int(novo_limite)
+                    st.session_state.avisos["recado"] = novo_recado
+                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
+                    st.success("Configurações atualizadas com sucesso!")
+                    st.rerun()
+                    
+        with tab_admins:
+            st.subheader("Cadastrar Novos Administradores")
+            with st.form("form_novo_admin"):
+                novo_user = st.text_input("Novo Usuário Admin")
+                nova_senha = st.text_input("Senha do Novo Admin", type="password")
+                btn_cad_adm = st.form_submit_button("Cadastrar Administrador")
                 
-    with tab_admins:
-        st.subheader("Cadastrar Novos Administradores")
-        st.info("Cadastre novos usuários que terão permissão de acesso ao painel admin.")
-        
-        with st.form("form_novo_admin"):
-            novo_user = st.text_input("Novo Usuário Admin")
-            nova_senha = st.text_input("Senha do Novo Admin", type="password")
-            btn_cad_adm = st.form_submit_button("Cadastrar Administrador")
-            
-            if btn_cad_adm:
-                if novo_user and nova_senha:
-                    if any(a["usuario"] == novo_user for a in st.session_state.admins_lista):
-                        st.error("Este usuário já existe!")
+                if btn_cad_adm:
+                    if novo_user and nova_senha:
+                        if any(a["usuario"] == novo_user for a in st.session_state.admins_lista):
+                            st.error("Este usuário já existe!")
+                        else:
+                            st.session_state.admins_lista.append({"usuario": novo_user, "senha": nova_senha})
+                            salvar_dados(ADMINS_FILE, st.session_state.admins_lista)
+                            st.success(f"Administrador '{novo_user}' cadastrado com sucesso!")
+                            st.rerun()
                     else:
-                        st.session_state.admins_lista.append({"usuario": novo_user, "senha": nova_senha})
-                        st.success(f"Administrador '{novo_user}' cadastrado com sucesso!")
-                        st.rerun()
-                else:
-                    st.warning("Preencha o usuário e a senha.")
-        
-        st.markdown("### Administradores Cadastrados:")
-        for adm in st.session_state.admins_lista:
-            st.text(f"👤 Usuário: {adm['usuario']}")
+                        st.warning("Preencha usuário e senha.")
+            
+            st.markdown("### Administradores Cadastrados:")
+            for adm in st.session_state.admins_lista:
+                st.text(f"👤 Usuário: {adm['usuario']}")
 
 # Rodapé
 st.markdown("<div style='text-align: center; color: #94A3B8; margin-top: 40px; font-size: 0.85rem;'>Peladinha FC ⚽ — Todos os direitos reservados</div>", unsafe_allow_html=True)
-                            
