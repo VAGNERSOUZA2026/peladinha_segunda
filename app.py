@@ -610,4 +610,4 @@ elif menu == "✏️ Editar vinho":
                 vinho["nome"] = novo_nome
                 vinho["pallet"] = novo_pallet
                 vinho["caixa"] = nova_caixa
-                if foto_nov:
+                if foto_nov
