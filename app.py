@@ -1,5 +1,30 @@
 import streamlit as st
 
+import streamlit as st
+
+# Configuração da página e ícone de futebol
+st.set_page_config(
+    page_title="Peladinha FC ⚽",
+    page_icon="⚽",
+    layout="wide"
+)
+
+# Estilo personalizado para lembrar uma quadra sintética
+st.markdown("""
+    <style>
+    .stButton>button {
+        background-color: #2E8B57;
+        color: white;
+        border-radius: 8px;
+        border: none;
+        font-weight: bold;
+    }
+    .stButton>button:hover {
+        background-color: #228B22;
+        color: white;
+    }
+    </style>
+""", unsafe_allow_html=True)
 import pandas as pd
 import json
 import os
