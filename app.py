@@ -1,60 +1,52 @@
 import streamlit as st
 import pandas as pd
 
-# Configuração inicial do app
+# Configuração da página
 st.set_page_config(page_title="Peladinha Segunda", layout="wide")
 
 # ==========================================
-# SIMULAÇÃO / INICIALIZAÇÃO DE DADOS E ARQUIVOS
+# ARQUIVOS E VARIÁVEIS DE SUPORTE
 # ==========================================
-# (Substitua ou mantenha as suas funções de salvar/carregar dados originais aqui)
 DATA_FILE = "jogadoras.json"
 REGULAMENTO_FILE = "regulamento.json"
 AVISOS_FILE = "avisos.json"
-ADMINS_FILE = "admins.json"
 
-# Funções auxiliares fictícias caso não estejam no seu escopo principal
 def salvar_dados(arquivo, dados):
-    # Insira aqui a sua lógica real de salvamento (ex: json.dump ou salvamento em arquivo)
+    # Função padrão de salvamento do seu sistema
     pass
 
-# Inicializando session_states caso não existam
+# Inicialização de dados no session_state
 if "admin_logged" not in st.session_state:
     st.session_state.admin_logged = False
 
+if "admins_lista" not in st.session_state:
+    # Acesso de desenvolvedor padrão
+    st.session_state.admins_lista = [{"usuario": "dev", "senha": "123"}]
+
 if "jogadoras" not in st.session_state:
-    st.session_state.jogadoras = [
-        {"nome": "Maria Silva", "tipo": "Mensalista", "status": "Ativo", "nascimento": "01/01/1990", "contato": "31999999999"},
-        {"nome": "Ana Souza", "tipo": "Avulsa", "status": "Ativo", "nascimento": "05/05/1995", "contato": "31888888888"}
-    ]
+    st.session_state.jogadoras = []
 
 if "regulamento" not in st.session_state:
-    st.session_state.regulamento = [
-        {"topico": "Chegada", "regrinha": "Chegar 10 minutos antes para organizar o jogo."},
-        {"topico": "Mensalidade", "regrinha": "Pagamento até o dia 10 de cada mês."}
-    ]
+    st.session_state.regulamento = []
 
 if "avisos" not in st.session_state:
     st.session_state.avisos = {"limite_vagas": 15, "recado": "Favor chegarem adiantadas!"}
-
-if "admins_lista" not in st.session_state:
-    st.session_state.admins_lista = [{"usuario": "admin", "senha": "123"}]
 
 # ==========================================
 # BARRA LATERAL (MENU E LOGIN)
 # ==========================================
 st.sidebar.title("⚽ Peladinha FC")
-
-# Área de Login de Administrador na Sidebar
 st.sidebar.markdown("---")
+
+# CAMPO DE LOGIN DE ADMINISTRADOR NA BARRA LATERAL
 if not st.session_state.admin_logged:
     st.sidebar.subheader("🔒 Acesso Restrito")
     with st.sidebar.form("form_login_lateral"):
-        u_input = st.text_input("Usuário")
+        u_input = st.text_input("Usuário Admin")
         s_input = st.text_input("Senha", type="password")
         btn_entrar = st.form_submit_button("Entrar")
+        
         if btn_entrar:
-            # Verifica se bate com o dev ou com a lista de admins cadastrados
             valido = (u_input == "dev" and s_input == "123") or any(a["usuario"] == u_input and a["senha"] == s_input for a in st.session_state.admins_lista)
             if valido:
                 st.session_state.admin_logged = True
@@ -68,7 +60,9 @@ else:
         st.session_state.admin_logged = False
         st.rerun()
 
-# Menu dinâmico: Fluxo de Caixa e Painel Admin só aparecem se logado!
+st.sidebar.markdown("---")
+
+# MENU DINÂMICO (Fluxo de Caixa e Painel Admin só aparecem se logado!)
 opcoes_menu = [
     "Presença no Jogo", 
     "Sorteio de Times", 
@@ -83,7 +77,7 @@ if st.session_state.admin_logged:
 menu = st.sidebar.radio("Navegação", opcoes_menu)
 
 # ==========================================
-# ROTAS / PÁGINAS DO APLICATIVO
+# ROTAS / PÁGINAS
 # ==========================================
 
 if menu == "Presença no Jogo":
@@ -108,21 +102,23 @@ elif menu == "📊 Fluxo de Caixa (Admin)" and st.session_state.admin_logged:
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Oficial do Peladinha FC")
     
-    for idx, r in enumerate(st.session_state.regulamento):
-        st.markdown(f"**{idx + 1}. {r.get('topico')}**")
-        st.write(r.get("regrinha"))
-        
-        # Opção de excluir regra diretamente para o administrador
-        if st.session_state.admin_logged:
-            if st.button(f"🗑️ Excluir Regra {idx + 1}", key=f"del_reg_{idx}"):
-                st.session_state.regulamento.pop(idx)
-                salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                st.success("Regra excluída com sucesso!")
-                st.rerun()
-        st.markdown("---")
+    if not st.session_state.regulamento:
+        st.info("Nenhuma regra cadastrada ainda.")
+    else:
+        for idx, r in enumerate(st.session_state.regulamento):
+            st.markdown(f"**{idx + 1}. {r.get('topico')}**")
+            st.write(r.get("regrinha"))
+            
+            if st.session_state.admin_logged:
+                if st.button(f"🗑️ Excluir Regra {idx + 1}", key=f"del_reg_{idx}"):
+                    st.session_state.regulamento.pop(idx)
+                    salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                    st.success("Regra excluída!")
+                    st.rerun()
+            st.markdown("---")
 
     if st.session_state.admin_logged:
-        with st.expander("🛠️ [Admin] Adicionar Novo Regulamento"):
+        with st.expander("🛠️ [Admin] Adicionar / Editar Regulamento"):
             with st.form("form_novo_reg"):
                 novo_topico = st.text_input("Título do Tópico")
                 nova_regrinha = st.text_area("Descrição da Regra")
@@ -143,22 +139,19 @@ elif menu == "📋 Elenco de Jogadoras":
         cols_disponiveis = [c for c in cols_mostrar if c in df_joga.columns]
         st.dataframe(df_joga[cols_disponiveis], use_container_width=True, hide_index=True)
 
-        # Gerenciamento completo (Editar Categoria, Status e Excluir) visível apenas para Admin
         if st.session_state.admin_logged:
             st.markdown("---")
-            st.subheader("🛠️ Gerenciar Elenco Detalhado (Admin)")
+            st.subheader("🛠️ Gerenciar Elenco (Admin)")
             
             for index, joga in enumerate(st.session_state.jogadoras):
                 with st.expander(f"⚙️ Editar / Excluir: {joga.get('nome')} ({joga.get('tipo', 'Mensalista')})"):
                     with st.form(f"form_edit_joga_{index}"):
                         novo_nome = st.text_input("Nome", value=joga.get("nome", ""))
                         
-                        # Tipo: Mensalista ou Avulsa
                         tipo_atual = joga.get("tipo", "Mensalista")
                         idx_tipo = 0 if tipo_atual == "Mensalista" else 1
                         novo_tipo = st.selectbox("Categoria", ["Mensalista", "Avulsa"], index=idx_tipo, key=f"t_{index}")
                         
-                        # Status: Ativo ou Inativo
                         status_atual = joga.get("status", "Ativo")
                         idx_status = 0 if status_atual == "Ativo" else 1
                         novo_status = st.selectbox("Status", ["Ativo", "Inativo"], index=idx_status, key=f"s_{index}")
@@ -181,13 +174,12 @@ elif menu == "📋 Elenco de Jogadoras":
                             nome_removido = joga.get("nome")
                             st.session_state.jogadoras.pop(index)
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.warning(f"Jogadora {nome_removido} excluída definitivamente!")
+                            st.warning(f"Jogadora {nome_removido} excluída com sucesso!")
                             st.rerun()
 
 elif menu == "⚙️ Painel Admin" and st.session_state.admin_logged:
     st.subheader("⚙️ Configurações Gerais do Sistema")
     
-    # Abas organizadoras dentro do painel admin
     tab_cfg, tab_admins = st.tabs(["🛠️ Configurações e Vagas", "🔑 Gerenciar Administradores"])
     
     with tab_cfg:
@@ -203,7 +195,7 @@ elif menu == "⚙️ Painel Admin" and st.session_state.admin_logged:
                 
     with tab_admins:
         st.subheader("Cadastrar Novos Administradores")
-        st.info("Aqui você pode criar novos logins de acesso para outras administradoras ajudarem a gerenciar o sistema.")
+        st.info("Cadastre novos usuários que terão permissão de acesso ao painel admin.")
         
         with st.form("form_novo_admin"):
             novo_user = st.text_input("Novo Usuário Admin")
@@ -216,7 +208,6 @@ elif menu == "⚙️ Painel Admin" and st.session_state.admin_logged:
                         st.error("Este usuário já existe!")
                     else:
                         st.session_state.admins_lista.append({"usuario": novo_user, "senha": nova_senha})
-                        salvar_dados(ADMINS_FILE, st.session_state.admins_lista)
                         st.success(f"Administrador '{novo_user}' cadastrado com sucesso!")
                         st.rerun()
                 else:
@@ -228,4 +219,3 @@ elif menu == "⚙️ Painel Admin" and st.session_state.admin_logged:
 
 # Rodapé
 st.markdown("<div style='text-align: center; color: #94A3B8; margin-top: 40px; font-size: 0.85rem;'>Peladinha FC ⚽ — Todos os direitos reservados</div>", unsafe_allow_html=True)
-                
