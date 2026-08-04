@@ -269,7 +269,6 @@ else:
 jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
 nomes_ativas = {j["nome"] for j in jogadoras_ativas}
 
-# Filtra presenças apenas de jogadoras aprovadas/ativas
 presencas_ativas = [p for p in st.session_state.presencas if obter_nome_p(p) in nomes_ativas]
 
 lista_atual = sorted(presencas_ativas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
@@ -658,7 +657,14 @@ elif menu == "⚙️ Painel Admin":
         st.error("🔒 Área restrita aos administradores!")
     else:
         st.subheader("⚙️ Painel de Controle do Administrador")
-        tab_pendentes, tab_gerir_admins = st.tabs(["👤 Aprovação de Cadastros", "🛡️ Gerenciar Administradores"])
+        
+        # Abas completas de gerenciamento para o Admin
+        tab_pendentes, tab_jogadoras, tab_regulamento, tab_admins = st.tabs([
+            "👤 Aprovação de Cadastros", 
+            "🏃‍♀️ Gerenciar Jogadoras", 
+            "📜 Gerenciar Regulamento", 
+            "🛡️ Gerenciar Administradores"
+        ])
 
         with tab_pendentes:
             st.write("### Aprovação de Cadastros Pendentes")
@@ -679,13 +685,93 @@ elif menu == "⚙️ Painel Admin":
                         st.success(f"Cadastro de {j['nome']} aprovado com sucesso!")
                         st.rerun()
 
-        with tab_gerir_admins:
-            st.write("### Gerenciamento de Administradores (Limite de até 3)")
-            st.info("ℹ️ O Desenvolvedor (Admin Principal) possui acesso imutável.")
+        with tab_jogadoras:
+            st.write("### Gerenciar Elenco de Jogadoras Cadastradas")
+            if not st.session_state.jogadoras:
+                st.info("Nenhuma jogadora cadastrada.")
+            else:
+                opcoes_jogs = [f"{i}. {j['nome']} ({j.get('tipo', 'Avulso')} - {j.get('status', 'Ativo')})" for i, j in enumerate(st.session_state.jogadoras)]
+                j_sel_idx = st.selectbox("Selecione a jogadora para gerenciar:", range(len(opcoes_jogs)), format_func=lambda x: opcoes_jogs[x])
+                jog_selecionada = st.session_state.jogadoras[j_sel_idx]
 
-            # Listar administradores atuais
+                with st.form("form_edit_jogadora_admin"):
+                    edit_nome = st.text_input("Nome", value=jog_selecionada.get("nome", ""))
+                    edit_tipo = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if jog_selecionada.get("tipo", "Avulso") == "Avulso" else 1)
+                    edit_status = st.selectbox("Status", ["Ativo", "Pendente", "Inativo"], index=["Ativo", "Pendente", "Inativo"].index(jog_selecionada.get("status", "Ativo")))
+                    edit_nasc = st.text_input("Nascimento (DD/MM)", value=jog_selecionada.get("nascimento", ""))
+
+                    if st.form_submit_button("💾 Salvar Alterações na Jogadora", use_container_width=True):
+                        st.session_state.jogadoras[j_sel_idx].update({
+                            "nome": edit_nome.strip(),
+                            "tipo": edit_tipo,
+                            "status": edit_status,
+                            "nascimento": edit_nasc.strip()
+                        })
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success("Dados da jogadora atualizados com sucesso!")
+                        st.rerun()
+
+                if st.button("🗑️ Excluir Esta Jogadora do Sistema", type="primary", use_container_width=True):
+                    removida = st.session_state.jogadoras.pop(j_sel_idx)
+                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != removida["nome"]]
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.warning(f"Jogadora {remetenda['nome']} removida!")
+                    st.rerun()
+
+        with tab_regulamento:
+            st.write("### Gerenciar Tópicos do Regulamento")
+            
+            with st.form("form_add_regulamento", clear_on_submit=True):
+                st.write("**Adicionar Novo Tópico:**")
+                novo_topico = st.text_input("Título do Tópico (Ex: 📌 5. Horário)")
+                nova_regrinha = st.text_area("Descrição / Regra")
+                if st.form_submit_button("➕ Adicionar Regra", use_container_width=True):
+                    if novo_topico and nova_regrinha:
+                        st.session_state.regulamento.append({"topico": novo_topico.strip(), "regrinha": nova_regrinha.strip()})
+                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                        st.success("Regra adicionada!")
+                        st.rerun()
+                    else:
+                        st.error("Preencha o título e a descrição.")
+
+            st.markdown("---")
+            st.write("**Editar ou Remover Regras Existentes:**")
+            if not st.session_state.regulamento:
+                st.info("Nenhum regulamento cadastrado.")
+            else:
+                opcoes_reg = [f"{i}. {r['topico']}" for i, r in enumerate(st.session_state.regulamento)]
+                reg_sel_idx = st.selectbox("Escolha a regra:", range(len(opcoes_reg)), format_func=lambda x: opcoes_reg[x])
+                reg_atual = st.session_state.regulamento[reg_sel_idx]
+
+                with st.form("form_edit_regulamento"):
+                    ed_top = st.text_input("Título", value=reg_atual["topico"])
+                    ed_reg = st.text_area("Descrição", value=reg_atual["regrinha"])
+                    if st.form_submit_button("💾 Salvar Alteração na Regra", use_container_width=True):
+                        st.session_state.regulamento[reg_sel_idx] = {"topico": ed_top.strip(), "regrinha": ed_reg.strip()}
+                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                        st.success("Regulamento atualizado!")
+                        st.rerun()
+
+                if st.button("🗑️ Excluir Esta Regra", type="primary", use_container_width=True):
+                    st.session_state.regulamento.pop(reg_sel_idx)
+                    salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                    st.success("Regra removida!")
+                    st.rerun()
+
+        with tab_admins:
+            st.write("### Gerenciamento de Administradores (Limite de até 3)")
+            st.info("ℹ️ O Desenvolvedor (Admin Principal) possui acesso imutável e não pode ser excluído.")
+
             for idx, adm in enumerate(st.session_state.administradores):
-                st.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
+                col_a1, col_a2 = st.columns([3, 1])
+                col_a1.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
+                if not adm.get("principal") and len(st.session_state.administradores) > 1:
+                    if col_a2.button("🗑️ Remover", key=f"del_adm_{idx}"):
+                        st.session_state.administradores.pop(idx)
+                        salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                        st.success("Administrador removido com sucesso!")
+                        st.rerun()
 
             st.markdown("---")
             st.write("#### ➕ Cadastrar Novo Administrador")
