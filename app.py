@@ -505,7 +505,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             df_fin_filtrado = df_fin
 
         total_in = df_fin_filtrado[df_fin_filtrado["tipo"] == "Entrada"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
-        total_out = df_fin_filtrado[df_fin_filtrado["temp"] == "Saída" if "temp" in df_fin_filtrado.columns else df_fin_filtrado["tipo"] == "Saída"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
+        total_out = df_fin_filtrado[df_fin_filtrado["tipo"] == "Saída"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
         
         m1, m2, m3 = st.columns(3)
         m1.metric("🟢 Entradas", f"R$ {total_in:.2f}")
@@ -514,7 +514,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
 
         st.markdown("---")
         
-        # Abas de Gestão Financeira com melhorias
         tab_list_fin, tab_add_fin, tab_cat_fin, tab_edit_fin = st.tabs([
             "📜 Extrato Detalhado", 
             "➕ Novo Lançamento", 
@@ -527,7 +526,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                 cols_to_show = [c for c in ["data", "descricao", "categoria", "tipo", "valor"] if c in df_fin_filtrado.columns]
                 st.dataframe(df_fin_filtrado[cols_to_show], use_container_width=True, hide_index=True)
                 
-                # Botão de exportação CSV
                 csv_data = df_fin_filtrado[cols_to_show].to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📥 Baixar Extrato em CSV",
