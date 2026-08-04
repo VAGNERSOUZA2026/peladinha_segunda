@@ -169,6 +169,8 @@ if "admin_logged" not in st.session_state:
     st.session_state.admin_logged = False
 if "admin_nome" not in st.session_state:
     st.session_state.admin_nome = ""
+if "admin_principal" not in st.session_state:
+    st.session_state.admin_principal = False
 if "aba_ativa" not in st.session_state:
     st.session_state.aba_ativa = "Entrar"
 if "msg_cadastro_sucesso" not in st.session_state:
@@ -273,14 +275,17 @@ if not st.session_state.admin_logged:
             if admin_encontrado or adm_input == "1980":
                 st.session_state.admin_logged = True
                 st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Desenvolvedor"
+                st.session_state.admin_principal = admin_encontrado.get("principal", False) if admin_encontrado else True
                 st.rerun()
             else:
                 st.error("Senha/Login Admin incorreto!")
 else:
-    st.sidebar.info(f"🔑 Admin: **{st.session_state.admin_nome}**")
+    cargo_str = "Admin Principal" if st.session_state.admin_principal else "Admin Secundário"
+    st.sidebar.info(f"🔑 Admin: **{st.session_state.admin_nome}**\n\n*{cargo_str}*")
     if st.sidebar.button("Sair do Admin"):
         st.session_state.admin_logged = False
         st.session_state.admin_nome = ""
+        st.session_state.admin_principal = False
         st.rerun()
 
 # -----------------------------------------------------------------------------
@@ -839,8 +844,11 @@ elif menu == "⚙️ Painel Admin":
                 j_sel_idx = st.selectbox("Selecione a jogadora para gerenciar:", range(len(opcoes_jogs)), format_func=lambda x: opcoes_jogs[x])
                 jog_selecionada = st.session_state.jogadoras[j_sel_idx]
 
-                # Exibição segura das credenciais atuais para consulta do Admin
-                st.info(f"🔐 **Credenciais Atuais da Jogadora:**\n\n• **Login:** `{jog_selecionada.get('login', 'N/I')}`\n• **Senha:** `{jog_selecionada.get('senha', 'N/I')}`")
+                # Restrição: Exibição segura das credenciais somente para o Administrador Principal
+                if st.session_state.admin_principal:
+                    st.info(f"🔐 **Credenciais Atuais da Jogadora (Visível apenas para o Admin Principal):**\n\n• **Login:** `{jog_selecionada.get('login', 'N/I')}`\n• **Senha:** `{jog_selecionada.get('senha', 'N/I')}`")
+                else:
+                    st.info("🔒 *As credenciais de login e senha das jogadoras são visíveis exclusivamente para o Administrador Principal.*")
 
                 with st.form("form_edit_jogadora_admin"):
                     edit_nome = st.text_input("Nome", value=jog_selecionada.get("nome", ""))
@@ -850,36 +858,45 @@ elif menu == "⚙️ Painel Admin":
                     
                     st.markdown("---")
                     st.write("🔑 **Alterar Credenciais de Acesso:**")
-                    edit_login = st.text_input("Login de Acesso", value=jog_selecionada.get("login", ""))
-                    edit_senha = st.text_input("Nova Senha (deixe em branco se não quiser alterar)", value="", type="password")
+                    
+                    if st.session_state.admin_principal:
+                        edit_login = st.text_input("Login de Acesso", value=jog_selecionada.get("login", ""))
+                        edit_senha = st.text_input("Nova Senha (deixe em branco se não quiser alterar)", value="", type="password")
+                    else:
+                        edit_login = jog_selecionada.get("login", "")
+                        st.info("🔒 *Apenas o Administrador Principal pode alterar logins e senhas das jogadoras.*")
 
                     if st.form_submit_button("💾 Salvar Alterações na Jogadora", use_container_width=True):
                         novo_login_limpo = edit_login.strip()
                         conflito_login = any(idx_j != j_sel_idx and j.get("login") == novo_login_limpo for idx_j, j in enumerate(st.session_state.jogadoras))
 
-                        if conflito_login:
+                        if conflito_login and st.session_state.admin_principal:
                             st.error("Este Login já está em uso por outra jogadora. Escolha um login diferente!")
                         else:
                             st.session_state.jogadoras[j_sel_idx]["nome"] = edit_nome.strip()
                             st.session_state.jogadoras[j_sel_idx]["tipo"] = edit_tipo
                             st.session_state.jogadoras[j_sel_idx]["status"] = edit_status
                             st.session_state.jogadoras[j_sel_idx]["nascimento"] = edit_nasc.strip()
-                            st.session_state.jogadoras[j_sel_idx]["login"] = novo_login_limpo
-
-                            if edit_senha.strip():
-                                st.session_state.jogadoras[j_sel_idx]["senha"] = edit_senha.strip()
+                            
+                            if st.session_state.admin_principal:
+                                st.session_state.jogadoras[j_sel_idx]["login"] = novo_login_limpo
+                                if edit_senha.strip():
+                                    st.session_state.jogadoras[j_sel_idx]["senha"] = edit_senha.strip()
 
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success("Dados, login e/ou senha da jogadora atualizados com sucesso!")
+                            st.success("Dados da jogadora atualizados com sucesso!")
                             st.rerun()
 
-                if st.button("🗑️ Excluir Esta Jogadora do Sistema", type="primary", use_container_width=True):
-                    removida = st.session_state.jogadoras.pop(j_sel_idx)
-                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != removida["nome"]]
-                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.warning(f"Jogadora {removida['nome']} removida!")
-                    st.rerun()
+                if st.session_state.admin_principal:
+                    if st.button("🗑️ Excluir Esta Jogadora do Sistema", type="primary", use_container_width=True):
+                        removida = st.session_state.jogadoras.pop(j_sel_idx)
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != removida["nome"]]
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.warning(f"Jogadora {removida['nome']} removida!")
+                        st.rerun()
+                else:
+                    st.caption("🔒 *A exclusão de jogadoras é restrita ao Administrador Principal.*")
 
         with tab_regulamento:
             st.write("### Gerenciar Tópicos do Regulamento")
@@ -923,21 +940,24 @@ elif menu == "⚙️ Painel Admin":
 
         with tab_admins:
             st.write("### Gerenciamento de Administradores (Limite de até 3)")
-            st.info("ℹ️ O Desenvolvedor (Admin Principal) possui acesso imutável e não pode ser excluído.")
+            st.info("ℹ️ O Desenvolvedor (Admin Principal) possui acesso imutável e privilégios exclusivos de visualização de credenciais.")
 
             for idx, adm in enumerate(st.session_state.administradores):
                 col_a1, col_a2 = st.columns([3, 1])
                 col_a1.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
                 if not adm.get("principal") and len(st.session_state.administradores) > 1:
-                    if col_a2.button("🗑️ Remover", key=f"del_adm_{idx}"):
-                        st.session_state.administradores.pop(idx)
-                        salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                        st.success("Administrador removido com sucesso!")
-                        st.rerun()
+                    if st.session_state.admin_principal:
+                        if col_a2.button("🗑️ Remover", key=f"del_adm_{idx}"):
+                            st.session_state.administradores.pop(idx)
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.success("Administrador removido com sucesso!")
+                            st.rerun()
 
             st.markdown("---")
             st.write("#### ➕ Cadastrar Novo Administrador")
-            if len(st.session_state.administradores) >= 3:
+            if not st.session_state.admin_principal:
+                st.warning("⚠️ Apenas o Administrador Principal pode cadastrar novos administradores.")
+            elif len(st.session_state.administradores) >= 3:
                 st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
             else:
                 with st.form("form_novo_admin", clear_on_submit=True):
