@@ -76,16 +76,6 @@ st.markdown("""
         padding: 15px;
         margin-bottom: 15px;
     }
-
-    .developer-footer {
-        background: #0F172A;
-        color: #94A3B8;
-        text-align: center;
-        padding: 12px;
-        border-radius: 10px;
-        margin-top: 30px;
-        font-size: 0.85rem;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -135,7 +125,7 @@ if "financeiro" not in st.session_state:
 if "comprovantes" not in st.session_state:
     st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
 if "administradores" not in st.session_state:
-    def_admins = [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "principal": True}]
+    def_admins = [{"nome": "Desenvolvedor", "login": "admin", "senha": "1980", "principal": True}]
     st.session_state.administradores = carregar_dados(ADMINS_FILE, def_admins)
 if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
@@ -212,7 +202,7 @@ else:
     tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"] if st.session_state.aba_ativa == "Entrar" else ["Cadastrar", "Entrar"])
     with tab_log:
         if st.session_state.msg_cadastro_sucesso:
-            st.success("🎉 Cadastro realizado com sucesso! Faça login:")
+            st.success("🎉 Cadastro realizado com sucesso! Aguarde a aprovação de um Administrador.")
             st.session_state.msg_cadastro_sucesso = False
         with st.form("form_login_player"):
             l_user = st.text_input("Login")
@@ -220,14 +210,18 @@ else:
             if st.form_submit_button("🔑 Entrar", use_container_width=True):
                 user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
                 if user_found:
-                    st.session_state.usuario_logado = user_found["nome"]
-                    st.rerun()
+                    if user_found.get("status") == "Ativo":
+                        st.session_state.usuario_logado = user_found["nome"]
+                        st.rerun()
+                    else:
+                        st.warning("⚠️ Seu cadastro está pendente de aprovação pela administração.")
                 else:
                     st.error("Login ou senha incorretos!")
     with tab_cad:
         with st.form("form_cad_player", clear_on_submit=True):
             c_nome = st.text_input("Seu Nome *")
             c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+            c_tipo = st.selectbox("Deseja se cadastrar como:", ["Avulso", "Mensalista"])
             c_user = st.text_input("Escolha um Login *")
             c_pass = st.text_input("Escolha uma Senha *", type="password")
             if st.form_submit_button("📝 Criar Conta", use_container_width=True):
@@ -238,8 +232,8 @@ else:
                         st.session_state.jogadoras.append({
                             "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
                             "login": c_user.strip(), "senha": c_pass.strip(),
-                            "tipo": "Avulso", "mes_vigente": mes_vigente_str,
-                            "contato": "", "status": "Ativo"
+                            "tipo": c_tipo, "mes_vigente": mes_vigente_str,
+                            "contato": "", "status": "Pendente"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.session_state.aba_ativa = "Entrar"
@@ -258,7 +252,7 @@ if not st.session_state.admin_logged:
             admin_encontrado = next((adm for adm in st.session_state.administradores if adm_input in [adm.get("senha"), adm.get("login")]), None)
             if admin_encontrado or adm_input == "1980":
                 st.session_state.admin_logged = True
-                st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Admin Principal"
+                st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Desenvolvedor"
                 st.rerun()
             else:
                 st.error("Senha/Login Admin incorreto!")
@@ -270,9 +264,15 @@ else:
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# LÓGICA DE ORDENAÇÃO DE PRESENÇA (MENSALISTAS x AVULSAS)
+# LÓGICA DE ORDENAÇÃO DE PRESENÇA (MENSALISTAS x AVULSAS) - SOMENTE ATIVAS
 # -----------------------------------------------------------------------------
-lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
+jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+nomes_ativas = {j["nome"] for j in jogadoras_ativas}
+
+# Filtra presenças apenas de jogadoras aprovadas/ativas
+presencas_ativas = [p for p in st.session_state.presencas if obter_nome_p(p) in nomes_ativas]
+
+lista_atual = sorted(presencas_ativas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
 mensalistas = [p for p in lista_atual if p.get("tipo") == "Mensalista"]
 avulsas = [p for p in lista_atual if p.get("tipo") == "Avulso"]
 limite = st.session_state.avisos.get("limite_vagas", 15)
@@ -351,7 +351,7 @@ if menu == "📌 Presença no Jogo":
         else:
             with st.form("form_presenca_express"):
                 if st.session_state.admin_logged and not st.session_state.usuario_logado:
-                    nomes_cad = [j["nome"] for j in st.session_state.jogadoras]
+                    nomes_cad = [j["nome"] for j in jogadoras_ativas]
                     jogadora_sel = st.selectbox("Selecione a jogadora para alterar:", nomes_cad) if nomes_cad else None
                 else:
                     jogadora_sel = st.session_state.usuario_logado
@@ -546,7 +546,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Dados para Pagamento e Envio de Comprovante")
     
-    # Exibição facilitada da chave Pix para copiar
     st.markdown("### 🔑 Chave Pix Atual")
     pix_atual = st.session_state.avisos.get('pix', 'Não informada')
     st.code(pix_atual, language="text")
@@ -554,7 +553,6 @@ elif menu == "💸 Pagamento & Pix":
 
     st.markdown("---")
 
-    # Opção para o Administrador editar a Chave Pix diretamente aqui também
     if st.session_state.admin_logged:
         with st.expander("🛠️ [Admin] Editar Chave Pix e Vencimento"):
             with st.form("form_edit_pix_direto"):
@@ -568,14 +566,13 @@ elif menu == "💸 Pagamento & Pix":
                     st.rerun()
         st.markdown("---")
 
-    # Envio de comprovante
     st.subheader("📤 Enviar Comprovante de Pagamento")
     if not st.session_state.usuario_logado and not st.session_state.admin_logged:
         st.warning("⚠️ **Faça login na sua conta no menu lateral para enviar o comprovante automaticamente em seu nome!**")
     else:
         with st.form("form_enviar_comprovante", clear_on_submit=True):
             if st.session_state.admin_logged and not st.session_state.usuario_logado:
-                nomes_j_todas = [j["nome"] for j in st.session_state.jogadoras]
+                nomes_j_todas = [j["nome"] for j in jogadoras_ativas]
                 remetente_sel = st.selectbox("Enviar em nome de:", nomes_j_todas) if nomes_j_todas else "Admin"
             else:
                 remetente_sel = st.session_state.usuario_logado
@@ -596,7 +593,6 @@ elif menu == "💸 Pagamento & Pix":
                 else:
                     st.error("Erro ao identificar a jogadora.")
 
-    # Visualização de comprovantes para o Administrador aprovar
     if st.session_state.admin_logged:
         st.markdown("---")
         st.subheader("📥 Comprovantes Recebidos (Admin)")
@@ -610,16 +606,14 @@ elif menu == "💸 Pagamento & Pix":
                 
                 if comp.get("status") == "Pendente":
                     if col_c3.button("✅ Confirmar", key=f"conf_comp_{idx}"):
-                        # Adiciona automaticamente no caixa como entrada
                         st.session_state.financeiro.append({
                             "data": hoje_dt.strftime("%d/%m/%Y"),
                             "descricao": f"Mensalidade - {comp['nome']}",
                             "tipo": "Entrada",
-                            "valor": 0.0 # Valor padrão ou ajustável
+                            "valor": 0.0
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                         
-                        # Remove dos comprovantes pendentes
                         st.session_state.comprovantes.pop(idx)
                         salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                         st.success(f"Pagamento de {comp['nome']} confirmado e adicionado ao caixa!")
@@ -650,148 +644,72 @@ elif menu == "📋 Elenco de Jogadoras":
             st.dataframe(df[cols_visiveis], use_container_width=True, hide_index=True)
             
         with tab_mensalistas:
-            df_mensalistas = df[df["tipo"] == "Mensalista"]
+            df_mensalistas = df[(df["tipo"] == "Mensalista") & (df["status"] == "Ativo")]
             if not df_mensalistas.empty:
                 st.write("Essas são as mensalistas ativas do nosso grupo neste ano/mês:")
                 st.dataframe(df_mensalistas[cols_visiveis], use_container_width=True, hide_index=True)
             else:
-                st.info("Nenhuma mensalista registrada no momento.")
+                st.info("Nenhuma mensalista ativa registrada no momento.")
     else:
         st.info("Nenhuma jogadora cadastrada.")
 
 elif menu == "⚙️ Painel Admin":
-    st.subheader("⚙️ Painel do Administrador")
     if not st.session_state.admin_logged:
-        st.error("🔒 Faça login como Admin na barra lateral para acessar esta área!")
+        st.error("🔒 Área restrita aos administradores!")
     else:
-        t_conf, t_cad, t_ger_jog, t_admins, t_reg = st.tabs([
-            "⚙️ Configurações Gerais", "➕ Cadastrar Jogadora", "📋 Gerenciar Elenco", "👥 Gerenciar Admins", "📜 Gerenciar Regulamento"
-        ])
-        
-        with t_conf:
-            limite_v = st.number_input("Limite de Vagas do Jogo:", value=st.session_state.avisos.get("limite_vagas", 15))
-            rec_v = st.text_area("Recado/Aviso Geral:", value=st.session_state.avisos.get("recado", ""))
-            pix_cfg = st.text_input("Chave Pix:", value=st.session_state.avisos.get("pix", ""))
-            venc_cfg = st.text_input("Vencimento:", value=st.session_state.avisos.get("vencimento", ""))
-            
-            if st.button("💾 Salvar Configurações", use_container_width=True):
-                st.session_state.avisos["limite_vagas"] = int(limite_v)
-                st.session_state.avisos["recado"] = rec_v
-                st.session_state.avisos["pix"] = pix_cfg
-                st.session_state.avisos["vencimento"] = venc_cfg
-                salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                st.success("Configurações salvas!")
-                st.rerun()
+        st.subheader("⚙️ Painel de Controle do Administrador")
+        tab_pendentes, tab_gerir_admins = st.tabs(["👤 Aprovação de Cadastros", "🛡️ Gerenciar Administradores"])
 
-        with t_cad:
-            with st.form("form_adm_cad", clear_on_submit=True):
-                a_nome = st.text_input("Nome Completo *")
-                a_nasc = st.text_input("Data de Nascimento (DD/MM)")
-                a_tipo = st.selectbox("Categoria Inicial", ["Mensalista", "Avulso"])
-                a_user = st.text_input("Login")
-                a_pass = st.text_input("Senha", type="password")
-                a_cont = st.text_input("WhatsApp")
-
-                if st.form_submit_button("➕ Cadastrar Jogadora", use_container_width=True):
-                    if a_nome.strip():
-                        st.session_state.jogadoras.append({
-                            "nome": a_nome.strip(), "nascimento": a_nasc.strip(), "tipo": a_tipo,
-                            "mes_vigente": mes_vigente_str, "login": a_user.strip(), "senha": a_pass.strip(),
-                            "contato": a_cont.strip(), "status": "Ativo"
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Jogadora {a_nome} cadastrada!")
-                        st.rerun()
-
-        with t_ger_jog:
-            if not st.session_state.jogadoras:
-                st.info("Nenhuma jogadora no elenco.")
+        with tab_pendentes:
+            st.write("### Aprovação de Cadastros Pendentes")
+            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
+            if not pendentes:
+                st.info("Nenhum cadastro pendente no momento.")
             else:
-                nomes_jog = [f"{j['nome']} ({j.get('tipo', 'Avulso')})" for j in st.session_state.jogadoras]
-                idx_j_sel = st.selectbox("Selecione a jogadora:", range(len(nomes_jog)), format_func=lambda x: nomes_jog[x])
-                j_obj = st.session_state.jogadoras[idx_j_sel]
-
-                with st.form("form_edit_jog"):
-                    ej_nome = st.text_input("Nome", value=j_obj.get("nome", ""))
-                    ej_tipo = st.selectbox("Categoria", ["Mensalista", "Avulso"], index=0 if j_obj.get("tipo") == "Mensalista" else 1)
-                    ej_nasc = st.text_input("Nascimento (DD/MM)", value=j_obj.get("nascimento", ""))
-                    ej_user = st.text_input("Login", value=j_obj.get("login", ""))
-                    ej_pass = st.text_input("Senha", value=j_obj.get("senha", ""), type="password")
-
-                    if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                        st.session_state.jogadoras[idx_j_sel].update({
-                            "nome": ej_nome.strip(), "nascimento": ej_nasc.strip(), "tipo": ej_tipo,
-                            "login": ej_user.strip(), "senha": ej_pass.strip()
-                        })
+                for idx, j in enumerate(pendentes):
+                    c_p1, c_p2, c_p3 = st.columns([2, 2, 1])
+                    c_p1.write(f"**{j['nome']}** `[{j['tipo']}]`")
+                    c_p2.write(f"Nasc: {j.get('nascimento', 'N/I')} | Login: `{j['login']}`")
+                    
+                    if c_p3.button("✅ Aprovar", key=f"aprovar_j_{idx}"):
+                        for jog in st.session_state.jogadoras:
+                            if jog["login"] == j["login"]:
+                                jog["status"] = "Ativo"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Dados atualizados!")
+                        st.success(f"Cadastro de {j['nome']} aprovado com sucesso!")
                         st.rerun()
 
-                if st.button("🗑️ Excluir Jogadora", type="primary", use_container_width=True):
-                    st.session_state.jogadoras.pop(idx_j_sel)
-                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.success("Removida!")
-                    st.rerun()
+        with tab_gerir_admins:
+            st.write("### Gerenciamento de Administradores (Limite de até 3)")
+            st.info("ℹ️ O Desenvolvedor (Admin Principal) possui acesso imutável.")
 
-        with t_admins:
-            for index, adm in enumerate(st.session_state.administradores):
-                col_info, col_btn = st.columns([3, 1])
-                col_info.write(f"👤 **{adm['nome']}** | Login: `{adm['login']}`")
-                if not (adm.get("principal") or index == 0):
-                    if col_btn.button("🗑️ Excluir", key=f"del_adm_{index}"):
-                        st.session_state.administradores.pop(index)
-                        salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                        st.rerun()
+            # Listar administradores atuais
+            for idx, adm in enumerate(st.session_state.administradores):
+                st.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
 
-            if len(st.session_state.administradores) < 4:
-                st.write("#### ➕ Adicionar Administrador")
-                with st.form("form_novo_adm", clear_on_submit=True):
-                    adm_n = st.text_input("Nome *")
-                    adm_l = st.text_input("Login *")
-                    adm_s = st.text_input("Senha *", type="password")
-                    if st.form_submit_button("💾 Salvar Administrador"):
-                        if adm_n.strip() and adm_l.strip() and adm_s.strip():
-                            st.session_state.administradores.append({"nome": adm_n.strip(), "login": adm_l.strip(), "senha": adm_s.strip(), "principal": False})
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.rerun()
-
-        with t_reg:
-            if not st.session_state.regulamento:
-                st.info("Nenhum tópico cadastrado.")
-            sub_t_edit, sub_t_add, sub_t_del = st.tabs(["✏️ Editar Regra", "➕ Nova Regra", "🗑️ Excluir Regra"])
-
-            with sub_t_edit:
-                if st.session_state.regulamento:
-                    lista_topicos = [r["topico"] for r in st.session_state.regulamento]
-                    idx_reg_sel = st.selectbox("Escolha a regra para editar:", range(len(lista_topicos)), format_func=lambda x: lista_topicos[x])
-                    reg_obj = st.session_state.regulamento[idx_reg_sel]
-
-                    with st.form("form_edit_reg"):
-                        er_topico = st.text_input("Título", value=reg_obj.get("topico", ""))
-                        er_texto = st.text_area("Descrição", value=reg_obj.get("regrinha", ""), height=150)
-                        if st.form_submit_button("💾 Salvar", use_container_width=True):
-                            st.session_state.regulamento[idx_reg_sel] = {"topico": er_topico.strip(), "regrinha": er_texto.strip()}
-                            salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                            st.rerun()
-
-            with sub_t_add:
-                with st.form("form_novo_reg", clear_on_submit=True):
-                    r_topico = st.text_input("Título", placeholder="Ex: 📌 7. Uniformes")
-                    r_texto = st.text_area("Descrição", placeholder="Texto...")
-                    if st.form_submit_button("➕ Adicionar", use_container_width=True):
-                        if r_topico and r_texto:
-                            st.session_state.regulamento.append({"topico": r_topico.strip(), "regrinha": r_texto.strip()})
-                            salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                            st.rerun()
-
-            with sub_t_del:
-                if st.session_state.regulamento:
-                    lista_topicos_del = [r["topico"] for r in st.session_state.regulamento]
-                    idx_reg_del = st.selectbox("Selecione para apagar:", range(len(lista_topicos_del)), format_func=lambda x: lista_topicos_del[x])
-                    if st.button("🗑️ Confirmar Exclusão", type="primary", use_container_width=True):
-                        st.session_state.regulamento.pop(idx_reg_del)
-                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                        st.rerun()
-
-# RODAPÉ
-st.markdown("<div class='developer-footer'>Desenvolvido por <b>Vagner Souza / Ciência da Computação</b></div>", unsafe_allow_html=True)
+            st.markdown("---")
+            st.write("#### ➕ Cadastrar Novo Administrador")
+            if len(st.session_state.administradores) >= 3:
+                st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
+            else:
+                with st.form("form_novo_admin", clear_on_submit=True):
+                    novo_nome_adm = st.text_input("Nome do Administrador")
+                    novo_login_adm = st.text_input("Login do Administrador")
+                    novo_senha_adm = st.text_input("Senha do Administrador", type="password")
+                    
+                    if st.form_submit_button("💾 Salvar Novo Administrador", use_container_width=True):
+                        if novo_nome_adm and novo_login_adm and novo_senha_adm:
+                            if len(st.session_state.administradores) < 3:
+                                st.session_state.administradores.append({
+                                    "nome": novo_nome_adm.strip(),
+                                    "login": novo_login_adm.strip(),
+                                    "senha": novo_senha_adm.strip(),
+                                    "principal": False
+                                })
+                                salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                                st.success("Novo administrador cadastrado com sucesso!")
+                                st.rerun()
+                            else:
+                                st.error("Limite máximo de 3 administradores atingido.")
+                        else:
+                            st.error("Preencha todos os campos do administrador!")
