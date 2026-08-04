@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import os
 import random
+import string
 from datetime import datetime, timedelta, timezone
 
 # -----------------------------------------------------------------------------
@@ -110,6 +111,7 @@ ADMINS_FILE = "administradores.json"
 REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
 COMPROVANTES_FILE = "comprovantes.json"
+TOKENS_ADMIN_FILE = "tokens_admin.json"
 
 def carregar_dados(filename, default):
     if os.path.exists(filename):
@@ -147,6 +149,8 @@ if "comprovantes" not in st.session_state:
 if "administradores" not in st.session_state:
     def_admins = [{"nome": "Desenvolvedor", "login": "admin", "senha": "1980", "principal": True}]
     st.session_state.administradores = carregar_dados(ADMINS_FILE, def_admins)
+if "tokens_admin" not in st.session_state:
+    st.session_state.tokens_admin = carregar_dados(TOKENS_ADMIN_FILE, [])
 if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
         "vencimento": "Todo dia 10 de cada mês",
@@ -175,7 +179,8 @@ if "aba_ativa" not in st.session_state:
     st.session_state.aba_ativa = "Entrar"
 if "msg_cadastro_sucesso" not in st.session_state:
     st.session_state.msg_cadastro_sucesso = False
-
+if "msg_admin_cad_sucesso" not in st.session_state:
+    st.session_state.msg_admin_cad_sucesso = False
 
 # -----------------------------------------------------------------------------
 # BANNER DA APLICAÇÃO
@@ -268,17 +273,59 @@ st.sidebar.markdown("---")
 st.sidebar.subheader("🔒 Área do Administrador")
 
 if not st.session_state.admin_logged:
-    with st.sidebar.form("form_login_admin"):
-        adm_input = st.text_input("Login ou Senha Admin", type="password")
-        if st.form_submit_button("Acessar Como Admin", use_container_width=True):
-            admin_encontrado = next((adm for adm in st.session_state.administradores if adm_input in [adm.get("senha"), adm.get("login")]), None)
-            if admin_encontrado or adm_input == "1980":
-                st.session_state.admin_logged = True
-                st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Desenvolvedor"
-                st.session_state.admin_principal = admin_encontrado.get("principal", False) if admin_encontrado else True
-                st.rerun()
-            else:
-                st.error("Senha/Login Admin incorreto!")
+    tab_adm_login, tab_adm_cad = st.sidebar.tabs(["Entrar Admin", "Cadastrar Admin"])
+    
+    with tab_adm_login:
+        with st.form("form_login_admin"):
+            adm_input = st.text_input("Login ou Senha Admin", type="password")
+            if st.form_submit_button("Acessar Como Admin", use_container_width=True):
+                admin_encontrado = next((adm for adm in st.session_state.administradores if adm_input in [adm.get("senha"), adm.get("login")]), None)
+                if admin_encontrado or adm_input == "1980":
+                    st.session_state.admin_logged = True
+                    st.session_state.admin_nome = admin_encontrado["nome"] if admin_encontrado else "Desenvolvedor"
+                    st.session_state.admin_principal = admin_encontrado.get("principal", False) if admin_encontrado else True
+                    st.rerun()
+                else:
+                    st.error("Senha/Login Admin incorreto!")
+
+    with tab_adm_cad:
+        if st.session_state.msg_admin_cad_sucesso:
+            st.success("🎉 Administrador cadastrado com sucesso! Faça login na aba ao lado.")
+            st.session_state.msg_admin_cad_sucesso = False
+        
+        st.caption("🔒 O cadastro requer uma **Senha/Token Temporário** gerado pelo Administrador Principal.")
+        with st.form("form_cad_admin_publico", clear_on_submit=True):
+            cad_a_nome = st.text_input("Nome do Admin")
+            cad_a_login = st.text_input("Login Desejado")
+            cad_a_senha = st.text_input("Senha Desejada", type="password")
+            cad_a_token = st.text_input("Token Temporário de Acesso", type="password")
+            
+            if st.form_submit_button("📝 Registrar Admin", use_container_width=True):
+                if cad_a_nome and cad_a_login and cad_a_senha and cad_a_token:
+                    # Verificar se o token é válido
+                    token_obj = next((t for t in st.session_state.tokens_admin if t.get("token") == cad_a_token.strip() and not t.get("usado", False)), None)
+                    if token_obj or (len(st.session_state.administradores) == 0 and cad_a_token.strip() == "1980"):
+                        if any(a.get("login") == cad_a_login.strip() for a in st.session_state.administradores):
+                            st.error("Este login de administrador já está em uso!")
+                        else:
+                            # Marcar token como usado se existir
+                            if token_obj:
+                                token_obj["usado"] = True
+                                salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
+                            
+                            st.session_state.administradores.append({
+                                "nome": cad_a_nome.strip(),
+                                "login": cad_a_login.strip(),
+                                "senha": cad_a_senha.strip(),
+                                "principal": False
+                            })
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.session_state.msg_admin_cad_sucesso = True
+                            st.rerun()
+                    else:
+                        st.error("Token temporário inválido, já utilizado ou incorreto!")
+                else:
+                    st.error("Preencha todos os campos para cadastrar o admin.")
 else:
     cargo_str = "Admin Principal" if st.session_state.admin_principal else "Admin Secundário"
     st.sidebar.info(f"🔑 Admin: **{st.session_state.admin_nome}**\n\n*{cargo_str}*")
@@ -545,7 +592,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         ])
 
         with tab_list_fin:
-            st.write("### 🗂️ Lançamentos Financeiros (Clique nos cards ou botões abaixo)")
+            st.write("### 🗂️ Lançamentos Financeiros")
             if not st.session_state.financeiro:
                 st.info("Nenhum lançamento cadastrado.")
             else:
@@ -598,19 +645,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                                 st.success("Lançamento excluído com sucesso!")
                                 st.rerun()
 
-                    st.markdown("---")
-                    df_fin_filtrado = df.iloc[indices_filtrados] if 'df' in locals() and not df.empty else pd.DataFrame(st.session_state.financeiro)
-                    if not df_fin_filtrado.empty:
-                        cols_to_show = [c for c in ["data", "descricao", "categoria", "tipo", "valor"] if c in df_fin_filtrado.columns]
-                        csv_data = df_fin_filtrado[cols_to_show].to_csv(index=False).encode('utf-8')
-                        st.download_button(
-                            label="📥 Baixar Extrato em CSV",
-                            data=csv_data,
-                            file_name=f"extrato_financeiro_{hoje_dt.strftime('%Y%m%d')}.csv",
-                            mime="text/csv",
-                            use_container_width=True
-                        )
-
         with tab_add_fin:
             categorias_entrada = ["Mensalidade", "Avulsa", "Doação / Patrocínio", "Outras Entradas"]
             categorias_saida = ["Aluguel de Quadra", "Água / Gelo", "Material Esportivo (Bolas/Coletes)", "Premiação / Troféus", "Outras Saídas"]
@@ -624,7 +658,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                 else:
                     f_cat = st.selectbox("Categoria", categorias_saida)
 
-                f_desc = st.text_input("Descrição / Nome (Ex: Mensalidade da Maria / Aluguel Quadra Terça)")
+                f_desc = st.text_input("Descrição / Nome")
                 f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
                 
                 if st.form_submit_button("💾 Salvar Lançamento no Caixa", use_container_width=True):
@@ -644,9 +678,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             if not df_fin_filtrado.empty:
                 resumo_cat = df_fin_filtrado.groupby(["tipo", "categoria"])["valor"].sum().reset_index()
                 st.dataframe(resumo_cat, use_container_width=True, hide_index=True)
-                
-                st.markdown("---")
-                st.write("💡 *Dica: Use o filtro de Mês acima para ver o resumo de categorias de meses específicos.*")
             else:
                 st.info("Sem dados suficientes para gerar resumo por categoria.")
 
@@ -805,7 +836,7 @@ elif menu == "📋 Elenco de Jogadoras":
 
 elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
-        st.error("🔒 Área restrita aos administradores!")
+        st.error("🔒 Área restrita aos administradores! Faça login ou cadastre-se na barra lateral.")
     else:
         st.subheader("⚙️ Painel de Controle do Administrador")
         
@@ -818,7 +849,7 @@ elif menu == "⚙️ Painel Admin":
 
         with tab_pendentes:
             st.write("### Aprovação de Cadastros Pendentes")
-            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
+            pendentes = [j for j in st.session_state.jogadoras if j.get("status"] == "Pendente"]
             if not pendentes:
                 st.info("Nenhum cadastro pendente no momento.")
             else:
@@ -954,30 +985,26 @@ elif menu == "⚙️ Painel Admin":
                             st.rerun()
 
             st.markdown("---")
-            st.write("#### ➕ Cadastrar Novo Administrador")
+            st.write("#### 🔑 Gerar Token / Senha Temporária para Novo Administrador")
             if not st.session_state.admin_principal:
-                st.warning("⚠️ Apenas o Administrador Principal pode cadastrar novos administradores.")
+                st.warning("⚠️ Apenas o Administrador Principal pode gerar tokens temporários para novos administradores.")
             elif len(st.session_state.administradores) >= 3:
                 st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
             else:
-                with st.form("form_novo_admin", clear_on_submit=True):
-                    novo_nome_adm = st.text_input("Nome do Administrador")
-                    novo_login_adm = st.text_input("Login do Administrador")
-                    novo_senha_adm = st.text_input("Senha do Administrador", type="password")
-                    
-                    if st.form_submit_button("💾 Salvar Novo Administrador", use_container_width=True):
-                        if novo_nome_adm and novo_login_adm and novo_senha_adm:
-                            if len(st.session_state.administradores) < 3:
-                                st.session_state.administradores.append({
-                                    "nome": novo_nome_adm.strip(),
-                                    "login": novo_login_adm.strip(),
-                                    "senha": novo_senha_adm.strip(),
-                                    "principal": False
-                                })
-                                salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                                st.success("Novo administrador cadastrado com sucesso!")
-                                st.rerun()
-                            else:
-                                st.error("Limite máximo de 3 administradores atingido.")
-                        else:
-                            st.error("Preencha todos os campos do administrador!")
+                if st.button("🎲 Gerar Novo Token Temporário", use_container_width=True):
+                    caracteres = string.ascii_uppercase + string.digits
+                    novo_token = "".join(random.choices(caracteres, k=6))
+                    st.session_state.tokens_admin.append({
+                        "token": novo_token,
+                        "usado": False,
+                        "criado_em": hoje_dt.strftime("%d/%m/%Y %H:%M")
+                    })
+                    salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
+                    st.success(f"Token temporário gerado com sucesso! Compartilhe com o novo administrador: **{novo_token}**")
+                    st.rerun()
+
+                tokens_ativos = [t for t in st.session_state.tokens_admin if not t.get("usado", False)]
+                if tokens_ativos:
+                    st.write("**Tokens Temporários Ativos (Aguardando Cadastro):**")
+                    for t_item in tokens_ativos:
+                        st.code(f"Token: {t_item['token']} (Gerado em: {t_item['criado_em']})", language="text")
