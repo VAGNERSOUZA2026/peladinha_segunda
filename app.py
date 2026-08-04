@@ -78,7 +78,6 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
-    /* Cards de Fluxo de Caixa */
     .card-fin-entrada {
         background: #F0FDF4;
         border: 1px solid #BBF7D0;
@@ -334,7 +333,7 @@ else:
         st.rerun()
 
 # -----------------------------------------------------------------------------
-# LÓGICA DE ORDENAÇÃO DE PRESENÇA (MENSALISTAS x AVULSAS) - SOMENTE ATIVAS
+# LÓGICA DE ORDENAÇÃO DE PRESENÇA
 # -----------------------------------------------------------------------------
 jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
 nomes_ativas = {j["nome"] for j in jogadoras_ativas}
@@ -358,7 +357,7 @@ if passou_prazo and len(confirmadas) < limite:
     espera = espera[vagas_sobrando:]
 
 # -----------------------------------------------------------------------------
-# SORTEIO AUTOMÁTICO (SEGUNDA-FEIRA ÀS 18:30)
+# SORTEIO AUTOMÁTICO
 # -----------------------------------------------------------------------------
 if hoje_dt.weekday() == 0 and (hoje_dt.hour > 18 or (hoje_dt.hour == 18 and hoje_dt.minute >= 30)):
     sorteio_salvo = st.session_state.sorteio_oficial
@@ -968,40 +967,42 @@ elif menu == "⚙️ Painel Admin":
 
         with tab_admins:
             st.write("### Gerenciamento de Administradores (Limite de até 3)")
-            st.info("ℹ️ O Desenvolvedor (Admin Principal) possui acesso imutável e privilégios exclusivos de visualização de credenciais.")
+            
+            if not st.session_state.admin_principal:
+                st.warning("🔒 **Acesso Restrito:** Apenas o Administrador Principal pode visualizar e gerenciar outros administradores e tokens de acesso.")
+            else:
+                st.info("ℹ️ O Administrador Principal possui privilégios exclusivos de gerenciamento de credenciais e tokens.")
 
-            for idx, adm in enumerate(st.session_state.administradores):
-                col_a1, col_a2 = st.columns([3, 1])
-                col_a1.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
-                if not adm.get("principal") and len(st.session_state.administradores) > 1:
-                    if st.session_state.admin_principal:
+                for idx, adm in enumerate(st.session_state.administradores):
+                    col_a1, col_a2 = st.columns([3, 1])
+                    col_a1.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
+                    if not adm.get("principal") and len(st.session_state.administradores) > 1:
                         if col_a2.button("🗑️ Remover", key=f"del_adm_{idx}"):
                             st.session_state.administradores.pop(idx)
                             salvar_dados(ADMINS_FILE, st.session_state.administradores)
                             st.success("Administrador removido com sucesso!")
                             st.rerun()
 
-            st.markdown("---")
-            st.write("#### 🔑 Gerar Token / Senha Temporária para Novo Administrador")
-            if not st.session_state.admin_principal:
-                st.warning("⚠️ Apenas o Administrador Principal pode gerar tokens temporários para novos administradores.")
-            elif len(st.session_state.administradores) >= 3:
-                st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
-            else:
-                if st.button("🎲 Gerar Novo Token Temporário", use_container_width=True):
-                    caracteres = string.ascii_uppercase + string.digits
-                    novo_token = "".join(random.choices(caracteres, k=6))
-                    st.session_state.tokens_admin.append({
-                        "token": novo_token,
-                        "usado": False,
-                        "criado_em": hoje_dt.strftime("%d/%m/%Y %H:%M")
-                    })
-                    salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
-                    st.success(f"Token temporário gerado com sucesso! Compartilhe com o novo administrador: **{novo_token}**")
-                    st.rerun()
+                st.markdown("---")
+                st.write("#### 🔑 Gerar Token / Senha Temporária para Novo Administrador")
+                
+                if len(st.session_state.administradores) >= 3:
+                    st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
+                else:
+                    if st.button("🎲 Gerar Novo Token Temporário", use_container_width=True):
+                        caracteres = string.ascii_uppercase + string.digits
+                        novo_token = "".join(random.choices(caracteres, k=6))
+                        st.session_state.tokens_admin.append({
+                            "token": novo_token,
+                            "usado": False,
+                            "criado_em": hoje_dt.strftime("%d/%m/%Y %H:%M")
+                        })
+                        salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
+                        st.success(f"Token temporário gerado com sucesso! Compartilhe com o novo administrador: **{novo_token}**")
+                        st.rerun()
 
-                tokens_ativos = [t for t in st.session_state.tokens_admin if not t.get("usado", False)]
-                if tokens_ativos:
-                    st.write("**Tokens Temporários Ativos (Aguardando Cadastro):**")
-                    for t_item in tokens_ativos:
-                        st.code(f"Token: {t_item['token']} (Gerado em: {t_item['criado_em']})", language="text")
+                    tokens_ativos = [t for t in st.session_state.tokens_admin if not t.get("usado", False)]
+                    if tokens_ativos:
+                        st.write("**Tokens Temporários Ativos (Aguardando Cadastro):**")
+                        for t_item in tokens_ativos:
+                            st.code(f"Token: {t_item['token']} (Gerado em: {t_item['criado_em']})", language="text")
