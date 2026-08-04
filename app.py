@@ -839,6 +839,9 @@ elif menu == "⚙️ Painel Admin":
                 j_sel_idx = st.selectbox("Selecione a jogadora para gerenciar:", range(len(opcoes_jogs)), format_func=lambda x: opcoes_jogs[x])
                 jog_selecionada = st.session_state.jogadoras[j_sel_idx]
 
+                # Exibição segura das credenciais atuais para consulta do Admin
+                st.info(f"🔐 **Credenciais Atuais da Jogadora:**\n\n• **Login:** `{jog_selecionada.get('login', 'N/I')}`\n• **Senha:** `{jog_selecionada.get('senha', 'N/I')}`")
+
                 with st.form("form_edit_jogadora_admin"):
                     edit_nome = st.text_input("Nome", value=jog_selecionada.get("nome", ""))
                     edit_tipo = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if jog_selecionada.get("tipo", "Avulso") == "Avulso" else 1)
@@ -851,21 +854,18 @@ elif menu == "⚙️ Painel Admin":
                     edit_senha = st.text_input("Nova Senha (deixe em branco se não quiser alterar)", value="", type="password")
 
                     if st.form_submit_button("💾 Salvar Alterações na Jogadora", use_container_width=True):
-                        # Valida se o novo login já está sendo usado por outra jogadora
                         novo_login_limpo = edit_login.strip()
                         conflito_login = any(idx_j != j_sel_idx and j.get("login") == novo_login_limpo for idx_j, j in enumerate(st.session_state.jogadoras))
 
                         if conflito_login:
                             st.error("Este Login já está em uso por outra jogadora. Escolha um login diferente!")
                         else:
-                            # Atualiza dados básicos
                             st.session_state.jogadoras[j_sel_idx]["nome"] = edit_nome.strip()
                             st.session_state.jogadoras[j_sel_idx]["tipo"] = edit_tipo
                             st.session_state.jogadoras[j_sel_idx]["status"] = edit_status
                             st.session_state.jogadoras[j_sel_idx]["nascimento"] = edit_nasc.strip()
                             st.session_state.jogadoras[j_sel_idx]["login"] = novo_login_limpo
 
-                            # Atualiza senha apenas se preenchida
                             if edit_senha.strip():
                                 st.session_state.jogadoras[j_sel_idx]["senha"] = edit_senha.strip()
 
