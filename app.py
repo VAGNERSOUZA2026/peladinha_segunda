@@ -475,65 +475,134 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
     if not st.session_state.admin_logged:
         st.error("🔒 Área restrita aos administradores!")
     else:
-        st.subheader("📊 Fluxo de Caixa")
-        df_fin = pd.DataFrame(st.session_state.financeiro) if st.session_state.financeiro else pd.DataFrame(columns=["data", "descricao", "tipo", "valor"])
+        st.subheader("📊 Fluxo de Caixa Avançado")
+        df_fin = pd.DataFrame(st.session_state.financeiro) if st.session_state.financeiro else pd.DataFrame(columns=["data", "descricao", "tipo", "valor", "categoria"])
         
+        # Garantir colunas padrão se os dados antigos não tiverem categoria
+        if not df_fin.empty and "categoria" not in df_fin.columns:
+            df_fin["categoria"] = "Outros"
+            for item in st.session_state.financeiro:
+                if "categoria" not in item:
+                    item["categoria"] = "Outros"
+
+        # Filtros e Períodos
         if not df_fin.empty:
             df_fin["mes_ano"] = df_fin["data"].apply(lambda x: x[3:10] if isinstance(x, str) and len(x) >= 10 else "Geral")
             meses_disp = df_fin["mes_ano"].unique().tolist()
-            mes_sel = st.selectbox("📅 Filtrar por Mês/Ano:", ["Todos"] + meses_disp)
-            df_fin_filtrado = df_fin[df_fin["mes_ano"] == mes_sel] if mes_sel != "Todos" else df_fin
+            
+            c_f1, c_f2 = st.columns(2)
+            with c_f1:
+                mes_sel = st.selectbox("📅 Filtrar por Mês/Ano:", ["Todos"] + meses_disp)
+            with c_f2:
+                tipo_sel = st.selectbox("🏷️ Filtrar por Tipo:", ["Todos", "Entrada", "Saída"])
+
+            df_fin_filtrado = df_fin.copy()
+            if mes_sel != "Todos":
+                df_fin_filtrado = df_fin_filtrado[df_fin_filtrado["mes_ano"] == mes_sel]
+            if tipo_sel != "Todos":
+                df_fin_filtrado = df_fin_filtrado[df_fin_filtrado["tipo"] == tipo_sel]
         else:
             df_fin_filtrado = df_fin
 
         total_in = df_fin_filtrado[df_fin_filtrado["tipo"] == "Entrada"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
-        total_out = df_fin_filtrado[df_fin_filtrado["tipo"] == "Saída"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
+        total_out = df_fin_filtrado[df_fin_filtrado["temp"] == "Saída" if "temp" in df_fin_filtrado.columns else df_fin_filtrado["tipo"] == "Saída"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
         
         m1, m2, m3 = st.columns(3)
         m1.metric("🟢 Entradas", f"R$ {total_in:.2f}")
         m2.metric("🔴 Saídas", f"R$ {total_out:.2f}")
-        m3.metric("💰 Saldo", f"R$ {total_in - total_out:.2f}")
+        m3.metric("💰 Saldo do Período", f"R$ {total_in - total_out:.2f}")
 
         st.markdown("---")
-        tab_list_fin, tab_add_fin, tab_edit_fin = st.tabs(["📜 Extrato", "➕ Novo Registro", "✏️ Editar / Excluir"])
+        
+        # Abas de Gestão Financeira com melhorias
+        tab_list_fin, tab_add_fin, tab_cat_fin, tab_edit_fin = st.tabs([
+            "📜 Extrato Detalhado", 
+            "➕ Novo Lançamento", 
+            "📊 Resumo por Categoria", 
+            "✏️ Editar / Excluir"
+        ])
 
         with tab_list_fin:
             if not df_fin_filtrado.empty:
-                cols_to_show = ["data", "descricao", "tipo", "valor"]
+                cols_to_show = [c for c in ["data", "descricao", "categoria", "tipo", "valor"] if c in df_fin_filtrado.columns]
                 st.dataframe(df_fin_filtrado[cols_to_show], use_container_width=True, hide_index=True)
+                
+                # Botão de exportação CSV
+                csv_data = df_fin_filtrado[cols_to_show].to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📥 Baixar Extrato em CSV",
+                    data=csv_data,
+                    file_name=f"extrato_financeiro_{hoje_dt.strftime('%Y%m%d')}.csv",
+                    mime="text/csv",
+                    use_container_width=True
+                )
             else:
-                st.info("Nenhum registro para este período.")
+                st.info("Nenhum registro encontrado para este filtro.")
 
         with tab_add_fin:
-            with st.form("form_fin", clear_on_submit=True):
+            categorias_entrada = ["Mensalidade", "Avulsa", "Doação / Patrocínio", "Outras Entradas"]
+            categorias_saida = ["Aluguel de Quadra", "Água / Gelo", "Material Esportivo (Bolas/Coletes)", "Premiação / Troféus", "Outras Saídas"]
+
+            with st.form("form_fin_melhorado", clear_on_submit=True):
                 f_data = st.text_input("Data (DD/MM/AAAA)", value=hoje_dt.strftime("%d/%m/%Y"))
-                f_desc = st.text_input("Descrição")
-                f_tipo = st.selectbox("Tipo", ["Entrada", "Saída"])
+                f_tipo = st.selectbox("Tipo de Lançamento", ["Entrada", "Saída"])
+                
+                if f_tipo == "Entrada":
+                    f_cat = st.selectbox("Categoria", categorias_entrada)
+                else:
+                    f_cat = st.selectbox("Categoria", categorias_saida)
+
+                f_desc = st.text_input("Descrição / Nome (Ex: Mensalidade da Maria / Aluguel Quadra Terça)")
                 f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
-                if st.form_submit_button("💾 Salvar Registro", use_container_width=True):
-                    st.session_state.financeiro.append({"data": f_data, "descricao": f_desc, "tipo": f_tipo, "valor": float(f_valor)})
+                
+                if st.form_submit_button("💾 Salvar Lançamento no Caixa", use_container_width=True):
+                    st.session_state.financeiro.append({
+                        "data": f_data, 
+                        "descricao": f_desc if f_desc else f_cat, 
+                        "tipo": f_tipo, 
+                        "categoria": f_cat,
+                        "valor": float(f_valor)
+                    })
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Lançamento salvo!")
+                    st.success("Lançamento salvo com sucesso!")
                     st.rerun()
+
+        with tab_cat_fin:
+            st.write("### 📊 Totais por Categoria")
+            if not df_fin_filtrado.empty:
+                resumo_cat = df_fin_filtrado.groupby(["tipo", "categoria"])["valor"].sum().reset_index()
+                st.dataframe(resumo_cat, use_container_width=True, hide_index=True)
+                
+                st.markdown("---")
+                st.write("💡 *Dica: Use o filtro de Mês acima para ver o resumo de categorias de meses específicos.*")
+            else:
+                st.info("Sem dados suficientes para gerar resumo por categoria.")
 
         with tab_edit_fin:
             if not st.session_state.financeiro:
                 st.info("Nenhum lançamento cadastrado.")
             else:
-                opcoes_fin = [f"{i}. {item['data']} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
+                opcoes_fin = [f"{i}. {item['data']} - {item.get('categoria', 'Outros')} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
                 idx_sel = st.selectbox("Escolha o registro para editar/apagar:", range(len(opcoes_fin)), format_func=lambda x: opcoes_fin[x])
                 reg_sel = st.session_state.financeiro[idx_sel]
 
                 with st.form("form_edit_fin"):
                     ef_data = st.text_input("Data", value=reg_sel.get("data", ""))
-                    ef_desc = st.text_input("Descrição", value=reg_sel.get("descricao", ""))
                     ef_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_sel.get("tipo") == "Entrada" else 1)
+                    ef_cat = st.text_input("Categoria", value=reg_sel.get("categoria", "Outros"))
+                    ef_desc = st.text_input("Descrição", value=reg_sel.get("descricao", ""))
                     ef_valor = st.number_input("Valor (R$)", value=float(reg_sel.get("valor", 0.0)), min_value=0.01)
 
                     if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                        st.session_state.financeiro[idx_sel] = {"data": ef_data, "descricao": ef_desc, "tipo": ef_tipo, "valor": float(ef_valor)}
+                        st.session_state.financeiro[idx_sel] = {
+                            "data": ef_data, 
+                            "descricao": ef_desc, 
+                            "tipo": ef_tipo, 
+                            "categoria": ef_cat,
+                            "valor": float(ef_valor)
+                        }
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        st.success("Atualizado!")
+                        st.success("Atualizado com sucesso!")
                         st.rerun()
 
                 if st.button("🗑️ Excluir Lançamento", type="primary", use_container_width=True):
@@ -609,6 +678,7 @@ elif menu == "💸 Pagamento & Pix":
                             "data": hoje_dt.strftime("%d/%m/%Y"),
                             "descricao": f"Mensalidade - {comp['nome']}",
                             "tipo": "Entrada",
+                            "categoria": "Mensalidade",
                             "valor": 0.0
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
@@ -658,7 +728,6 @@ elif menu == "⚙️ Painel Admin":
     else:
         st.subheader("⚙️ Painel de Controle do Administrador")
         
-        # Abas completas de gerenciamento para o Admin
         tab_pendentes, tab_jogadoras, tab_regulamento, tab_admins = st.tabs([
             "👤 Aprovação de Cadastros", 
             "🏃‍♀️ Gerenciar Jogadoras", 
@@ -716,7 +785,7 @@ elif menu == "⚙️ Painel Admin":
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
                     st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != removida["nome"]]
                     salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.warning(f"Jogadora {remetenda['nome']} removida!")
+                    st.warning(f"Jogadora {removida['nome']} removida!")
                     st.rerun()
 
         with tab_regulamento:
