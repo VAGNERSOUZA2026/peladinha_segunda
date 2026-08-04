@@ -302,13 +302,11 @@ if not st.session_state.admin_logged:
             
             if st.form_submit_button("📝 Registrar Admin", use_container_width=True):
                 if cad_a_nome and cad_a_login and cad_a_senha and cad_a_token:
-                    # Verificar se o token é válido
                     token_obj = next((t for t in st.session_state.tokens_admin if t.get("token") == cad_a_token.strip() and not t.get("usado", False)), None)
                     if token_obj or (len(st.session_state.administradores) == 0 and cad_a_token.strip() == "1980"):
                         if any(a.get("login") == cad_a_login.strip() for a in st.session_state.administradores):
                             st.error("Este login de administrador já está em uso!")
                         else:
-                            # Marcar token como usado se existir
                             if token_obj:
                                 token_obj["usado"] = True
                                 salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
@@ -849,7 +847,7 @@ elif menu == "⚙️ Painel Admin":
 
         with tab_pendentes:
             st.write("### Aprovação de Cadastros Pendentes")
-            pendentes = [j for j in st.session_state.jogadoras if j.get("status"] == "Pendente"]
+            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
             if not pendentes:
                 st.info("Nenhum cadastro pendente no momento.")
             else:
@@ -875,7 +873,6 @@ elif menu == "⚙️ Painel Admin":
                 j_sel_idx = st.selectbox("Selecione a jogadora para gerenciar:", range(len(opcoes_jogs)), format_func=lambda x: opcoes_jogs[x])
                 jog_selecionada = st.session_state.jogadoras[j_sel_idx]
 
-                # Restrição: Exibição segura das credenciais somente para o Administrador Principal
                 if st.session_state.admin_principal:
                     st.info(f"🔐 **Credenciais Atuais da Jogadora (Visível apenas para o Admin Principal):**\n\n• **Login:** `{jog_selecionada.get('login', 'N/I')}`\n• **Senha:** `{jog_selecionada.get('senha', 'N/I')}`")
                 else:
