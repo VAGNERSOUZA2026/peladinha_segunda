@@ -498,14 +498,12 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         st.subheader("📊 Fluxo de Caixa Avançado")
         df_fin = pd.DataFrame(st.session_state.financeiro) if st.session_state.financeiro else pd.DataFrame(columns=["data", "descricao", "tipo", "valor", "categoria"])
         
-        # Garantir colunas padrão se os dados antigos não tiverem categoria
         if not df_fin.empty and "categoria" not in df_fin.columns:
             df_fin["categoria"] = "Outros"
             for item in st.session_state.financeiro:
                 if "categoria" not in item:
                     item["categoria"] = "Outros"
 
-        # Filtros e Períodos
         if not df_fin.empty:
             df_fin["mes_ano"] = df_fin["data"].apply(lambda x: x[3:10] if isinstance(x, str) and len(x) >= 10 else "Geral")
             meses_disp = df_fin["mes_ano"].unique().tolist()
@@ -546,7 +544,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             if not st.session_state.financeiro:
                 st.info("Nenhum lançamento cadastrado.")
             else:
-                # Filtrar os índices reais com base nos filtros aplicados
                 indices_filtrados = []
                 for idx, item in enumerate(st.session_state.financeiro):
                     item_mes = item.get("data", "")[3:10] if len(item.get("data", "")) >= 10 else "Geral"
@@ -572,7 +569,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                         css_card = "card-fin-entrada" if t_tipo == "Entrada" else "card-fin-saida"
                         sinal = "+" if t_tipo == "Entrada" else "-"
 
-                        # Layout do Card Interativo
                         c_card_info, c_card_btn1, c_card_btn2 = st.columns([5, 1, 1])
                         
                         with c_card_info:
@@ -598,7 +594,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                                 st.rerun()
 
                     st.markdown("---")
-                    # Botão de exportação CSV geral filtrado
                     df_fin_filtrado = df.iloc[indices_filtrados] if 'df' in locals() and not df.empty else pd.DataFrame(st.session_state.financeiro)
                     if not df_fin_filtrado.empty:
                         cols_to_show = [c for c in ["data", "descricao", "categoria", "tipo", "valor"] if c in df_fin_filtrado.columns]
@@ -654,7 +649,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             if not st.session_state.financeiro:
                 st.info("Nenhum lançamento cadastrado.")
             else:
-                # Verifica se veio o índice direto do card clicado
                 idx_inicial = st.session_state.get("edit_fin_idx_temp", 0)
                 if idx_inicial >= len(st.session_state.financeiro):
                     idx_inicial = 0
@@ -663,7 +657,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                 
                 idx_sel = st.selectbox("Escolha o registro para editar/apagar:", range(len(opcoes_fin)), index=idx_inicial, format_func=lambda x: opcoes_fin[x])
                 
-                # Limpa a session state após ler para não travar
                 if "edit_fin_idx_temp" in st.session_state:
                     del st.session_state.edit_fin_idx_temp
 
@@ -838,7 +831,7 @@ elif menu == "⚙️ Painel Admin":
                         st.rerun()
 
         with tab_jogadoras:
-            st.write("### Gerenciar Elenco de Jogadoras Cadastradas")
+            st.write("### Gerenciar Elenco de Jogadoras Cadastradas (Dados, Login e Senha)")
             if not st.session_state.jogadoras:
                 st.info("Nenhuma jogadora cadastrada.")
             else:
@@ -851,17 +844,34 @@ elif menu == "⚙️ Painel Admin":
                     edit_tipo = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if jog_selecionada.get("tipo", "Avulso") == "Avulso" else 1)
                     edit_status = st.selectbox("Status", ["Ativo", "Pendente", "Inativo"], index=["Ativo", "Pendente", "Inativo"].index(jog_selecionada.get("status", "Ativo")))
                     edit_nasc = st.text_input("Nascimento (DD/MM)", value=jog_selecionada.get("nascimento", ""))
+                    
+                    st.markdown("---")
+                    st.write("🔑 **Alterar Credenciais de Acesso:**")
+                    edit_login = st.text_input("Login de Acesso", value=jog_selecionada.get("login", ""))
+                    edit_senha = st.text_input("Nova Senha (deixe em branco se não quiser alterar)", value="", type="password")
 
                     if st.form_submit_button("💾 Salvar Alterações na Jogadora", use_container_width=True):
-                        st.session_state.jogadoras[j_sel_idx].update({
-                            "nome": edit_nome.strip(),
-                            "tipo": edit_tipo,
-                            "status": edit_status,
-                            "nascimento": edit_nasc.strip()
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Dados da jogadora atualizados com sucesso!")
-                        st.rerun()
+                        # Valida se o novo login já está sendo usado por outra jogadora
+                        novo_login_limpo = edit_login.strip()
+                        conflito_login = any(idx_j != j_sel_idx and j.get("login") == novo_login_limpo for idx_j, j in enumerate(st.session_state.jogadoras))
+
+                        if conflito_login:
+                            st.error("Este Login já está em uso por outra jogadora. Escolha um login diferente!")
+                        else:
+                            # Atualiza dados básicos
+                            st.session_state.jogadoras[j_sel_idx]["nome"] = edit_nome.strip()
+                            st.session_state.jogadoras[j_sel_idx]["tipo"] = edit_tipo
+                            st.session_state.jogadoras[j_sel_idx]["status"] = edit_status
+                            st.session_state.jogadoras[j_sel_idx]["nascimento"] = edit_nasc.strip()
+                            st.session_state.jogadoras[j_sel_idx]["login"] = novo_login_limpo
+
+                            # Atualiza senha apenas se preenchida
+                            if edit_senha.strip():
+                                st.session_state.jogadoras[j_sel_idx]["senha"] = edit_senha.strip()
+
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.success("Dados, login e/ou senha da jogadora atualizados com sucesso!")
+                            st.rerun()
 
                 if st.button("🗑️ Excluir Esta Jogadora do Sistema", type="primary", use_container_width=True):
                     removida = st.session_state.jogadoras.pop(j_sel_idx)
