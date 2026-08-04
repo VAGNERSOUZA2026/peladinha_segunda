@@ -76,6 +76,26 @@ st.markdown("""
         padding: 15px;
         margin-bottom: 15px;
     }
+
+    /* Cards de Fluxo de Caixa */
+    .card-fin-entrada {
+        background: #F0FDF4;
+        border: 1px solid #BBF7D0;
+        border-left: 5px solid #22C55E;
+        padding: 12px 15px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+    .card-fin-saida {
+        background: #FEF2F2;
+        border: 1px solid #FECACA;
+        border-left: 5px solid #EF4444;
+        padding: 12px 15px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -515,27 +535,81 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
         st.markdown("---")
         
         tab_list_fin, tab_add_fin, tab_cat_fin, tab_edit_fin = st.tabs([
-            "📜 Extrato Detalhado", 
+            "📜 Extrato em Cards Interativos", 
             "➕ Novo Lançamento", 
             "📊 Resumo por Categoria", 
             "✏️ Editar / Excluir"
         ])
 
         with tab_list_fin:
-            if not df_fin_filtrado.empty:
-                cols_to_show = [c for c in ["data", "descricao", "categoria", "tipo", "valor"] if c in df_fin_filtrado.columns]
-                st.dataframe(df_fin_filtrado[cols_to_show], use_container_width=True, hide_index=True)
-                
-                csv_data = df_fin_filtrado[cols_to_show].to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Baixar Extrato em CSV",
-                    data=csv_data,
-                    file_name=f"extrato_financeiro_{hoje_dt.strftime('%Y%m%d')}.csv",
-                    mime="text/csv",
-                    use_container_width=True
-                )
+            st.write("### 🗂️ Lançamentos Financeiros (Clique nos cards ou botões abaixo)")
+            if not st.session_state.financeiro:
+                st.info("Nenhum lançamento cadastrado.")
             else:
-                st.info("Nenhum registro encontrado para este filtro.")
+                # Filtrar os índices reais com base nos filtros aplicados
+                indices_filtrados = []
+                for idx, item in enumerate(st.session_state.financeiro):
+                    item_mes = item.get("data", "")[3:10] if len(item.get("data", "")) >= 10 else "Geral"
+                    item_tipo = item.get("tipo", "Entrada")
+                    
+                    passou_mes = (mes_sel == "Todos" or item_mes == mes_sel)
+                    passou_tipo = (tipo_sel == "Todos" or item_tipo == tipo_sel)
+                    
+                    if passou_mes and passou_tipo:
+                        indices_filtrados.append(idx)
+
+                if not indices_filtrados:
+                    st.info("Nenhum registro encontrado para este filtro.")
+                else:
+                    for i_real in indices_filtrados:
+                        reg = st.session_state.financeiro[i_real]
+                        t_tipo = reg.get("tipo", "Entrada")
+                        t_cat = reg.get("categoria", "Outros")
+                        t_desc = reg.get("descricao", "Sem descrição")
+                        t_data = reg.get("data", "")
+                        t_val = reg.get("valor", 0.0)
+
+                        css_card = "card-fin-entrada" if t_tipo == "Entrada" else "card-fin-saida"
+                        sinal = "+" if t_tipo == "Entrada" else "-"
+
+                        # Layout do Card Interativo
+                        c_card_info, c_card_btn1, c_card_btn2 = st.columns([5, 1, 1])
+                        
+                        with c_card_info:
+                            st.markdown(f"""
+                            <div class='{css_card}'>
+                                <b>[{t_data}] {t_cat}</b> — {t_desc}<br>
+                                <span style='font-size: 1.1rem; font-weight: bold; color: {"#16A34A" if t_tipo=="Entrada" else "#DC2626"};'>
+                                    {sinal} R$ {t_val:.2f}
+                                </span>
+                            </div>
+                            """, unsafe_allow_html=True)
+
+                        with c_card_btn1:
+                            if st.button("✏️", key=f"btn_edit_card_{i_real}", help="Editar este lançamento"):
+                                st.session_state.edit_fin_idx_temp = i_real
+                                st.rerun()
+
+                        with c_card_btn2:
+                            if st.button("🗑️", key=f"btn_del_card_{i_real}", help="Excluir este lançamento"):
+                                st.session_state.financeiro.pop(i_real)
+                                salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                                st.success("Lançamento excluído com sucesso!")
+                                st.rerun()
+
+                    st.markdown("---")
+                    # Botão de exportação CSV geral filtrado
+                    df_fin_filtrado = df.iloc[indices_filtrados] if 'df' in locals() and not df.empty else pd.DataFrame(st.session_state.financeiro)
+                    if not df_fin_filtrado.empty:
+                        cols_to_show = [c for c in ["data", "descricao", "categoria", "tipo", "valor"] if c in df_fin_filtrado.columns]
+                        csv_data = df_fin_filtrado[cols_to_show].to_csv(index=False).encode('utf-8')
+                        st.download_button(
+                            label="📥 Baixar Extrato em CSV",
+                            data=csv_data,
+                            file_name=f"extrato_financeiro_{hoje_dt.strftime('%Y%m%d')}.csv",
+                            mime="text/csv",
+                            use_container_width=True
+                        )
 
         with tab_add_fin:
             categorias_entrada = ["Mensalidade", "Avulsa", "Doação / Patrocínio", "Outras Entradas"]
@@ -580,8 +654,19 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
             if not st.session_state.financeiro:
                 st.info("Nenhum lançamento cadastrado.")
             else:
+                # Verifica se veio o índice direto do card clicado
+                idx_inicial = st.session_state.get("edit_fin_idx_temp", 0)
+                if idx_inicial >= len(st.session_state.financeiro):
+                    idx_inicial = 0
+
                 opcoes_fin = [f"{i}. {item['data']} - {item.get('categoria', 'Outros')} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
-                idx_sel = st.selectbox("Escolha o registro para editar/apagar:", range(len(opcoes_fin)), format_func=lambda x: opcoes_fin[x])
+                
+                idx_sel = st.selectbox("Escolha o registro para editar/apagar:", range(len(opcoes_fin)), index=idx_inicial, format_func=lambda x: opcoes_fin[x])
+                
+                # Limpa a session state após ler para não travar
+                if "edit_fin_idx_temp" in st.session_state:
+                    del st.session_state.edit_fin_idx_temp
+
                 reg_sel = st.session_state.financeiro[idx_sel]
 
                 with st.form("form_edit_fin"):
