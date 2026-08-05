@@ -26,75 +26,105 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA
+# ESTILIZAÇÃO CSS CUSTOMIZADA (ESTÉTICA FEMININA / MODERNA)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;800&display=swap');
-    html, body, [class*="css"] { font-family: 'Poppins', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] { 
+        font-family: 'Montserrat', sans-serif; 
+    }
 
+    /* Fundo geral mais suave */
+    .stApp {
+        background-color: #F8FAFC;
+    }
+
+    /* Hero Banner com toque moderno e elegante */
     .hero-banner {
-        background: linear-gradient(rgba(15, 23, 42, 0.75), rgba(15, 23, 42, 0.85)), 
-                    url('https://images.unsplash.com/photo-1518091043644-c1d4457512c6?q=80&w=1200&auto=format&fit=crop');
-        background-size: cover;
-        background-position: center;
-        border-radius: 16px;
-        padding: 25px 15px;
+        background: linear-gradient(135deg, #4C1D95 0%, #831843 50%, #9D174D 100%);
+        border-radius: 20px;
+        padding: 35px 20px;
         text-align: center;
         color: #FFFFFF;
-        box-shadow: 0px 8px 20px rgba(0, 0, 0, 0.15);
-        margin-bottom: 20px;
+        box-shadow: 0px 10px 25px rgba(131, 24, 67, 0.25);
+        margin-bottom: 25px;
     }
-    .hero-title { font-size: 2.0rem; font-weight: 800; margin-bottom: 5px; color: #FFFFFF; }
-    .hero-subtitle { font-size: 0.9rem; font-weight: 300; color: #E2E8F0; }
+    .hero-title { 
+        font-size: 2.2rem; 
+        font-weight: 800; 
+        letter-spacing: -0.5px;
+        margin-bottom: 8px; 
+        color: #FFFFFF; 
+    }
+    .hero-subtitle { 
+        font-size: 0.95rem; 
+        font-weight: 300; 
+        color: #FCE7F3; 
+        letter-spacing: 0.5px;
+    }
 
+    /* Cards de Notificação e Avisos */
     .card-notice {
-        background: #FEF3C7;
-        border-left: 6px solid #F59E0B;
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 15px;
-        color: #78350F;
-    }
-
-    .card-bday {
-        background: linear-gradient(135deg, #FCE7F3 0%, #FBCFE8 100%);
-        border-left: 6px solid #EC4899;
+        background: #FDF2F8;
+        border-left: 6px solid #DB2777;
         padding: 18px;
         border-radius: 12px;
         margin-bottom: 20px;
         color: #831843;
+        box-shadow: 0px 4px 12px rgba(219, 39, 119, 0.05);
+    }
+
+    /* Card de Aniversariantes com Gradiente Delicado */
+    .card-bday {
+        background: linear-gradient(135deg, #FCE7F3 0%, #F3E8FF 100%);
+        border-left: 6px solid #9333EA;
+        padding: 20px;
+        border-radius: 14px;
+        margin-bottom: 20px;
+        color: #581C87;
         text-align: center;
         font-size: 1.1rem;
-        box-shadow: 0px 4px 12px rgba(0,0,0,0.05);
+        font-weight: 500;
+        box-shadow: 0px 6px 15px rgba(147, 51, 234, 0.08);
     }
 
+    /* Cards de Times e Elencos */
     .card-team {
-        background-color: #FFFFFF;
-        border: 1px solid #E2E8F0;
-        border-top: 5px solid #EC4899;
-        border-radius: 12px;
-        padding: 15px;
+        background: #FFFFFF;
+        border: 1px solid #F1F5F9;
+        border-top: 5px solid #DB2777;
+        border-radius: 14px;
+        padding: 18px;
         margin-bottom: 15px;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.03);
+    }
+    .card-team h3 {
+        color: #831843;
+        font-size: 1.1rem;
+        font-weight: 700;
+        margin-bottom: 10px;
     }
 
+    /* Cards Financeiros refinados */
     .card-fin-entrada {
         background: #F0FDF4;
-        border: 1px solid #BBF7D0;
-        border-left: 5px solid #22C55E;
-        padding: 12px 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        border: 1px solid #DCFCE7;
+        border-left: 5px solid #16A34A;
+        padding: 14px 18px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
     .card-fin-saida {
         background: #FEF2F2;
-        border: 1px solid #FECACA;
-        border-left: 5px solid #EF4444;
-        padding: 12px 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+        border: 1px solid #FEE2E2;
+        border-left: 5px solid #DC2626;
+        padding: 14px 18px;
+        border-radius: 12px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -223,7 +253,7 @@ if st.session_state.usuario_logado:
         else:
             st.markdown(f"""
             <div class='card-notice' style='background: #EFF6FF; border-left: 6px solid #3B82F6; color: #1E40AF;'>
-                👋 <b>Olá, {st.session_state.usuario_logado}! {saudacao}!</b> Que bom ter você de volta por aqui hoje. ⚽✨
+                👋 <b>Olá, {st.session_state.usuario_logado}! {saudacao}!</b> Que bom ter você de volta por hoje. ⚽✨
             </div>
             """, unsafe_allow_html=True)
 
@@ -346,7 +376,7 @@ if not st.session_state.admin_logged:
                             if token_obj:
                                 token_obj["usado"] = True
                                 salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
-                            
+                        
                             st.session_state.administradores.append({
                                 "nome": cad_a_nome.strip(),
                                 "login": cad_a_login.strip(),
@@ -659,267 +689,187 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                         c_card_info, c_card_btn1, c_card_btn2 = st.columns([5, 1, 1])
                         
                         with c_card_info:
+                            cor_valor = "#16A34A" if t_tipo == "Entrada" else "#DC2626"
                             st.markdown(f"""
                             <div class='{css_card}'>
                                 <b>[{t_data}] {t_cat}</b> — {t_desc}<br>
-                                <span style='font-size: 1.1rem; font-weight: bold; color: {"#16A34A" if t_tipo=="Entrada" else "#DC2626"};'>
-                                    {sinal} R$ {t_val:.2f}
-                                </span>
+                                <span style='font-size: 1.1rem; font-weight: bold; color: {cor_valor};'>{sinal} R$ {t_val:.2f}</span>
                             </div>
                             """, unsafe_allow_html=True)
-
-                        with c_card_btn1:
-                            if st.button("✏️", key=f"btn_edit_card_{i_real}", help="Editar este lançamento"):
-                                st.session_state.edit_fin_idx_temp = i_real
-                                st.rerun()
-
-                        with c_card_btn2:
-                            if st.button("🗑️", key=f"btn_del_card_{i_real}", help="Excluir este lançamento"):
-                                st.session_state.financeiro.pop(i_real)
-                                salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                                st.success("Lançamento excluído com sucesso!")
-                                st.rerun()
+                        
+                        if c_card_btn1.button("✏️", key=f"btn_edit_fin_{i_real}", help="Editar este lançamento"):
+                            st.session_state.edit_fin_idx_temp = i_real
+                            st.rerun()
+                        
+                        if c_card_btn2.button("🗑️", key=f"btn_del_fin_{i_real}", help="Excluir este lançamento"):
+                            st.session_state.financeiro.pop(i_real)
+                            salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                            st.success("Lançamento excluído com sucesso!")
+                            st.rerun()
 
         with tab_add_fin:
-            categorias_entrada = ["Mensalidade", "Avulsa", "Doação / Patrocínio", "Outras Entradas"]
-            categorias_saida = ["Aluguel de Quadra", "Água / Gelo", "Material Esportivo (Bolas/Coletes)", "Premiação / Troféus", "Outras Saídas"]
-
-            with st.form("form_fin_melhorado", clear_on_submit=True):
-                f_data = st.text_input("Data (DD/MM/AAAA)", value=hoje_dt.strftime("%d/%m/%Y"))
-                f_tipo = st.selectbox("Tipo de Lançamento", ["Entrada", "Saída"])
+            st.write("### ➕ Adicionar Novo Lançamento")
+            with st.form("form_add_financeiro", clear_on_submit=True):
+                c_f_desc = st.text_input("Descrição / Título *")
+                c_f_tipo = st.selectbox("Tipo *", ["Entrada", "Saída"])
+                c_f_cat = st.selectbox("Categoria *", ["Mensalidade", "Avulso", "Aluguel Quadra", "Árbitro", "Material", "Outros"])
+                c_f_val = st.number_input("Valor (R$) *", min_value=0.0, step=10.0, format="%.2f")
+                c_f_data = st.text_input("Data do Lançamento (DD/MM/AAAA) *", value=hoje_dt.strftime("%d/%m/%Y"))
                 
-                if f_tipo == "Entrada":
-                    f_cat = st.selectbox("Categoria", categorias_entrada)
-                else:
-                    f_cat = st.selectbox("Categoria", categorias_saida)
-
-                f_desc = st.text_input("Descrição / Nome")
-                f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
-                
-                if st.form_submit_button("💾 Salvar Lançamento no Caixa", use_container_width=True):
-                    if f_desc:
+                if st.form_submit_button("💾 Salvar Lançamento", use_container_width=True):
+                    if c_f_desc and c_f_val > 0:
                         st.session_state.financeiro.append({
-                            "data": f_data,
-                            "tipo": f_tipo,
-                            "categoria": f_cat,
-                            "descricao": f_desc,
-                            "valor": f_valor
+                            "data": c_f_data.strip(),
+                            "descricao": c_f_desc.strip(),
+                            "tipo": c_f_tipo,
+                            "valor": c_f_val,
+                            "categoria": c_f_cat
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        st.success("Lançamento efetuado com sucesso!")
+                        st.success("🎉 Lançamento cadastrado com sucesso!")
                         st.rerun()
                     else:
-                        st.error("Preencha a descrição do lançamento.")
+                        st.error("Preencha a descrição e um valor válido.")
 
         with tab_cat_fin:
             st.write("### 📊 Resumo Financeiro por Categoria")
             if not st.session_state.financeiro:
-                st.info("Sem dados financeiros para exibir.")
+                st.info("Nenhum dado financeiro para resumir.")
             else:
                 df_cat = pd.DataFrame(st.session_state.financeiro)
-                resumo_cat = df_cat.groupby(["tipo", "categoria"])["valor"].sum().reset_index()
-                st.dataframe(resumo_cat, use_container_width=True)
+                if not df_cat.empty:
+                    resumo_cat = df_cat.groupby(["categoria", "tipo"])["valor"].sum().reset_index()
+                    st.dataframe(resumo_cat, use_container_width=True)
 
         with tab_edit_fin:
-            st.write("### ✏️ Gerenciamento Direto de Lançamentos")
-            if st.session_state.edit_fin_idx_temp is not None and st.session_state.edit_fin_idx_temp < len(st.session_state.financeiro):
-                idx_e = st.session_state.edit_fin_idx_temp
-                reg_e = st.session_state.financeiro[idx_e]
-                
-                with st.form("form_edit_fin_direto"):
-                    st.write(f"Editando Lançamento #{idx_e}")
-                    e_data = st.text_input("Data", value=reg_e.get("data", ""))
-                    e_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_e.get("tipo")=="Entrada" else 1)
-                    e_cat = st.text_input("Categoria", value=reg_e.get("categoria", ""))
-                    e_desc = st.text_input("Descrição", value=reg_e.get("descricao", ""))
-                    e_val = st.number_input("Valor (R$)", value=float(reg_e.get("valor", 0.0)), step=1.0)
+            st.write("### ✏️ Edição Rápida de Lançamento")
+            idx_edit = st.session_state.edit_fin_idx_temp
+            if idx_edit is not None and 0 <= idx_edit < len(st.session_state.financeiro):
+                reg_atual = st.session_state.financeiro[idx_edit]
+                with st.form("form_edit_financeiro_real"):
+                    e_desc = st.text_input("Descrição", value=reg_atual.get("descricao", ""))
+                    e_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_atual.get("tipo") == "Entrada" else 1)
+                    cats_disp = ["Mensalidade", "Avulso", "Aluguel Quadra", "Árbitro", "Material", "Outros"]
+                    cat_atual = reg_atual.get("categoria", "Outros")
+                    idx_cat = cats_disp.index(cat_atual) if cat_atual in cats_disp else 5
+                    e_cat = st.selectbox("Categoria", cats_disp, index=idx_cat)
+                    e_val = st.number_input("Valor (R$)", min_value=0.0, step=10.0, value=float(reg_atual.get("valor", 0.0)), format="%.2f")
+                    e_data = st.text_input("Data", value=reg_atual.get("data", ""))
                     
-                    if st.form_submit_button("💾 Atualizar Registro"):
-                        st.session_state.financeiro[idx_e] = {
-                            "data": e_data,
+                    if st.form_submit_button("💾 Atualizar Registro", use_container_width=True):
+                        st.session_state.financeiro[idx_edit] = {
+                            "data": e_data.strip(),
+                            "descricao": e_desc.strip(),
                             "tipo": e_tipo,
-                            "categoria": e_cat,
-                            "descricao": e_desc,
-                            "valor": e_val
+                            "valor": e_val,
+                            "categoria": e_cat
                         }
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                         st.session_state.edit_fin_idx_temp = None
-                        st.success("Atualizado com sucesso!")
+                        st.success("Registro atualizado com sucesso!")
                         st.rerun()
             else:
-                st.info("Selecione o ícone de edição (✏️) em um card na aba de extrato para modificá-lo aqui.")
+                st.info("Selecione um lançamento para editar na aba **Extrato em Cards Interativos** clicando no botão ✏️.")
 
 elif menu == "💸 Pagamento & Pix":
-    st.subheader("💸 Pagamentos e Chave Pix")
+    st.subheader("💸 Informações de Pagamento e Chave Pix")
     st.markdown(f"""
-    <div class='card-notice'>
-        📌 <b>Informações para Pagamento:</b><br>
-        • Vencimento das mensalidades: <b>{st.session_state.avisos.get('vencimento')}</b><br>
-        • Chave Pix: <b>{st.session_state.avisos.get('pix')}</b><br>
-        💡 <i>Após realizar o Pix, envie o comprovante para validação da administração.</i>
+    <div class='card-notice' style='background: #F0FDF4; border-left: 6px solid #22C55E; color: #166534;'>
+        💳 <b>Chave Pix para Pagamento de Mensalidades e Avulsas:</b><br>
+        <h3 style='color: #15803D; margin-top: 10px;'>{st.session_state.avisos.get('pix', 'Chave não cadastrada')}</h3><br>
+        📌 Vencimento padrão: <b>{st.session_state.avisos.get('vencimento', 'Consultar avisos')}</b>.<br>
+        ⚠️ Após realizar o Pix, envie o comprovante para a administração para dar baixa na sua mensalidade.
     </div>
     """, unsafe_allow_html=True)
 
-    with st.form("form_comprovante", clear_on_submit=True):
-        c_nome_comp = st.text_input("Seu Nome Completo")
-        c_mes_ref = st.text_input("Mês de Referência", value=mes_vigente_str)
-        c_valor_comp = st.number_input("Valor Pago (R$)", min_value=0.0, step=5.0)
-        c_obs = st.text_area("Observações (Opcional)")
-        
-        if st.form_submit_button("📤 Enviar Comprovante", use_container_width=True):
-            if c_nome_comp:
-                st.session_state.comprovantes.append({
-                    "nome": c_nome_comp,
-                    "mes": c_mes_ref,
-                    "valor": c_valor_comp,
-                    "obs": c_obs,
-                    "data": hoje_dt.strftime("%d/%m/%Y"),
-                    "status": "Pendente"
-                })
-                salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                st.success("Comprovante enviado com sucesso para análise!")
-            else:
-                st.error("Por favor, preencha o seu nome.")
-
 elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento Interno do Peladinha FC")
-    for reg in st.session_state.regulamento:
+    st.subheader("📜 Regulamento Oficial do Peladinha FC")
+    for r in st.session_state.regulamento:
         st.markdown(f"""
         <div class='card-team'>
-            <h4>{reg.get('topico')}</h4>
-            <p>{reg.get('regrinha')}</p>
+            <h4>{r.get('topico', '')}</h4>
+            <p>{r.get('regrinha', '')}</p>
         </div>
         """, unsafe_allow_html=True)
 
 elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("📋 Elenco Cadastrado")
+    st.subheader("📋 Elenco de Jogadoras Cadastradas")
     if not st.session_state.jogadoras:
-        st.info("Nenhuma jogadora cadastrada no sistema.")
+        st.info("Nenhuma jogadora cadastrada no momento.")
     else:
-        df_j = pd.DataFrame(st.session_state.jogadoras)
-        cols_visiveis = [c for c in ["nome", "tipo", "nascimento", "status", "mes_vigente"] if c in df_j.columns]
-        st.dataframe(df_j[cols_visiveis], use_container_width=True)
+        df_jogs = pd.DataFrame(st.session_state.jogadoras)
+        colunas_exibir = [c for c in ["nome", "tipo", "nascimento", "status", "mes_vigente"] if c in df_jogs.columns]
+        st.dataframe(df_jogs[colunas_exibir], use_container_width=True)
 
 elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
-        st.warning("⚠️ Faça login como Administrador na barra lateral para acessar as configurações.")
+        st.error("🔒 Acesso restrito! Faça login como Administrador na barra lateral para ver este painel.")
     else:
         st.subheader("⚙️ Painel de Controle da Administração")
-        tab_ap_jog, tab_ap_cred, tab_ap_comp, tab_ap_av, tab_ap_reg, tab_ap_tok = st.tabs([
-            "👥 Aprovar Jogadoras", 
-            "🔑 Credenciais do Elenco",
-            "🧾 Validar Comprovantes", 
-            "📢 Avisos & Pix", 
-            "📜 Editar Regulamento",
-            "🔑 Gerar Tokens Admin"
+        tab_adm_jogs, tab_adm_avisos, tab_adm_reg, tab_adm_tokens = st.tabs([
+            "👥 Aprovar / Gerenciar Jogadoras",
+            "📢 Editar Avisos & Pix",
+            "📜 Gerenciar Regulamento",
+            "🔑 Tokens de Administrador"
         ])
 
-        with tab_ap_jog:
-            st.write("### Aprovação de Cadastros de Jogadoras")
-            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
-            if not pendentes:
-                st.info("Nenhuma jogadora pendente de aprovação.")
+        with tab_adm_jogs:
+            st.write("### 👥 Gerenciamento de Jogadoras")
+            if not st.session_state.jogadoras:
+                st.info("Nenhuma jogadora cadastrada.")
             else:
                 for idx, j in enumerate(st.session_state.jogadoras):
-                    if j.get("status") == "Pendente":
-                        col_j1, col_j2, col_j3 = st.columns([3, 1, 1])
-                        col_j1.write(f"**{j['nome']}** (`{j.get('tipo', 'Avulso')}`) — Login: {j.get('login')}")
-                        if col_j2.button("✅ Aprovar", key=f"apr_{idx}"):
-                            j["status"] = "Ativo"
+                    with st.expander(f"{j.get('nome')} — Status: {j.get('status', 'Ativo')} ({j.get('tipo', 'Avulso')})"):
+                        novo_status = st.selectbox("Status", ["Ativo", "Pendente", "Inativo"], index=["Ativo", "Pendente", "Inativo"].index(j.get("status", "Ativo")), key=f"status_j_{idx}")
+                        novo_tipo = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if j.get("tipo", "Avulso") == "Avulso" else 1, key=f"tipo_j_{idx}")
+                        
+                        if st.button("💾 Salvar Alterações", key=f"save_j_{idx}"):
+                            j["status"] = novo_status
+                            j["tipo"] = novo_tipo
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success(f"Jogadora {j['nome']} aprovada!")
-                            st.rerun()
-                        if col_j3.button("❌ Recusar", key=f"rec_{idx}"):
-                            st.session_state.jogadoras.pop(idx)
-                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.warning("Cadastro removido.")
+                            st.success(f"Dados de {j.get('nome')} atualizados!")
                             st.rerun()
 
-        with tab_ap_cred:
-            st.write("### 🔑 Consulta de Credenciais de Acesso (Exclusivo - Admin Principal)")
-            if not st.session_state.admin_principal:
-                st.warning("🔒 Apenas o Administrador Principal tem permissão para visualizar e gerenciar as credenciais das jogadoras.")
-            else:
-                st.info("💡 Caso alguma jogadora esqueça o login ou a senha, você pode consultar as credenciais dela abaixo ou alterar a senha diretamente.")
-                if not st.session_state.jogadoras:
-                    st.info("Nenhuma jogadora cadastrada.")
-                else:
-                    for idx_j, j_item in enumerate(st.session_state.jogadoras):
-                        with st.expander(f"👤 {j_item.get('nome')} (Login: {j_item.get('login')})"):
-                            st.write(f"**Nome:** {j_item.get('nome')}")
-                            st.write(f"**Login:** `{j_item.get('login')}`")
-                            st.write(f"**Senha cadastrada:** `{j_item.get('senha')}`")
-                            st.write(f"**Status:** {j_item.get('status')}")
-                            
-                            with st.form(f"form_reset_senha_{idx_j}"):
-                                nova_senha_temp = st.text_input("Redefinir Nova Senha", type="password", key=f"nova_s_{idx_j}")
-                                if st.form_submit_button("🔄 Salvar Nova Senha"):
-                                    if nova_senha_temp:
-                                        j_item["senha"] = nova_senha_temp.strip()
-                                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                                        st.success(f"Senha de {j_item.get('nome')} alterada com sucesso!")
-                                        st.rerun()
-                                    else:
-                                        st.error("Digite a nova senha.")
-
-        with tab_ap_comp:
-            st.write("### Comprovantes Enviados")
-            if not st.session_state.comprovantes:
-                st.info("Nenhum comprovante enviado.")
-            else:
-                for idx, c in enumerate(st.session_state.comprovantes):
-                    st.write(f"**{c['nome']}** — Mês: {c['mes']} — Valor: R$ {c['valor']:.2f} — Status: **{c.get('status', 'Pendente')}**")
-                    if c.get("status") == "Pendente":
-                        if st.button(f"Validar Comprovante de {c['nome']}", key=f"val_comp_{idx}"):
-                            c["status"] = "Aprovado"
-                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                            st.success("Comprovante validado!")
-                            st.rerun()
-
-        with tab_ap_av:
-            st.write("### Configurar Avisos, Vagas e Pix")
+        with tab_adm_avisos:
+            st.write("### 📢 Configurações de Avisos e Pix")
             with st.form("form_config_avisos"):
-                novo_recado = st.text_input("Recado do Dia / Aviso Principal", value=st.session_state.avisos.get("recado", ""))
-                novo_venc = st.text_input("Data de Vencimento", value=st.session_state.avisos.get("vencimento", ""))
                 novo_pix = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
-                novo_limite = st.number_input("Limite de Vagas no Jogo", min_value=1, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
+                novo_venc = st.text_input("Texto de Vencimento", value=st.session_state.avisos.get("vencimento", ""))
+                novo_recado = st.text_area("Recado Rápido", value=st.session_state.avisos.get("recado", ""))
+                novo_limite = st.number_input("Limite de Vagas", min_value=1, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
                 
-                if st.form_submit_button("💾 Salvar Alterações"):
-                    st.session_state.avisos["recado"] = novo_recado
-                    st.session_state.avisos["vencimento"] = novo_venc
-                    st.session_state.avisos["pix"] = novo_pix
+                if st.form_submit_button("💾 Salvar Configurações", use_container_width=True):
+                    st.session_state.avisos["pix"] = novo_pix.strip()
+                    st.session_state.avisos["vencimento"] = novo_venc.strip()
+                    st.session_state.avisos["recado"] = novo_recado.strip()
                     st.session_state.avisos["limite_vagas"] = int(novo_limite)
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
                     st.success("Configurações atualizadas com sucesso!")
                     st.rerun()
 
-        with tab_ap_reg:
-            st.write("### Gerenciar Regulamento")
-            with st.form("form_novo_topico_reg"):
-                t_tit = st.text_input("Título do Tópico")
-                t_desc = st.text_area("Regra Detalhada")
-                if st.form_submit_button("➕ Adicionar Regra"):
-                    if t_tit and t_desc:
-                        st.session_state.regulamento.append({"topico": t_tit, "regrinha": t_desc})
+        with tab_adm_reg:
+            st.write("### 📜 Gerenciar Regulamento")
+            with st.form("form_add_regra", clear_on_submit=True):
+                r_topico = st.text_input("Título do Tópico *")
+                r_texto = st.text_area("Regra / Descrição *")
+                if st.form_submit_button("➕ Adicionar Regra", use_container_width=True):
+                    if r_topico and r_texto:
+                        st.session_state.regulamento.append({"topico": r_topico.strip(), "regrinha": r_texto.strip()})
                         salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
                         st.success("Regra adicionada!")
                         st.rerun()
 
-        with tab_ap_tok:
-            st.write("### Gerar Token Temporário para Novos Admins")
-            if not st.session_state.admin_principal:
-                st.warning("⚠️ Apenas o Administrador Principal pode gerar tokens de acesso para outros admins.")
-            else:
-                if st.button("🔑 Gerar Novo Token de Cadastro"):
-                    novo_token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-                    st.session_state.tokens_admin.append({"token": novo_token, "usado": False})
-                    salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
-                    st.success(f"Token gerado com sucesso: **{novo_token}** (Forneça este código para o novo administrador).")
-                
+        with tab_adm_tokens:
+            st.write("### 🔑 Geração de Tokens para Novos Administradores")
+            st.caption("Gere um token temporário para permitir que outra pessoa se cadastre como Administrador secundário no sistema.")
+            if st.button("🎲 Gerar Novo Token de Admin"):
+                novo_token_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
+                st.session_state.tokens_admin.append({"token": novo_token_str, "usado": False})
+                salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
+                st.success(f"Token gerado com sucesso: **{novo_token_str}**")
+            
+            if st.session_state.tokens_admin:
                 st.write("#### Tokens Existentes:")
-                if not st.session_state.tokens_admin:
-                    st.caption("Nenhum token gerado.")
-                else:
-                    for t in st.session_state.tokens_admin:
-                        estado = "🔴 Utilizado" if t.get("usado") else "🟢 Disponível"
-                        st.write(f"Token: `{t['token']}` — Status: {estado}")
+                for t in st.session_state.tokens_admin:
+                    estado = "🔴 Usado" if t.get("usado", False) else "🟢 Disponível"
+                    st.write(f"• Token: `{t.get('token')}` — {estado}")
