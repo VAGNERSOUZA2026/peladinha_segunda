@@ -194,23 +194,40 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# MENSAGEM DE BOAS-VINDAS PARA NOVAS JOGADORAS
+# MENSAGEM DE SAUDAÇÃO DINÂMICA E BOAS-VINDAS AO LOGAR
 # -----------------------------------------------------------------------------
 if st.session_state.usuario_logado:
+    hora_atual = hoje_dt.hour
+    if 5 <= hora_atual < 12:
+        saudacao = "Bom dia"
+    elif 12 <= hora_atual < 18:
+        saudacao = "Boa tarde"
+    else:
+        saudacao = "Boa noite"
+
     dados_usuario_atual = next((j for j in st.session_state.jogadoras if j["nome"] == st.session_state.usuario_logado), None)
     
-    if dados_usuario_atual and not dados_usuario_atual.get("boas_vindas_vista", False):
-        st.markdown(f"""
-        <div class='card-notice' style='background: #ECFDF5; border-left: 6px solid #10B981; color: #065F46;'>
-            🎉 <b>Seja muito bem-vinda ao Peladinha FC, {st.session_state.usuario_logado}!</b><br>
-            Ficamos muito felizes com a sua chegada ao nosso time. Para garantir sua vaga nos jogos, lembre-se de acessar a aba <b>📌 Presença no Jogo</b> e confirmar sua participação. Bom jogo e muitos gols! ⚽✨
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.button("👍 Entendido, vamos lá!"):
-            dados_usuario_atual["boas_vindas_vista"] = True
-            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-            st.rerun()
+    if dados_usuario_atual:
+        # Se for o primeiro acesso da jogadora, exibe mensagem especial de boas-vindas
+        if not dados_usuario_atual.get("boas_vindas_vista", False):
+            st.markdown(f"""
+            <div class='card-notice' style='background: #ECFDF5; border-left: 6px solid #10B981; color: #065F46;'>
+                🎉 <b>Olá {st.session_state.usuario_logado}, {saudacao}! Seja muito bem-vinda ao Peladinha FC!</b><br>
+                Ficamos muito felizes com a sua chegada ao nosso time. Para garantir sua vaga nos jogos, lembre-se de acessar a aba <b>📌 Presença no Jogo</b> e confirmar sua participação. Bom jogo e muitos gols! ⚽✨
+            </div>
+            """, unsafe_allow_html=True)
+            
+            if st.button("👍 Entendido, vamos lá!"):
+                dados_usuario_atual["boas_vindas_vista"] = True
+                salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                st.rerun()
+        else:
+            # Saudação padrão a cada novo login subsequente
+            st.markdown(f"""
+            <div class='card-notice' style='background: #EFF6FF; border-left: 6px solid #3B82F6; color: #1E40AF;'>
+                👋 <b>Olá, {st.session_state.usuario_logado}! {saudacao}!</b> Que bom ter você de volta por aqui hoje. ⚽✨
+            </div>
+            """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ANIVERSARIANTES DO DIA
@@ -259,8 +276,6 @@ else:
                 if user_found:
                     if user_found.get("status") == "Ativo":
                         st.session_state.usuario_logado = user_found["nome"]
-                        user_found["primeiro_acceso"] = False
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.rerun()
                     else:
                         st.warning("⚠️ Seu cadastro está pendente de aprovação pela administração.")
