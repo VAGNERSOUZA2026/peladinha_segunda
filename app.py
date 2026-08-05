@@ -180,6 +180,8 @@ if "msg_cadastro_sucesso" not in st.session_state:
     st.session_state.msg_cadastro_sucesso = False
 if "msg_admin_cad_sucesso" not in st.session_state:
     st.session_state.msg_admin_cad_sucesso = False
+if "edit_fin_idx_temp" not in st.session_state:
+    st.session_state.edit_fin_idx_temp = None
 
 # -----------------------------------------------------------------------------
 # BANNER DA APLICAÇÃO
@@ -190,6 +192,25 @@ st.markdown("""
     <div class='hero-subtitle'>Gestão Inteligente & Sorteio de Futebol Feminino</div>
 </div>
 """, unsafe_allow_html=True)
+
+# -----------------------------------------------------------------------------
+# MENSAGEM DE BOAS-VINDAS PARA NOVAS JOGADORAS
+# -----------------------------------------------------------------------------
+if st.session_state.usuario_logado:
+    dados_usuario_atual = next((j for j in st.session_state.jogadoras if j["nome"] == st.session_state.usuario_logado), None)
+    
+    if dados_usuario_atual and not dados_usuario_atual.get("boas_vindas_vista", False):
+        st.markdown(f"""
+        <div class='card-notice' style='background: #ECFDF5; border-left: 6px solid #10B981; color: #065F46;'>
+            🎉 <b>Seja muito bem-vinda ao Peladinha FC, {st.session_state.usuario_logado}!</b><br>
+            Ficamos muito felizes com a sua chegada ao nosso time. Para garantir sua vaga nos jogos, lembre-se de acessar a aba <b>📌 Presença no Jogo</b> e confirmar sua participação. Bom jogo e muitos gols! ⚽✨
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.button("👍 Entendido, vamos lá!"):
+            dados_usuario_atual["boas_vindas_vista"] = True
+            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+            st.rerun()
 
 # -----------------------------------------------------------------------------
 # ANIVERSARIANTES DO DIA
@@ -238,6 +259,8 @@ else:
                 if user_found:
                     if user_found.get("status") == "Ativo":
                         st.session_state.usuario_logado = user_found["nome"]
+                        user_found["primeiro_acceso"] = False
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.rerun()
                     else:
                         st.warning("⚠️ Seu cadastro está pendente de aprovação pela administração.")
@@ -259,7 +282,8 @@ else:
                             "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
                             "login": c_user.strip(), "senha": c_pass.strip(),
                             "tipo": c_tipo, "mes_vigente": mes_vigente_str,
-                            "contato": "", "status": "Pendente"
+                            "contato": "", "status": "Pendente",
+                            "boas_vindas_vista": False
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.session_state.aba_ativa = "Entrar"
@@ -570,6 +594,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                 df_fin_filtrado = df_fin_filtrado[df_fin_filtrado["tipo"] == tipo_sel]
         else:
             df_fin_filtrado = df_fin
+            mes_sel, tipo_sel = "Todos", "Todos"
 
         total_in = df_fin_filtrado[df_fin_filtrado["tipo"] == "Entrada"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
         total_out = df_fin_filtrado[df_fin_filtrado["tipo"] == "Saída"]["valor"].sum() if not df_fin_filtrado.empty else 0.0
@@ -659,350 +684,201 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                 f_valor = st.number_input("Valor (R$)", min_value=0.01, step=5.0)
                 
                 if st.form_submit_button("💾 Salvar Lançamento no Caixa", use_container_width=True):
-                    st.session_state.financeiro.append({
-                        "data": f_data, 
-                        "descricao": f_desc if f_desc else f_cat, 
-                        "tipo": f_tipo, 
-                        "categoria": f_cat,
-                        "valor": float(f_valor)
-                    })
-                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Lançamento salvo com sucesso!")
-                    st.rerun()
-
-        with tab_cat_fin:
-            st.write("### 📊 Totais por Categoria")
-            if not df_fin_filtrado.empty:
-                resumo_cat = df_fin_filtrado.groupby(["tipo", "categoria"])["valor"].sum().reset_index()
-                st.dataframe(resumo_cat, use_container_width=True, hide_index=True)
-            else:
-                st.info("Sem dados suficientes para gerar resumo por categoria.")
-
-        with tab_edit_fin:
-            if not st.session_state.financeiro:
-                st.info("Nenhum lançamento cadastrado.")
-            else:
-                idx_inicial = st.session_state.get("edit_fin_idx_temp", 0)
-                if idx_inicial >= len(st.session_state.financeiro):
-                    idx_inicial = 0
-
-                opcoes_fin = [f"{i}. {item['data']} - {item.get('categoria', 'Outros')} - {item['descricao']} (R$ {item['valor']:.2f})" for i, item in enumerate(st.session_state.financeiro)]
-                
-                idx_sel = st.selectbox("Escolha o registro para editar/apagar:", range(len(opcoes_fin)), index=idx_inicial, format_func=lambda x: opcoes_fin[x])
-                
-                if "edit_fin_idx_temp" in st.session_state:
-                    del st.session_state.edit_fin_idx_temp
-
-                reg_sel = st.session_state.financeiro[idx_sel]
-
-                with st.form("form_edit_fin"):
-                    ef_data = st.text_input("Data", value=reg_sel.get("data", ""))
-                    ef_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_sel.get("tipo") == "Entrada" else 1)
-                    ef_cat = st.text_input("Categoria", value=reg_sel.get("categoria", "Outros"))
-                    ef_desc = st.text_input("Descrição", value=reg_sel.get("descricao", ""))
-                    ef_valor = st.number_input("Valor (R$)", value=float(reg_sel.get("valor", 0.0)), min_value=0.01)
-
-                    if st.form_submit_button("💾 Salvar Alterações", use_container_width=True):
-                        st.session_state.financeiro[idx_sel] = {
-                            "data": ef_data, 
-                            "descricao": ef_desc, 
-                            "tipo": ef_tipo, 
-                            "categoria": ef_cat,
-                            "valor": float(ef_valor)
-                        }
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        st.success("Atualizado com sucesso!")
-                        st.rerun()
-
-                if st.button("🗑️ Excluir Lançamento", type="primary", use_container_width=True):
-                    st.session_state.financeiro.pop(idx_sel)
-                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Excluído com sucesso!")
-                    st.rerun()
-
-elif menu == "💸 Pagamento & Pix":
-    st.subheader("💸 Dados para Pagamento e Envio de Comprovante")
-    
-    st.markdown("### 🔑 Chave Pix Atual")
-    pix_atual = st.session_state.avisos.get('pix', 'Não informada')
-    st.code(pix_atual, language="text")
-    st.write(f"📅 **Vencimento:** {st.session_state.avisos.get('vencimento')}")
-
-    st.markdown("---")
-
-    if st.session_state.admin_logged:
-        with st.expander("🛠️ [Admin] Editar Chave Pix e Vencimento"):
-            with st.form("form_edit_pix_direto"):
-                novo_pix = st.text_input("Chave Pix", value=pix_atual)
-                novo_venc = st.text_input("Dia de Vencimento", value=st.session_state.avisos.get("vencimento", ""))
-                if st.form_submit_button("💾 Atualizar Chave Pix"):
-                    st.session_state.avisos["pix"] = novo_pix
-                    st.session_state.avisos["vencimento"] = novo_venc
-                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Chave Pix atualizada com sucesso!")
-                    st.rerun()
-        st.markdown("---")
-
-    st.subheader("📤 Enviar Comprovante de Pagamento")
-    if not st.session_state.usuario_logado and not st.session_state.admin_logged:
-        st.warning("⚠️ **Faça login na sua conta no menu lateral para enviar o comprovante automaticamente em seu nome!**")
-    else:
-        with st.form("form_enviar_comprovante", clear_on_submit=True):
-            if st.session_state.admin_logged and not st.session_state.usuario_logado:
-                nomes_j_todas = [j["nome"] for j in jogadoras_ativas]
-                remetente_sel = st.selectbox("Enviar em nome de:", nomes_j_todas) if nomes_j_todas else "Admin"
-            else:
-                remetente_sel = st.session_state.usuario_logado
-                st.write(f"Enviando comprovante como: **{remetente_sel}**")
-
-            detalhes_pag = st.text_input("Detalhes / Observação (Ex: Mensalidade Referente a Agosto)")
-            
-            if st.form_submit_button("🚀 Enviar Comprovante", use_container_width=True):
-                if remetente_sel:
-                    st.session_state.comprovantes.append({
-                        "nome": remetente_sel,
-                        "detalhes": detalhes_pag.strip() if detalhes_pag else "Pagamento Pix",
-                        "data": hoje_dt.strftime("%d/%m/%Y %H:%M"),
-                        "status": "Pendente"
-                    })
-                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                    st.success("Comprovante enviado com sucesso para a análise da administração!")
-                else:
-                    st.error("Erro ao identificar a jogadora.")
-
-    if st.session_state.admin_logged:
-        st.markdown("---")
-        st.subheader("📥 Comprovantes Recebidos (Admin)")
-        if not st.session_state.comprovantes:
-            st.info("Nenhum comprovante enviado no momento.")
-        else:
-            for idx, comp in enumerate(st.session_state.comprovantes):
-                col_c1, col_c2, col_c3 = st.columns([2, 2, 1])
-                col_c1.write(f"**{comp['nome']}**")
-                col_c2.write(f"{comp['detalhes']} — *{comp['data']}*")
-                
-                if comp.get("status") == "Pendente":
-                    if col_c3.button("✅ Confirmar", key=f"conf_comp_{idx}"):
+                    if f_desc:
                         st.session_state.financeiro.append({
-                            "data": hoje_dt.strftime("%d/%m/%Y"),
-                            "descricao": f"Mensalidade - {comp['nome']}",
-                            "tipo": "Entrada",
-                            "categoria": "Mensalidade",
-                            "valor": 0.0
+                            "data": f_data,
+                            "tipo": f_tipo,
+                            "categoria": f_cat,
+                            "descricao": f_desc,
+                            "valor": f_valor
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        
-                        st.session_state.comprovantes.pop(idx)
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                        st.success(f"Pagamento de {comp['nome']} confirmado e adicionado ao caixa!")
+                        st.success("Lançamento efetuado com sucesso!")
                         st.rerun()
-                else:
-                    col_c3.write("Aprovado")
+                    else:
+                        st.error("Preencha a descrição do lançamento.")
+
+        with tab_cat_fin:
+            st.write("### 📊 Resumo Financeiro por Categoria")
+            if not st.session_state.financeiro:
+                st.info("Sem dados financeiros para exibir.")
+            else:
+                df_cat = pd.DataFrame(st.session_state.financeiro)
+                resumo_cat = df_cat.groupby(["tipo", "categoria"])["valor"].sum().reset_index()
+                st.dataframe(resumo_cat, use_container_width=True)
+
+        with tab_edit_fin:
+            st.write("### ✏️ Gerenciamento Direto de Lançamentos")
+            if st.session_state.edit_fin_idx_temp is not None and st.session_state.edit_fin_idx_temp < len(st.session_state.financeiro):
+                idx_e = st.session_state.edit_fin_idx_temp
+                reg_e = st.session_state.financeiro[idx_e]
+                
+                with st.form("form_edit_fin_direto"):
+                    st.write(f"Editando Lançamento #{idx_e}")
+                    e_data = st.text_input("Data", value=reg_e.get("data", ""))
+                    e_tipo = st.selectbox("Tipo", ["Entrada", "Saída"], index=0 if reg_e.get("tipo")=="Entrada" else 1)
+                    e_cat = st.text_input("Categoria", value=reg_e.get("categoria", ""))
+                    e_desc = st.text_input("Descrição", value=reg_e.get("descricao", ""))
+                    e_val = st.number_input("Valor (R$)", value=float(reg_e.get("valor", 0.0)), step=1.0)
+                    
+                    if st.form_submit_button("💾 Atualizar Registro"):
+                        st.session_state.financeiro[idx_e] = {
+                            "data": e_data,
+                            "tipo": e_tipo,
+                            "categoria": e_cat,
+                            "descricao": e_desc,
+                            "valor": e_val
+                        }
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        st.session_state.edit_fin_idx_temp = None
+                        st.success("Atualizado com sucesso!")
+                        st.rerun()
+            else:
+                st.info("Selecione o ícone de edição (✏️) em um card na aba de extrato para modificá-lo aqui.")
+
+elif menu == "💸 Pagamento & Pix":
+    st.subheader("💸 Pagamentos e Chave Pix")
+    st.markdown(f"""
+    <div class='card-notice'>
+        📌 <b>Informações para Pagamento:</b><br>
+        • Vencimento das mensalidades: <b>{st.session_state.avisos.get('vencimento')}</b><br>
+        • Chave Pix: <b>{st.session_state.avisos.get('pix')}</b><br>
+        💡 <i>Após realizar o Pix, envie o comprovante para validação da administração.</i>
+    </div>
+    """, unsafe_allow_html=True)
+
+    with st.form("form_comprovante", clear_on_submit=True):
+        c_nome_comp = st.text_input("Seu Nome Completo")
+        c_mes_ref = st.text_input("Mês de Referência", value=mes_vigente_str)
+        c_valor_comp = st.number_input("Valor Pago (R$)", min_value=0.0, step=5.0)
+        c_obs = st.text_area("Observações (Opcional)")
+        
+        if st.form_submit_button("📤 Enviar Comprovante", use_container_width=True):
+            if c_nome_comp:
+                st.session_state.comprovantes.append({
+                    "nome": c_nome_comp,
+                    "mes": c_mes_ref,
+                    "valor": c_valor_comp,
+                    "obs": c_obs,
+                    "data": hoje_dt.strftime("%d/%m/%Y"),
+                    "status": "Pendente"
+                })
+                salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                st.success("Comprovante enviado com sucesso para análise!")
+            else:
+                st.error("Por favor, preencha o seu nome.")
 
 elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento do Peladinha FC")
-    st.markdown("---")
-    for item in st.session_state.regulamento:
-        with st.expander(f"**{item['topico']}**", expanded=True):
-            st.write(item["regrinha"])
+    st.subheader("📜 Regulamento Interno do Peladinha FC")
+    for reg in st.session_state.regulamento:
+        st.markdown(f"""
+        <div class='card-team'>
+            <h4>{reg.get('topico')}</h4>
+            <p>{reg.get('regrinha')}</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("🏃‍♀️ Elenco do Peladinha FC")
-    tab_elenco, tab_mensalistas = st.tabs(["Todas as Cadastradas", "🌟 Mensalistas Ativas"])
-    
-    if st.session_state.jogadoras:
-        df = pd.DataFrame(st.session_state.jogadoras)
-        for j in st.session_state.jogadoras:
-            if "mes_vigente" not in j:
-                j["mes_vigente"] = mes_vigente_str
-
-        cols_visiveis = [c for c in ["nome", "tipo", "nascimento", "status"] if c in df.columns]
-        
-        with tab_elenco:
-            st.dataframe(df[cols_visiveis], use_container_width=True, hide_index=True)
-            
-        with tab_mensalistas:
-            df_mensalistas = df[(df["tipo"] == "Mensalista") & (df["status"] == "Ativo")]
-            if not df_mensalistas.empty:
-                st.write("Essas são as mensalistas ativas do nosso grupo neste ano/mês:")
-                st.dataframe(df_mensalistas[cols_visiveis], use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhuma mensalista ativa registrada no momento.")
+    st.subheader("📋 Elenco Cadastrado")
+    if not st.session_state.jogadoras:
+        st.info("Nenhuma jogadora cadastrada no sistema.")
     else:
-        st.info("Nenhuma jogadora cadastrada.")
+        df_j = pd.DataFrame(st.session_state.jogadoras)
+        cols_visiveis = [c for c in ["nome", "tipo", "nascimento", "status", "mes_vigente"] if c in df_j.columns]
+        st.dataframe(df_j[cols_visiveis], use_container_width=True)
 
 elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
-        st.error("🔒 Área restrita aos administradores! Faça login ou cadastre-se na barra lateral.")
+        st.warning("⚠️ Faça login como Administrador na barra lateral para acessar as configurações.")
     else:
-        st.subheader("⚙️ Painel de Controle do Administrador")
-        
-        tab_pendentes, tab_jogadoras, tab_regulamento, tab_admins = st.tabs([
-            "👤 Aprovação de Cadastros", 
-            "🏃‍♀️ Gerenciar Jogadoras", 
-            "📜 Gerenciar Regulamento", 
-            "🛡️ Gerenciar Administradores"
+        st.subheader("⚙️ Painel de Controle da Administração")
+        tab_ap_jog, tab_ap_comp, tab_ap_av, tab_ap_reg, tab_ap_tok = st.tabs([
+            "👥 Aprovar Jogadoras", 
+            "🧾 Validar Comprovantes", 
+            "📢 Avisos & Pix", 
+            "📜 Editar Regulamento",
+            "🔑 Gerar Tokens Admin"
         ])
 
-        with tab_pendentes:
-            st.write("### Aprovação de Cadastros Pendentes")
+        with tab_ap_jog:
+            st.write("### Aprovação de Cadastros de Jogadoras")
             pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
             if not pendentes:
-                st.info("Nenhum cadastro pendente no momento.")
+                st.info("Nenhuma jogadora pendente de aprovação.")
             else:
-                for idx, j in enumerate(pendentes):
-                    c_p1, c_p2, c_p3 = st.columns([2, 2, 1])
-                    c_p1.write(f"**{j['nome']}** `[{j['tipo']}]`")
-                    c_p2.write(f"Nasc: {j.get('nascimento', 'N/I')} | Login: `{j['login']}`")
-                    
-                    if c_p3.button("✅ Aprovar", key=f"aprovar_j_{idx}"):
-                        for jog in st.session_state.jogadoras:
-                            if jog["login"] == j["login"]:
-                                jog["status"] = "Ativo"
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Cadastro de {j['nome']} aprovado com sucesso!")
-                        st.rerun()
-
-        with tab_jogadoras:
-            st.write("### Gerenciar Elenco de Jogadoras Cadastradas (Dados, Login e Senha)")
-            if not st.session_state.jogadoras:
-                st.info("Nenhuma jogadora cadastrada.")
-            else:
-                opcoes_jogs = [f"{i}. {j['nome']} ({j.get('tipo', 'Avulso')} - {j.get('status', 'Ativo')})" for i, j in enumerate(st.session_state.jogadoras)]
-                j_sel_idx = st.selectbox("Selecione a jogadora para gerenciar:", range(len(opcoes_jogs)), format_func=lambda x: opcoes_jogs[x])
-                jog_selecionada = st.session_state.jogadoras[j_sel_idx]
-
-                if st.session_state.admin_principal:
-                    st.info(f"🔐 **Credenciais Atuais da Jogadora (Visível apenas para o Admin Principal):**\n\n• **Login:** `{jog_selecionada.get('login', 'N/I')}`\n• **Senha:** `{jog_selecionada.get('senha', 'N/I')}`")
-                else:
-                    st.info("🔒 *As credenciais de login e senha das jogadoras são visíveis exclusivamente para o Administrador Principal.*")
-
-                with st.form("form_edit_jogadora_admin"):
-                    edit_nome = st.text_input("Nome", value=jog_selecionada.get("nome", ""))
-                    edit_tipo = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if jog_selecionada.get("tipo", "Avulso") == "Avulso" else 1)
-                    edit_status = st.selectbox("Status", ["Ativo", "Pendente", "Inativo"], index=["Ativo", "Pendente", "Inativo"].index(jog_selecionada.get("status", "Ativo")))
-                    edit_nasc = st.text_input("Nascimento (DD/MM)", value=jog_selecionada.get("nascimento", ""))
-                    
-                    st.markdown("---")
-                    st.write("🔑 **Alterar Credenciais de Acesso:**")
-                    
-                    if st.session_state.admin_principal:
-                        edit_login = st.text_input("Login de Acesso", value=jog_selecionada.get("login", ""))
-                        edit_senha = st.text_input("Nova Senha (deixe em branco se não quiser alterar)", value="", type="password")
-                    else:
-                        edit_login = jog_selecionada.get("login", "")
-                        st.info("🔒 *Apenas o Administrador Principal pode alterar logins e senhas das jogadoras.*")
-
-                    if st.form_submit_button("💾 Salvar Alterações na Jogadora", use_container_width=True):
-                        novo_login_limpo = edit_login.strip()
-                        conflito_login = any(idx_j != j_sel_idx and j.get("login") == novo_login_limpo for idx_j, j in enumerate(st.session_state.jogadoras))
-
-                        if conflito_login and st.session_state.admin_principal:
-                            st.error("Este Login já está em uso por outra jogadora. Escolha um login diferente!")
-                        else:
-                            st.session_state.jogadoras[j_sel_idx]["nome"] = edit_nome.strip()
-                            st.session_state.jogadoras[j_sel_idx]["tipo"] = edit_tipo
-                            st.session_state.jogadoras[j_sel_idx]["status"] = edit_status
-                            st.session_state.jogadoras[j_sel_idx]["nascimento"] = edit_nasc.strip()
-                            
-                            if st.session_state.admin_principal:
-                                st.session_state.jogadoras[j_sel_idx]["login"] = novo_login_limpo
-                                if edit_senha.strip():
-                                    st.session_state.jogadoras[j_sel_idx]["senha"] = edit_senha.strip()
-
+                for idx, j in enumerate(st.session_state.jogadoras):
+                    if j.get("status") == "Pendente":
+                        col_j1, col_j2, col_j3 = st.columns([3, 1, 1])
+                        col_j1.write(f"**{j['nome']}** (`{j.get('tipo', 'Avulso')}`) — Login: {j.get('login')}")
+                        if col_j2.button("✅ Aprovar", key=f"apr_{idx}"):
+                            j["status"] = "Ativo"
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success("Dados da jogadora atualizados com sucesso!")
+                            st.success(f"Jogadora {j['nome']} aprovada!")
+                            st.rerun()
+                        if col_j3.button("❌ Recusar", key=f"rec_{idx}"):
+                            st.session_state.jogadoras.pop(idx)
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.warning("Cadastro removido.")
                             st.rerun()
 
-                if st.session_state.admin_principal:
-                    if st.button("🗑️ Excluir Esta Jogadora do Sistema", type="primary", use_container_width=True):
-                        removida = st.session_state.jogadoras.pop(j_sel_idx)
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != removida["nome"]]
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.warning(f"Jogadora {removida['nome']} removida!")
-                        st.rerun()
-                else:
-                    st.caption("🔒 *A exclusão de jogadoras é restrita ao Administrador Principal.*")
+        with tab_ap_comp:
+            st.write("### Comprovantes Enviados")
+            if not st.session_state.comprovantes:
+                st.info("Nenhum comprovante enviado.")
+            else:
+                for idx, c in enumerate(st.session_state.comprovantes):
+                    st.write(f"**{c['nome']}** — Mês: {c['mes']} — Valor: R$ {c['valor']:.2f} — Status: **{c.get('status', 'Pendente')}**")
+                    if c.get("status") == "Pendente":
+                        if st.button(f"Validar Comprovante de {c['nome']}", key=f"val_comp_{idx}"):
+                            c["status"] = "Aprovado"
+                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                            st.success("Comprovante validado!")
+                            st.rerun()
 
-        with tab_regulamento:
-            st.write("### Gerenciar Tópicos do Regulamento")
-            
-            with st.form("form_add_regulamento", clear_on_submit=True):
-                st.write("**Adicionar Novo Tópico:**")
-                novo_topico = st.text_input("Título do Tópico (Ex: 📌 5. Horário)")
-                nova_regrinha = st.text_area("Descrição / Regra")
-                if st.form_submit_button("➕ Adicionar Regra", use_container_width=True):
-                    if novo_topico and nova_regrinha:
-                        st.session_state.regulamento.append({"topico": novo_topico.strip(), "regrinha": nova_regrinha.strip()})
+        with tab_ap_av:
+            st.write("### Configurar Avisos, Vagas e Pix")
+            with st.form("form_config_avisos"):
+                novo_recado = st.text_input("Recado do Dia / Aviso Principal", value=st.session_state.avisos.get("recado", ""))
+                novo_venc = st.text_input("Data de Vencimento", value=st.session_state.avisos.get("vencimento", ""))
+                novo_pix = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
+                novo_limite = st.number_input("Limite de Vagas no Jogo", min_value=1, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
+                
+                if st.form_submit_button("💾 Salvar Alterações"):
+                    st.session_state.avisos["recado"] = novo_recado
+                    st.session_state.avisos["vencimento"] = novo_venc
+                    st.session_state.avisos["pix"] = novo_pix
+                    st.session_state.avisos["limite_vagas"] = int(novo_limite)
+                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
+                    st.success("Configurações atualizadas com sucesso!")
+                    st.rerun()
+
+        with tab_ap_reg:
+            st.write("### Gerenciar Regulamento")
+            with st.form("form_novo_topico_reg"):
+                t_tit = st.text_input("Título do Tópico")
+                t_desc = st.text_area("Regra Detalhada")
+                if st.form_submit_button("➕ Adicionar Regra"):
+                    if t_tit and t_desc:
+                        st.session_state.regulamento.append({"topico": t_tit, "regrinha": t_desc})
                         salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
                         st.success("Regra adicionada!")
                         st.rerun()
-                    else:
-                        st.error("Preencha o título e a descrição.")
 
-            st.markdown("---")
-            st.write("**Editar ou Remover Regras Existentes:**")
-            if not st.session_state.regulamento:
-                st.info("Nenhum regulamento cadastrado.")
-            else:
-                opcoes_reg = [f"{i}. {r['topico']}" for i, r in enumerate(st.session_state.regulamento)]
-                reg_sel_idx = st.selectbox("Escolha a regra:", range(len(opcoes_reg)), format_func=lambda x: opcoes_reg[x])
-                reg_atual = st.session_state.regulamento[reg_sel_idx]
-
-                with st.form("form_edit_regulamento"):
-                    ed_top = st.text_input("Título", value=reg_atual["topico"])
-                    ed_reg = st.text_area("Descrição", value=reg_atual["regrinha"])
-                    if st.form_submit_button("💾 Salvar Alteração na Regra", use_container_width=True):
-                        st.session_state.regulamento[reg_sel_idx] = {"topico": ed_top.strip(), "regrinha": ed_reg.strip()}
-                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                        st.success("Regulamento atualizado!")
-                        st.rerun()
-
-                if st.button("🗑️ Excluir Esta Regra", type="primary", use_container_width=True):
-                    st.session_state.regulamento.pop(reg_sel_idx)
-                    salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                    st.success("Regra removida!")
-                    st.rerun()
-
-        with tab_admins:
-            st.write("### Gerenciamento de Administradores (Limite de até 3)")
-            
+        with tab_ap_tok:
+            st.write("### Gerar Token Temporário para Novos Admins")
             if not st.session_state.admin_principal:
-                st.warning("🔒 **Acesso Restrito:** Apenas o Administrador Principal pode visualizar e gerenciar outros administradores e tokens de acesso.")
+                st.warning("⚠️ Apenas o Administrador Principal pode gerar tokens de acesso para outros admins.")
             else:
-                st.info("ℹ️ O Administrador Principal possui privilégios exclusivos de gerenciamento de credenciais e tokens.")
-
-                for idx, adm in enumerate(st.session_state.administradores):
-                    col_a1, col_a2 = st.columns([3, 1])
-                    col_a1.write(f"• **{adm['nome']}** (Login: `{adm.get('login')}`)" + (" *(Admin Principal)*" if adm.get("principal") else ""))
-                    if not adm.get("principal") and len(st.session_state.administradores) > 1:
-                        if col_a2.button("🗑️ Remover", key=f"del_adm_{idx}"):
-                            st.session_state.administradores.pop(idx)
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador removido com sucesso!")
-                            st.rerun()
-
-                st.markdown("---")
-                st.write("#### 🔑 Gerar Token / Senha Temporária para Novo Administrador")
+                if st.button("🔑 Gerar Novo Token de Cadastro"):
+                    novo_token = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+                    st.session_state.tokens_admin.append({"token": novo_token, "usado": False})
+                    salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
+                    st.success(f"Token gerado com sucesso: **{novo_token}** (Forneça este código para o novo administrador).")
                 
-                if len(st.session_state.administradores) >= 3:
-                    st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
+                st.write("#### Tokens Existentes:")
+                if not st.session_state.tokens_admin:
+                    st.caption("Nenhum token gerado.")
                 else:
-                    if st.button("🎲 Gerar Novo Token Temporário", use_container_width=True):
-                        caracteres = string.ascii_uppercase + string.digits
-                        novo_token = "".join(random.choices(caracteres, k=6))
-                        st.session_state.tokens_admin.append({
-                            "token": novo_token,
-                            "usado": False,
-                            "criado_em": hoje_dt.strftime("%d/%m/%Y %H:%M")
-                        })
-                        salvar_dados(TOKENS_ADMIN_FILE, st.session_state.tokens_admin)
-                        st.success(f"Token temporário gerado com sucesso! Compartilhe com o novo administrador: **{novo_token}**")
-                        st.rerun()
-
-                    tokens_ativos = [t for t in st.session_state.tokens_admin if not t.get("usado", False)]
-                    if tokens_ativos:
-                        st.write("**Tokens Temporários Ativos (Aguardando Cadastro):**")
-                        for t_item in tokens_ativos:
-                            st.code(f"Token: {t_item['token']} (Gerado em: {t_item['criado_em']})", language="text")
+                    for t in st.session_state.tokens_admin:
+                        estado = "🔴 Utilizado" if t.get("usado") else "🟢 Disponível"
+                        st.write(f"Token: `{t['token']}` — Status: {estado}")
