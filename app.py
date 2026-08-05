@@ -208,7 +208,6 @@ if st.session_state.usuario_logado:
     dados_usuario_atual = next((j for j in st.session_state.jogadoras if j["nome"] == st.session_state.usuario_logado), None)
     
     if dados_usuario_atual:
-        # Se for o primeiro acesso da jogadora, exibe mensagem especial de boas-vindas
         if not dados_usuario_atual.get("boas_vindas_vista", False):
             st.markdown(f"""
             <div class='card-notice' style='background: #ECFDF5; border-left: 6px solid #10B981; color: #065F46;'>
@@ -222,7 +221,6 @@ if st.session_state.usuario_logado:
                 salvar_dados(DATA_FILE, st.session_state.jogadoras)
                 st.rerun()
         else:
-            # Saudação padrão a cada novo login subsequente
             st.markdown(f"""
             <div class='card-notice' style='background: #EFF6FF; border-left: 6px solid #3B82F6; color: #1E40AF;'>
                 👋 <b>Olá, {st.session_state.usuario_logado}! {saudacao}!</b> Que bom ter você de volta por aqui hoje. ⚽✨
@@ -807,8 +805,9 @@ elif menu == "⚙️ Painel Admin":
         st.warning("⚠️ Faça login como Administrador na barra lateral para acessar as configurações.")
     else:
         st.subheader("⚙️ Painel de Controle da Administração")
-        tab_ap_jog, tab_ap_comp, tab_ap_av, tab_ap_reg, tab_ap_tok = st.tabs([
+        tab_ap_jog, tab_ap_cred, tab_ap_comp, tab_ap_av, tab_ap_reg, tab_ap_tok = st.tabs([
             "👥 Aprovar Jogadoras", 
+            "🔑 Credenciais do Elenco",
             "🧾 Validar Comprovantes", 
             "📢 Avisos & Pix", 
             "📜 Editar Regulamento",
@@ -835,6 +834,33 @@ elif menu == "⚙️ Painel Admin":
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
                             st.warning("Cadastro removido.")
                             st.rerun()
+
+        with tab_ap_cred:
+            st.write("### 🔑 Consulta de Credenciais de Acesso (Exclusivo - Admin Principal)")
+            if not st.session_state.admin_principal:
+                st.warning("🔒 Apenas o Administrador Principal tem permissão para visualizar e gerenciar as credenciais das jogadoras.")
+            else:
+                st.info("💡 Caso alguma jogadora esqueça o login ou a senha, você pode consultar as credenciais dela abaixo ou alterar a senha diretamente.")
+                if not st.session_state.jogadoras:
+                    st.info("Nenhuma jogadora cadastrada.")
+                else:
+                    for idx_j, j_item in enumerate(st.session_state.jogadoras):
+                        with st.expander(f"👤 {j_item.get('nome')} (Login: {j_item.get('login')})"):
+                            st.write(f"**Nome:** {j_item.get('nome')}")
+                            st.write(f"**Login:** `{j_item.get('login')}`")
+                            st.write(f"**Senha cadastrada:** `{j_item.get('senha')}`")
+                            st.write(f"**Status:** {j_item.get('status')}")
+                            
+                            with st.form(f"form_reset_senha_{idx_j}"):
+                                nova_senha_temp = st.text_input("Redefinir Nova Senha", type="password", key=f"nova_s_{idx_j}")
+                                if st.form_submit_button("🔄 Salvar Nova Senha"):
+                                    if nova_senha_temp:
+                                        j_item["senha"] = nova_senha_temp.strip()
+                                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                                        st.success(f"Senha de {j_item.get('nome')} alterada com sucesso!")
+                                        st.rerun()
+                                    else:
+                                        st.error("Digite a nova senha.")
 
         with tab_ap_comp:
             st.write("### Comprovantes Enviados")
