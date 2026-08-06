@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (ESTÉTICA MODERNA / CARDS INTERATIVOS)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (ESTÉTICA MODERNA / CARDS VISÍVEIS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -62,20 +62,21 @@ st.markdown("""
         letter-spacing: 0.5px;
     }
 
-    /* Cards Interativos */
+    /* Cards Interativos Visíveis */
     .card-interactive {
-        background: #FFFFFF;
-        border: 1px solid #E2E8F0;
+        background: #FFFFFF !important;
+        border: 1px solid #CBD5E1 !important;
         border-radius: 14px;
         padding: 20px;
         margin-bottom: 15px;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.03);
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
+        color: #1E293B !important;
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     .card-interactive:hover {
         transform: translateY(-2px);
-        box-shadow: 0px 6px 16px rgba(131, 24, 67, 0.08);
-        border-color: #DB2777;
+        box-shadow: 0px 6px 16px rgba(131, 24, 67, 0.1);
+        border-color: #DB2777 !important;
     }
 
     .card-notice {
@@ -103,12 +104,12 @@ st.markdown("""
 
     .card-team {
         background: #FFFFFF;
-        border: 1px solid #F1F5F9;
+        border: 1px solid #CBD5E1;
         border-top: 5px solid #DB2777;
         border-radius: 14px;
         padding: 18px;
         margin-bottom: 15px;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.03);
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.05);
     }
     .card-team h3 {
         color: #831843;
@@ -195,8 +196,6 @@ if "admin_nome" not in st.session_state:
     st.session_state.admin_nome = ""
 if "admin_principal" not in st.session_state:
     st.session_state.admin_principal = False
-if "aba_ativa" not in st.session_state:
-    st.session_state.aba_ativa = "Entrar"
 if "msg_cadastro_sucesso" not in st.session_state:
     st.session_state.msg_cadastro_sucesso = False
 
@@ -259,7 +258,7 @@ if aniversariantes_hoje:
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# MENU LATERAL (SIDEBAR) COM CONTROLE DE ACESSO
+# MENU LATERAL (SIDEBAR) COM CADASTRO LOGO ABAIXO DO LOGIN
 # -----------------------------------------------------------------------------
 st.sidebar.title("📌 Navegação")
 lista_menu = ["📌 Presença no Jogo", "🔀 Sorteio de Times", "💸 Pagamento & Pix", "📜 Regulamento", "📋 Elenco de Jogadoras"]
@@ -279,52 +278,56 @@ if st.session_state.usuario_logado:
         st.session_state.usuario_logado = None
         st.rerun()
 else:
-    tab_log, tab_cad = st.sidebar.tabs(["Entrar", "Cadastrar"] if st.session_state.aba_ativa == "Entrar" else ["Cadastrar", "Entrar"])
-    with tab_log:
-        if st.session_state.msg_cadastro_sucesso:
-            st.success("🎉 Cadastro realizado com sucesso! Faça login abaixo.")
-            st.session_state.msg_cadastro_sucesso = False
-        with st.form("form_login_player"):
-            l_user = st.text_input("Login")
-            l_pass = st.text_input("Senha", type="password")
-            if st.form_submit_button("🔑 Entrar", use_container_width=True):
-                user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
-                if user_found:
-                    st.session_state.usuario_logado = user_found["nome"]
+    # 1. Seção de Entrar
+    st.sidebar.subheader("🔑 Entrar na Conta")
+    if st.session_state.msg_cadastro_sucesso:
+        st.sidebar.success("🎉 Cadastro realizado com sucesso! Faça login abaixo.")
+        st.session_state.msg_cadastro_sucesso = False
+        
+    with st.sidebar.form("form_login_player"):
+        l_user = st.text_input("Login")
+        l_pass = st.text_input("Senha", type="password")
+        if st.form_submit_button("Entrar", use_container_width=True):
+            user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
+            if user_found:
+                st.session_state.usuario_logado = user_found["nome"]
+                st.rerun()
+            else:
+                st.error("Login ou senha incorretos!")
+
+    st.sidebar.markdown("---")
+    
+    # 2. Seção de Cadastro (Colocada logo abaixo da opção de entrar)
+    st.sidebar.subheader("📝 Cadastrar Nova Jogadora")
+    with st.sidebar.form("form_cad_player", clear_on_submit=True):
+        c_nome = st.text_input("Seu Nome *")
+        c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+        c_tipo = st.selectbox("Deseja se cadastrar como:", ["Avulso", "Mensalista"])
+        c_user = st.text_input("Escolha um Login *")
+        c_pass = st.text_input("Escolha uma Senha *", type="password")
+        if st.form_submit_button("Criar Conta", use_container_width=True):
+            if c_nome and c_user and c_pass:
+                if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
+                    st.error("Este Login já está em uso. Escolha outro!")
+                else:
+                    st.session_state.jogadoras.append({
+                        "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
+                        "login": c_user.strip(), "senha": c_pass.strip(),
+                        "tipo": c_tipo, "mes_vigente": mes_vigente_str,
+                        "contato": "", "status": "Ativo",
+                        "boas_vindas_vista": False
+                    })
+                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                    st.session_state.msg_cadastro_sucesso = True
                     st.rerun()
-                else:
-                    st.error("Login ou senha incorretos!")
-    with tab_cad:
-        with st.form("form_cad_player", clear_on_submit=True):
-            c_nome = st.text_input("Seu Nome *")
-            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
-            c_tipo = st.selectbox("Deseja se cadastrar como:", ["Avulso", "Mensalista"])
-            c_user = st.text_input("Escolha um Login *")
-            c_pass = st.text_input("Escolha uma Senha *", type="password")
-            if st.form_submit_button("📝 Criar Conta", use_container_width=True):
-                if c_nome and c_user and c_pass:
-                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
-                        st.error("Este Login já está em uso. Escolha outro!")
-                    else:
-                        st.session_state.jogadoras.append({
-                            "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
-                            "login": c_user.strip(), "senha": c_pass.strip(),
-                            "tipo": c_tipo, "mes_vigente": mes_vigente_str,
-                            "contato": "", "status": "Ativo",
-                            "boas_vindas_vista": False
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.session_state.aba_ativa = "Entrar"
-                        st.session_state.msg_cadastro_sucesso = True
-                        st.rerun()
-                else:
-                    st.error("Preencha Nome, Login e Senha!")
+            else:
+                st.error("Preencha Nome, Login e Senha!")
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("🔒 Área do Administrador")
 
 if not st.session_state.admin_logged:
-    with st.form("form_login_admin"):
+    with st.sidebar.form("form_login_admin"):
         adm_user = st.text_input("Login Admin")
         adm_pass = st.text_input("Senha Admin", type="password")
         if st.form_submit_button("Acessar Como Admin", use_container_width=True):
@@ -503,7 +506,7 @@ elif menu == "🔀 Sorteio de Times":
                 with cols[idx]:
                     st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
                     for item in membros:
-                        st.markdown(f"<div style='background: #F8FAFC; padding: 6px 10px; border-radius: 6px; margin-bottom: 5px;'>• **{item}**</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div style='background: #F8FAFC; padding: 6px 10px; border-radius: 6px; margin-bottom: 5px; color: #1E293B;'>• **{item}**</div>", unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("⏰ O Sorteio Oficial é realizado automaticamente às **Segundas-feiras, às 18:30**.")
@@ -551,7 +554,7 @@ elif menu == "🔀 Sorteio de Times":
                         with cols_q[i]:
                             st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1} (Quadra)</h3>", unsafe_allow_html=True)
                             for item in t:
-                                st.markdown(f"<div style='background: #F8FAFC; padding: 6px 10px; border-radius: 6px; margin-bottom: 5px;'>• **{item}**</div>", unsafe_allow_html=True)
+                                st.markdown(f"<div style='background: #F8FAFC; padding: 6px 10px; border-radius: 6px; margin-bottom: 5px; color: #1E293B;'>• **{item}**</div>", unsafe_allow_html=True)
                             st.markdown("</div>", unsafe_allow_html=True)
 
 elif menu == "📊 Fluxo de Caixa (Admin)":
@@ -635,7 +638,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
 
                         st.markdown(f"""
                         <div class='card-interactive' style='border-left: 5px solid {"#16A34A" if t_tipo == "Entrada" else "#DC2626"};'>
-                            <b>{t_data}</b> | <span style='background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;'>{t_cat}</span><br>
+                            <b>{t_data}</b> | <span style='background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: #334155;'>{t_cat}</span><br>
                             <span style='font-size: 1.05rem; font-weight: 600;'>{t_desc}</span>
                             <div style='float: right; font-size: 1.1rem; font-weight: 700; {cor_val}'>{sinal} R$ {t_val:.2f}</div>
                         </div>
@@ -737,7 +740,6 @@ elif menu == "💸 Pagamento & Pix":
                 if arquivo_img is None:
                     st.error("⚠️ É obrigatório anexar a imagem do comprovante para realizar o envio!")
                 else:
-                    # Salvar arquivo de imagem em pasta física
                     extensao = arquivo_img.name.split(".")[-1]
                     nome_arquivo_unico = f"{st.session_state.usuario_logado}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extensao}"
                     caminho_completo = os.path.join(UPLOAD_DIR, nome_arquivo_unico)
@@ -792,7 +794,6 @@ elif menu == "💸 Pagamento & Pix":
                     })
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                     
-                    # Remover arquivo físico opcional ou mantê-lo registrado
                     st.session_state.comprovantes.pop(idx)
                     salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                     st.success(f"Pagamento de {comp['jogadora']} aprovado e adicionado ao caixa!")
@@ -880,10 +881,9 @@ elif menu == "⚙️ Painel Admin":
         st.error("🔒 Faça login como Administrador para acessar este painel.")
     else:
         st.subheader("⚙️ Painel de Controle da Administração")
-        tab_ap_cad, tab_ap_avisos, tab_ap_admins = st.tabs([
+        tab_ap_cad, tab_ap_avisos = st.tabs([
             "👥 Aprovar Cadastros", 
-            "📢 Configurar Avisos & Vagas", 
-            "🛡️ Gerenciar Credenciais de Admins"
+            "📢 Configurar Avisos & Vagas"
         ])
 
         with tab_ap_cad:
@@ -924,55 +924,3 @@ elif menu == "⚙️ Painel Admin":
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
                     st.success("Configurações atualizadas com sucesso!")
                     st.rerun()
-
-        with tab_ap_admins:
-            st.write("### 🛡️ Gestão de Credenciais de Administradores (Limite de 3)")
-            if not st.session_state.admin_principal:
-                st.warning("⚠️ Somente o **Administrador Principal** pode gerenciar as credenciais e cadastrar novos administradores.")
-            else:
-                total_admins = len(st.session_state.administradores)
-                st.info(f"📊 Total de Administradores cadastrados: **{total_admins} / 3**")
-
-                if total_admins < 3:
-                    st.write("#### ➕ Cadastrar Novo Administrador com Confirmação de Senha")
-                    with st.form("form_novo_admin", clear_on_submit=True):
-                        novo_adm_nome = st.text_input("Nome do Novo Admin")
-                        novo_adm_login = st.text_input("Login do Novo Admin")
-                        novo_adm_senha = st.text_input("Senha do Novo Admin", type="password")
-                        novo_adm_conf_senha = st.text_input("Confirme a Senha do Admin", type="password")
-                        
-                        if st.form_submit_button("➕ Criar Administrador", use_container_width=True):
-                            if novo_adm_nome and novo_adm_login and novo_adm_senha:
-                                if len(st.session_state.administradores) >= 3:
-                                    st.error("Limite máximo de 3 administradores atingido!")
-                                elif novo_adm_senha != novo_adm_conf_senha:
-                                    st.error("As senhas não coincidem! Verifique e tente novamente.")
-                                elif any(a.get("login") == novo_adm_login.strip() for a in st.session_state.administradores):
-                                    st.error("Este login de administrador já está em uso!")
-                                else:
-                                    st.session_state.administradores.append({
-                                        "nome": novo_adm_nome.strip(),
-                                        "login": novo_adm_login.strip(),
-                                        "senha": novo_adm_senha.strip(),
-                                        "principal": False
-                                    })
-                                    salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                                    st.success(f"Administrador {novo_adm_nome} cadastrado com sucesso!")
-                                    st.rerun()
-                            else:
-                                st.error("Preencha todos os campos obrigatórios.")
-                else:
-                    st.warning("⚠️ O limite máximo de 3 administradores já foi atingido. Para cadastrar um novo, remova um administrador existente abaixo.")
-
-                st.markdown("---")
-                st.write("#### 📋 Administradores Cadastrados")
-                for i, adm in enumerate(st.session_state.administradores):
-                    c_a1, c_a2 = st.columns([3, 1])
-                    tipo_adm = "⭐ Principal" if adm.get("principal") else "Secundário"
-                    c_a1.markdown(f"<div class='card-interactive' style='padding: 10px 15px;'><b>{adm['nome']}</b> (Login: <code>{adm['login']}</code>) — <i>{tipo_adm}</i></div>", unsafe_allow_html=True)
-                    if not adm.get("principal", False):
-                        if c_a2.button("🗑️ Remover", key=f"rem_adm_{i}"):
-                            st.session_state.administradores.pop(i)
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador removido com sucesso!")
-                            st.rerun()
