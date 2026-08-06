@@ -260,7 +260,6 @@ if aniversariantes_hoje:
 st.sidebar.title("📌 Navegação")
 lista_menu = ["📌 Presença no Jogo", "🔀 Sorteio de Times", "💸 Pagamento & Pix", "📜 Regulamento", "📋 Elenco de Jogadoras"]
 
-# Menus restritos exclusivamente a administradores logados
 if st.session_state.admin_logged:
     lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
     lista_menu.append("⚙️ Painel Admin")
@@ -478,12 +477,12 @@ if menu == "📌 Presença no Jogo":
         if st.session_state.admin_logged:
             st.markdown("---")
             st.subheader("🚨 Ações de Admin")
-            if st.button("🧹 Zerar Toda a Lista", use_container_width=True):
+            if st.button("🧹 Zerar Toda a Lista Manualmente", use_container_width=True):
                 st.session_state.presencas = []
                 salvar_dados(PRESENCAS_FILE, [])
                 st.session_state.sorteio_oficial = {}
                 salvar_dados(SORTEIO_FILE, {})
-                st.warning("Lista e sorteios zerados!")
+                st.warning("Lista e sorteios zerados com sucesso!")
                 st.rerun()
 
 elif menu == "🔀 Sorteio de Times":
@@ -626,7 +625,6 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                         t_data = reg.get("data", "")
                         t_val = reg.get("valor", 0.0)
 
-                        css_card = "card-fin-entrada" if t_tipo == "Entrada" else "card-fin-saida"
                         sinal = "+" if t_tipo == "Entrada" else "-"
                         cor_val = "color: #16A34A;" if t_tipo == "Entrada" else "color: #DC2626;"
 
@@ -899,35 +897,43 @@ elif menu == "⚙️ Painel Admin":
                     st.rerun()
 
         with tab_ap_admins:
-            st.write("### 🛡️ Gestão de Credenciais de Administradores")
+            st.write("### 🛡️ Gestão de Credenciais de Administradores (Limite de 3)")
             if not st.session_state.admin_principal:
                 st.warning("⚠️ Somente o **Administrador Principal** pode gerenciar as credenciais e cadastrar novos administradores.")
             else:
-                st.write("#### ➕ Cadastrar Novo Administrador com Confirmação de Senha")
-                with st.form("form_novo_admin", clear_on_submit=True):
-                    novo_adm_nome = st.text_input("Nome do Novo Admin")
-                    novo_adm_login = st.text_input("Login do Novo Admin")
-                    novo_adm_senha = st.text_input("Senha do Novo Admin", type="password")
-                    novo_adm_conf_senha = st.text_input("Confirme a Senha", type="password")
-                    
-                    if st.form_submit_button("➕ Criar Administrador", use_container_width=True):
-                        if novo_adm_nome and novo_adm_login and novo_adm_senha:
-                            if novo_adm_senha != novo_adm_conf_senha:
-                                st.error("As senhas não coincidem! Verifique e tente novamente.")
-                            elif any(a.get("login") == novo_adm_login.strip() for a in st.session_state.administradores):
-                                st.error("Este login de administrador já está em uso!")
+                total_admins = len(st.session_state.administradores)
+                st.info(f"📊 Total de Administradores cadastrados: **{total_admins} / 3**")
+
+                if total_admins < 3:
+                    st.write("#### ➕ Cadastrar Novo Administrador com Confirmação de Senha")
+                    with st.form("form_novo_admin", clear_on_submit=True):
+                        novo_adm_nome = st.text_input("Nome do Novo Admin")
+                        novo_adm_login = st.text_input("Login do Novo Admin")
+                        novo_adm_senha = st.text_input("Senha do Novo Admin", type="password")
+                        novo_adm_conf_senha = st.text_input("Confirme a Senha do Admin", type="password")
+                        
+                        if st.form_submit_button("➕ Criar Administrador", use_container_width=True):
+                            if novo_adm_nome and novo_adm_login and novo_adm_senha:
+                                if len(st.session_state.administradores) >= 3:
+                                    st.error("Limite máximo de 3 administradores atingido!")
+                                elif novo_adm_senha != novo_adm_conf_senha:
+                                    st.error("As senhas não coincidem! Verifique e tente novamente.")
+                                elif any(a.get("login") == novo_adm_login.strip() for a in st.session_state.administradores):
+                                    st.error("Este login de administrador já está em uso!")
+                                else:
+                                    st.session_state.administradores.append({
+                                        "nome": novo_adm_nome.strip(),
+                                        "login": novo_adm_login.strip(),
+                                        "senha": novo_adm_senha.strip(),
+                                        "principal": False
+                                    })
+                                    salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                                    st.success(f"Administrador {novo_adm_nome} cadastrado com sucesso!")
+                                    st.rerun()
                             else:
-                                st.session_state.administradores.append({
-                                    "nome": novo_adm_nome.strip(),
-                                    "login": novo_adm_login.strip(),
-                                    "senha": novo_adm_senha.strip(),
-                                    "principal": False
-                                })
-                                salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                                st.success(f"Administrador {novo_adm_nome} cadastrado com sucesso!")
-                                st.rerun()
-                        else:
-                            st.error("Preencha todos os campos obrigatórios.")
+                                st.error("Preencha todos os campos obrigatórios.")
+                else:
+                    st.warning("⚠️ O limite máximo de 3 administradores já foi atingido. Para cadastrar um novo, remova um administrador existente abaixo.")
 
                 st.markdown("---")
                 st.write("#### 📋 Administradores Cadastrados")
