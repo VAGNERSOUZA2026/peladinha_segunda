@@ -3,7 +3,6 @@ import pandas as pd
 import json
 import os
 import random
-import string
 from datetime import datetime, timedelta, timezone
 
 # -----------------------------------------------------------------------------
@@ -19,14 +18,14 @@ data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Peladinha FC | Gestão de Futebol Feminino",
+    page_title="Peladinha FC | Gestão Inteligente",
     page_icon="⚽",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (ESTÉTICA FEMININA / MODERNA)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (ESTÉTICA MODERNA / CARDS INTERATIVOS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -61,6 +60,22 @@ st.markdown("""
         font-weight: 300; 
         color: #FCE7F3; 
         letter-spacing: 0.5px;
+    }
+
+    /* Cards Interativos */
+    .card-interactive {
+        background: #FFFFFF;
+        border: 1px solid #E2E8F0;
+        border-radius: 14px;
+        padding: 20px;
+        margin-bottom: 15px;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.03);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-interactive:hover {
+        transform: translateY(-2px);
+        box-shadow: 0px 6px 16px rgba(131, 24, 67, 0.08);
+        border-color: #DB2777;
     }
 
     .card-notice {
@@ -100,25 +115,6 @@ st.markdown("""
         font-size: 1.1rem;
         font-weight: 700;
         margin-bottom: 10px;
-    }
-
-    .card-fin-entrada {
-        background: #F0FDF4;
-        border: 1px solid #DCFCE7;
-        border-left: 5px solid #16A34A;
-        padding: 14px 18px;
-        border-radius: 12px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-    .card-fin-saida {
-        background: #FEF2F2;
-        border: 1px solid #FEE2E2;
-        border-left: 5px solid #DC2626;
-        padding: 14px 18px;
-        border-radius: 12px;
-        margin-bottom: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
     }
 </style>
 """, unsafe_allow_html=True)
@@ -211,7 +207,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# SAUDAÇÃO DINÂMICA AO LOGAR E MENSAGEM DE BOAS-VINDas ÚNICA
+# SAUDAÇÃO DINÂMICA E BOAS-VINDAS ÚNICA
 # -----------------------------------------------------------------------------
 if st.session_state.usuario_logado:
     hora_atual = hoje_dt.hour
@@ -229,7 +225,7 @@ if st.session_state.usuario_logado:
             st.markdown(f"""
             <div class='card-notice' style='background: #ECFDF5; border-left: 6px solid #10B981; color: #065F46;'>
                 🎉 <b>Olá {st.session_state.usuario_logado}, {saudacao}! Seja muito bem-vinda ao Peladinha FC!</b><br>
-                Ficamos muito felizes com a sua chegada ao nosso time. Para garantir sua vaga nos jogos, lembre-se de acessar a aba <b>📌 Presença no Jogo</b> e confirmar sua participação. Bom jogo e muitos gols! ⚽✨
+                Ficamos muito felizes com a sua chegada ao nosso time. Para garantir sua vaga nos jogos, acesse a aba <b>📌 Presença no Jogo</b>. Bom jogo e muitos gols! ⚽✨
             </div>
             """, unsafe_allow_html=True)
             
@@ -259,11 +255,12 @@ if aniversariantes_hoje:
     """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# MENU LATERAL (SIDEBAR)
+# MENU LATERAL (SIDEBAR) COM CONTROLE DE ACESSO
 # -----------------------------------------------------------------------------
 st.sidebar.title("📌 Navegação")
 lista_menu = ["📌 Presença no Jogo", "🔀 Sorteio de Times", "💸 Pagamento & Pix", "📜 Regulamento", "📋 Elenco de Jogadoras"]
 
+# Menus restritos exclusivamente a administradores logados
 if st.session_state.admin_logged:
     lista_menu.insert(2, "📊 Fluxo de Caixa (Admin)")
     lista_menu.append("⚙️ Painel Admin")
@@ -348,7 +345,7 @@ else:
 # -----------------------------------------------------------------------------
 # LÓGICA DE ORDENAÇÃO DE PRESENÇA
 # -----------------------------------------------------------------------------
-jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") != "Inativo"]
 nomes_ativas = {j["nome"] for j in jogadoras_ativas}
 
 presencas_ativas = [p for p in st.session_state.presencas if obter_nome_p(p) in nomes_ativas]
@@ -413,7 +410,7 @@ if menu == "📌 Presença no Jogo":
         else:
             for i, p in enumerate(confirmadas, 1):
                 nome_p, hora_p, tipo_p = obter_nome_p(p), obter_hora_p(p), obter_tipo_p(p)
-                st.write(f"**{i}.** {nome_p} `[{tipo_p}]` — *(às {hora_p})*")
+                st.markdown(f"<div class='card-interactive' style='padding: 10px 15px; margin-bottom: 8px;'><b>{i}.</b> {nome_p} `[{tipo_p}]` — <i>às {hora_p}</i></div>", unsafe_allow_html=True)
 
         st.markdown("---")
         st.markdown(f"### ⏳ Fila de Espera ({len(espera)})")
@@ -423,7 +420,7 @@ if menu == "📌 Presença no Jogo":
             for i, p in enumerate(espera, 1):
                 nome_p, hora_p, tipo_p = obter_nome_p(p), obter_hora_p(p), obter_tipo_p(p)
                 badge = "🏃 Avulsa" if tipo_p == "Avulso" else "⭐ Mensalista"
-                st.write(f"**{i}º na espera:** {nome_p} `[{badge}]` — *(às {hora_p})*")
+                st.markdown(f"<div class='card-interactive' style='padding: 10px 15px; margin-bottom: 8px;'><b>{i}º na espera:</b> {nome_p} `[{badge}]` — <i>às {hora_p}</i></div>", unsafe_allow_html=True)
 
     with col_acoes:
         st.subheader("✍️ Marcar Minha Presença")
@@ -502,7 +499,7 @@ elif menu == "🔀 Sorteio de Times":
                 with cols[idx]:
                     st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
                     for item in membros:
-                        st.write(f"• **{item}**")
+                        st.markdown(f"<div style='background: #F8FAFC; padding: 6px 10px; border-radius: 6px; margin-bottom: 5px;'>• **{item}**</div>", unsafe_allow_html=True)
                     st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.info("⏰ O Sorteio Oficial é realizado automaticamente às **Segundas-feiras, às 18:30**.")
@@ -550,7 +547,7 @@ elif menu == "🔀 Sorteio de Times":
                         with cols_q[i]:
                             st.markdown(f"<div class='card-team'><h3>⚽ Time {i+1} (Quadra)</h3>", unsafe_allow_html=True)
                             for item in t:
-                                st.write(f"• **{item}**")
+                                st.markdown(f"<div style='background: #F8FAFC; padding: 6px 10px; border-radius: 6px; margin-bottom: 5px;'>• **{item}**</div>", unsafe_allow_html=True)
                             st.markdown("</div>", unsafe_allow_html=True)
 
 elif menu == "📊 Fluxo de Caixa (Admin)":
@@ -634,7 +631,7 @@ elif menu == "📊 Fluxo de Caixa (Admin)":
                         cor_val = "color: #16A34A;" if t_tipo == "Entrada" else "color: #DC2626;"
 
                         st.markdown(f"""
-                        <div class='{css_card}'>
+                        <div class='card-interactive' style='border-left: 5px solid {"#16A34A" if t_tipo == "Entrada" else "#DC2626"};'>
                             <b>{t_data}</b> | <span style='background: #E2E8F0; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem;'>{t_cat}</span><br>
                             <span style='font-size: 1.05rem; font-weight: 600;'>{t_desc}</span>
                             <div style='float: right; font-size: 1.1rem; font-weight: 700; {cor_val}'>{sinal} R$ {t_val:.2f}</div>
@@ -746,7 +743,7 @@ elif menu == "💸 Pagamento & Pix":
             st.info("Nenhum comprovante enviado recentemente.")
         else:
             for c in meus_comps:
-                st.write(f"• **{c['mes']}** - {c['obs']} *(Enviado em {c['data']})*")
+                st.markdown(f"<div class='card-interactive' style='padding: 10px 15px;'>• **{c['mes']}** - {c['obs']} <i>(Enviado em {c['data']})</i></div>", unsafe_allow_html=True)
 
     if st.session_state.admin_logged:
         st.markdown("---")
@@ -755,7 +752,11 @@ elif menu == "💸 Pagamento & Pix":
             st.info("Nenhum comprovante pendente.")
         else:
             for idx, comp in enumerate(st.session_state.comprovantes):
-                st.write(f"**{comp['jogadora']}** — Mês: `{comp['mes']}` | Obs: *{comp['obs']}* ({comp['data']})")
+                st.markdown(f"""
+                <div class='card-interactive'>
+                    <b>{comp['jogadora']}</b> — Mês: <code>{comp['mes']}</code> | Obs: <i>{comp['obs']}</i> ({comp['data']})
+                </div>
+                """, unsafe_allow_html=True)
                 if st.button(f"✅ Aprovar & Registrar no Caixa", key=f"apr_comp_{idx}"):
                     st.session_state.financeiro.append({
                         "data": hoje_dt.strftime("%d/%m/%Y"),
@@ -774,33 +775,78 @@ elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Interno do Peladinha FC")
     for reg in st.session_state.regulamento:
         st.markdown(f"""
-        <div class='card-team'>
-            <h3>{reg['topico']}</h3>
-            <p>{reg['regrinha']}</p>
+        <div class='card-interactive'>
+            <h3 style='color: #831843; margin-bottom: 8px;'>{reg['topico']}</h3>
+            <p style='margin: 0;'>{reg['regrinha']}</p>
         </div>
         """, unsafe_allow_html=True)
 
     if st.session_state.admin_logged:
         st.markdown("---")
-        st.write("#### 🛠️ Editar Regulamento (Admin)")
-        with st.form("form_add_regra"):
+        st.write("#### 🛠️ Adicionar / Editar Regras (Admin)")
+        with st.form("form_add_regra", clear_on_submit=True):
             r_topico = st.text_input("Título do Tópico")
             r_texto = st.text_area("Regra / Descrição")
             if st.form_submit_button("➕ Adicionar Regra", use_container_width=True):
                 if r_topico and r_texto:
                     st.session_state.regulamento.append({"topico": r_topico, "regrinha": r_texto})
                     salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                    st.success("Regra adicionada!")
+                    st.success("Regra adicionada com sucesso!")
                     st.rerun()
 
 elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("📋 Elenco de Jogadoras Cadastradas")
+    st.subheader("📋 Gestão e Elenco de Jogadoras")
     if not st.session_state.jogadoras:
         st.info("Nenhuma jogadora cadastrada.")
     else:
-        df_jog = pd.DataFrame(st.session_state.jogadoras)
-        colunas_mostrar = [c for c in ["nome", "tipo", "status", "nascimento", "login"] if c in df_jog.columns]
-        st.dataframe(df_jog[colunas_mostrar], use_container_width=True)
+        if st.session_state.admin_logged:
+            st.write("### ✏️ Gerenciar Credenciais, Editar ou Excluir Jogadoras (Admin)")
+            opcoes_jogs = [f"{i}: {j['nome']} ({j.get('tipo', 'Avulso')})" for i, j in enumerate(st.session_state.jogadoras)]
+            j_escolhida_idx = st.selectbox("Selecione a jogadora para gerenciar:", range(len(opcoes_jogs)), format_func=lambda x: opcoes_jogs[x])
+            
+            if j_escolhida_idx is not None:
+                jog_reg = st.session_state.jogadoras[j_escolhida_idx]
+                with st.form(f"form_admin_edit_jog_{j_escolhida_idx}"):
+                    ed_nome = st.text_input("Nome", value=jog_reg.get("nome", ""))
+                    ed_nasc = st.text_input("Nascimento", value=jog_reg.get("nascimento", ""))
+                    ed_tipo = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if jog_reg.get("tipo", "Avulso") == "Avulso" else 1)
+                    ed_login = st.text_input("Login", value=jog_reg.get("login", ""))
+                    ed_senha = st.text_input("Senha", value=jog_reg.get("senha", ""))
+                    
+                    c_e1, c_e2 = st.columns(2)
+                    btn_salvar_j = c_e1.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+                    btn_excluir_j = c_e2.form_submit_button("🗑️ Excluir Jogadora", use_container_width=True)
+
+                    if btn_salvar_j:
+                        jog_reg["nome"] = ed_nome.strip()
+                        jog_reg["nascimento"] = ed_nasc.strip()
+                        jog_reg["tipo"] = ed_tipo
+                        jog_reg["login"] = ed_login.strip()
+                        jog_reg["senha"] = ed_senha.strip()
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success("Dados da jogadora atualizados com sucesso!")
+                        st.rerun()
+
+                    if btn_excluir_j:
+                        st.session_state.jogadoras.pop(j_escolhida_idx)
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success("Jogadora excluída com sucesso!")
+                        st.rerun()
+            st.markdown("---")
+
+        st.write("### 🏟️ Elenco Atual")
+        for j in st.session_state.jogadoras:
+            st.markdown(f"""
+            <div class='card-interactive' style='display: flex; justify-content: space-between; align-items: center;'>
+                <div>
+                    <b>⚽ {j['nome']}</b><br>
+                    <small>Tipo: <code>{j.get('tipo', 'Avulso')}</code> | Nascimento: {j.get('nascimento', 'Não inf.')}</small>
+                </div>
+                <div>
+                    <span style='background: #FCE7F3; color: #831843; padding: 4px 10px; border-radius: 8px; font-weight: 600; font-size: 0.85rem;'>Ativa</span>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
@@ -857,15 +903,18 @@ elif menu == "⚙️ Painel Admin":
             if not st.session_state.admin_principal:
                 st.warning("⚠️ Somente o **Administrador Principal** pode gerenciar as credenciais e cadastrar novos administradores.")
             else:
-                st.write("#### ➕ Cadastrar Novo Administrador")
+                st.write("#### ➕ Cadastrar Novo Administrador com Confirmação de Senha")
                 with st.form("form_novo_admin", clear_on_submit=True):
                     novo_adm_nome = st.text_input("Nome do Novo Admin")
                     novo_adm_login = st.text_input("Login do Novo Admin")
                     novo_adm_senha = st.text_input("Senha do Novo Admin", type="password")
+                    novo_adm_conf_senha = st.text_input("Confirme a Senha", type="password")
                     
                     if st.form_submit_button("➕ Criar Administrador", use_container_width=True):
                         if novo_adm_nome and novo_adm_login and novo_adm_senha:
-                            if any(a.get("login") == novo_adm_login.strip() for a in st.session_state.administradores):
+                            if novo_adm_senha != novo_adm_conf_senha:
+                                st.error("As senhas não coincidem! Verifique e tente novamente.")
+                            elif any(a.get("login") == novo_adm_login.strip() for a in st.session_state.administradores):
                                 st.error("Este login de administrador já está em uso!")
                             else:
                                 st.session_state.administradores.append({
@@ -878,14 +927,14 @@ elif menu == "⚙️ Painel Admin":
                                 st.success(f"Administrador {novo_adm_nome} cadastrado com sucesso!")
                                 st.rerun()
                         else:
-                            st.error("Preencha todos os campos do novo administrador.")
+                            st.error("Preencha todos os campos obrigatórios.")
 
                 st.markdown("---")
                 st.write("#### 📋 Administradores Cadastrados")
                 for i, adm in enumerate(st.session_state.administradores):
                     c_a1, c_a2 = st.columns([3, 1])
-                    tipo_adm = "⭐ Principal" % () if adm.get("principal") else "Secundário"
-                    c_a1.write(f"**{adm['nome']}** (Login: `{adm['login']}`) — *{tipo_adm}*")
+                    tipo_adm = "⭐ Principal" if adm.get("principal") else "Secundário"
+                    c_a1.markdown(f"<div class='card-interactive' style='padding: 10px 15px;'><b>{adm['nome']}</b> (Login: <code>{adm['login']}</code>) — <i>{tipo_adm}</i></div>", unsafe_allow_html=True)
                     if not adm.get("principal", False):
                         if c_a2.button("🗑️ Remover", key=f"rem_adm_{i}"):
                             st.session_state.administradores.pop(i)
