@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (BOTÕES LEGÍVEIS E ALTO CONTRASTE)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (CORREÇÃO DOS BOTÕES NO HOVER)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -61,33 +61,6 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    .dashboard-card {
-        background-color: #1F2937;
-        border: 1px solid #374151;
-        border-radius: 16px;
-        padding: 20px;
-        height: 100%;
-        color: #FFFFFF;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.2);
-        transition: all 0.2s ease-in-out;
-        margin-bottom: 15px;
-    }
-    .dashboard-card:hover {
-        border-color: #0D9488;
-        transform: translateY(-3px);
-        box-shadow: 0px 6px 15px rgba(13, 148, 136, 0.2);
-    }
-
-    .card-notice {
-        background: #1F2937;
-        border-left: 5px solid #0D9488;
-        padding: 16px;
-        border-radius: 12px;
-        margin-bottom: 20px;
-        color: #E5E7EB;
-        border: 1px solid #374151;
-    }
-
     .card-team {
         background: #1F2937;
         border: 1px solid #374151;
@@ -97,7 +70,7 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
-    /* FORÇAR ALTO CONTRASTE NOS BOTÕES DO STREAMLIT NO DARK MODE */
+    /* CORREÇÃO DEFINITIVA DOS BOTÕES (ESTADO NORMAL E HOVER) */
     div.stButton > button:first-child {
         background-color: #0D9488 !important;
         color: #FFFFFF !important;
@@ -107,9 +80,26 @@ st.markdown("""
         padding: 10px 20px !important;
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
     }
-    div.stButton > button:first-child:hover {
+    div.stButton > button:first-child:hover,
+    div.stButton > button:first-child:focus {
         background-color: #0F766E !important;
+        color: #FFFFFF !important;
         border-color: #2DD4BF !important;
+    }
+
+    /* BOTÃO SECUNDÁRIO / CANCELAR COM CORES FIXAS */
+    div.stButton > button:last-child {
+        background-color: #374151 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #4B5563 !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+    }
+    div.stButton > button:last-child:hover,
+    div.stButton > button:last-child:focus {
+        background-color: #4B5563 !important;
+        color: #FFFFFF !important;
+        border-color: #9CA3AF !important;
     }
 
     .stTextInput input, .stSelectbox select, .stNumberInput input {
@@ -176,8 +166,8 @@ if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {"vencimento": "Todo dia 10", "pix": "peladinhafc@email.com", "limite_vagas": 15})
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
-        {"topico": "📌 1. Prioridade", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade. Cancelar e voltar joga para o fim da fila."},
-        {"topico": "⏳ 2. Fila de Espera", "regrinha": "Quem confirmar após as 17:00 ou exceder o limite vai para a fila de espera."}
+        {"topico": "📌 1. Prioridade", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade."},
+        {"topico": "⏳ 2. Fila de Espera", "regrinha": "Quem confirmar após as 17:00 vai para a fila de espera."}
     ])
 if "sorteio_oficial" not in st.session_state:
     st.session_state.sorteio_oficial = carregar_dados(SORTEIO_FILE, {})
@@ -244,7 +234,7 @@ with st.sidebar:
                             "tipo": c_tipo, "status": "Ativo"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Conta criada com sucesso! Faça login ao lado.")
+                        st.success("Conta criada com sucesso!")
                         st.rerun()
                 else:
                     st.error("Preencha os campos obrigatórios!")
@@ -365,6 +355,16 @@ elif menu == "📌 Presença no Jogo":
         for i, p in enumerate(espera, 1):
             st.markdown(f"<div class='card-team'><b>{i}º:</b> {obter_nome_p(p)} `[{obter_tipo_p(p)}]`</div>", unsafe_allow_html=True)
 
+        # 👑 OPÇÃO EXCLUSIVA DO ADMINISTRADOR PARA ZERAR A LISTA
+        if st.session_state.admin_logged:
+            st.markdown("---")
+            st.subheader("👑 Painel do Administrador")
+            if st.button("🗑️ Zerar Lista de Presença", use_container_width=True):
+                st.session_state.presencas = []
+                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                st.success("A lista de presença foi zerada com sucesso!")
+                st.rerun()
+
     with col_l2:
         st.write("### ✍️ Gerenciar Minha Presença")
         if not st.session_state.usuario_logado:
@@ -391,9 +391,7 @@ elif menu == "📌 Presença no Jogo":
             ja_na_lista = (pos_conf is not None or pos_esp is not None)
 
             if c_ok:
-                # Remove duplicatas anteriores para garantir o comportamento correto de ir para o fim da fila
                 st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
-                
                 st.session_state.presencas.append({
                     "nome": j_nome, 
                     "hora": hoje_dt.strftime("%H:%M"),
@@ -453,7 +451,7 @@ elif menu == "🎂 Aniversariantes":
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Pagamentos e Chave Pix")
     st.markdown(f"""
-    <div class='card-notice'>
+    <div class='card-team'>
         📌 <b>Chave Pix Oficial:</b> <code>{st.session_state.avisos.get('pix', 'peladinhafc@email.com')}</code><br>
         Vencimento: <b>{st.session_state.avisos.get('vencimento', 'Todo dia 10')}</b>
     </div>
