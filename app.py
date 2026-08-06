@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (DARK MODE IDÊNTICO À REFERÊNCIA)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (BOTÕES LEGÍVEIS E ALTO CONTRASTE)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -35,13 +35,11 @@ st.markdown("""
         font-family: 'Montserrat', sans-serif; 
     }
 
-    /* Fundo Escuro Geral */
     .stApp {
         background-color: #111827;
         color: #F3F4F6;
     }
 
-    /* Topo / Header da Página */
     .app-header {
         background: #1F2937;
         padding: 20px;
@@ -63,7 +61,6 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    /* Grid de Cards Estilo Aplicativo Mobile */
     .dashboard-card {
         background-color: #1F2937;
         border: 1px solid #374151;
@@ -80,25 +77,7 @@ st.markdown("""
         transform: translateY(-3px);
         box-shadow: 0px 6px 15px rgba(13, 148, 136, 0.2);
     }
-    .dashboard-card h3 {
-        font-size: 1.15rem;
-        font-weight: 700;
-        color: #FFFFFF;
-        margin-top: 8px;
-        margin-bottom: 6px;
-    }
-    .dashboard-card p {
-        font-size: 0.82rem;
-        color: #9CA3AF;
-        margin: 0;
-        line-height: 1.4;
-    }
-    .card-icon {
-        font-size: 1.6rem;
-        margin-bottom: 5px;
-    }
 
-    /* Cards Comuns de Alerta e Info */
     .card-notice {
         background: #1F2937;
         border-left: 5px solid #0D9488;
@@ -120,24 +99,26 @@ st.markdown("""
         margin-bottom: 15px;
     }
 
-    /* Inputs e Formulários no Dark Mode */
+    /* Cores e Legibilidade dos Botões de Ação de Presença */
+    div.stButton > button:first-child {
+        background-color: #0D9488 !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border-radius: 10px !important;
+        border: 1px solid #14B8A6 !important;
+        padding: 10px 20px !important;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #0F766E !important;
+        border-color: #2DD4BF !important;
+    }
+
     .stTextInput input, .stSelectbox select, .stNumberInput input {
         background-color: #374151 !important;
         color: #FFFFFF !important;
         border: 1px solid #4B5563 !important;
         border-radius: 8px !important;
-    }
-    
-    /* Botões personalizados */
-    .stButton button {
-        background-color: #0D9488 !important;
-        color: white !important;
-        font-weight: 600 !important;
-        border-radius: 8px !important;
-        border: none !important;
-    }
-    .stButton button:hover {
-        background-color: #0F766E !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -203,9 +184,9 @@ if "avisos" not in st.session_state:
     })
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
-        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade na lista principal. Avulsas vão para a fila de espera."},
-        {"topico": "⏳ 2. Fila de Espera", "regrinha": "Jogadoras avulsas entram na fila de espera por ordem de chegada."},
-        {"topico": "❌ 3. Desistências", "regrinha": "Ao cancelar, a primeira da fila é incluída no jogo."},
+        {"topico": "📌 1. Prioridade nas Vagas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade na lista principal. Ao cancelar e voltar, vai para o fim da fila."},
+        {"topico": "⏳ 2. Fila de Espera", "regrinha": "Quem confirmar após as 17:00 ou exceder o limite vai para a fila de espera."},
+        {"topico": "❌ 3. Desistências", "regrinha": "Ao cancelar, a vaga é repassada imediatamente."},
         {"topico": "💸 4. Mensalidades", "regrinha": "Pagas via Pix até a data estipulada."}
     ])
 if "sorteio_oficial" not in st.session_state:
@@ -233,7 +214,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# BARRA LATERAL (AUTENTICAÇÃO E CONFIGURAÇÕES)
+# BARRA LATERAL (AUTENTICAÇÃO E CADASTRO)
 # -----------------------------------------------------------------------------
 with st.sidebar:
     st.title("⚙️ Acesso & Contas")
@@ -317,10 +298,9 @@ if menu != "🏠 Início":
     st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# RENDERIZAÇÃO DAS PÁGINAS SOLICITADAS
+# RENDERIZAÇÃO DAS PÁGINAS
 # -----------------------------------------------------------------------------
 if menu == "🏠 Início":
-    # Botão rápido para retornar ao início se necessário
     col_topo1, col_topo2 = st.columns([3, 1])
     with col_topo2:
         if st.session_state.admin_logged:
@@ -328,37 +308,30 @@ if menu == "🏠 Início":
                 st.session_state.pagina_atual = "⚙️ Painel Admin"
                 st.rerun()
 
-    # Grid principal de Cards Clicáveis (Estilo exato da referência visual)
     c1, c2 = st.columns(2)
     
     with c1:
-        # Card 1: Presença no Jogo
-        if st.button("📌 **Presença no Jogo**\n\nConfirme sua vaga na pelada da semana.", use_container_width=True, key="btn_card_presenca"):
+        if st.button("📌 **Presença no Jogo**\n\nConfirme ou altere sua vaga na pelada.", use_container_width=True, key="btn_card_presenca"):
             st.session_state.pagina_atual = "📌 Presença no Jogo"
             st.rerun()
             
-        # Card 2: Sorteio de Times
         if st.button("🔀 **Sorteio de Times**\n\nVeja a distribuição oficial ou da quadra.", use_container_width=True, key="btn_card_sorteio"):
             st.session_state.pagina_atual = "🔀 Sorteio de Times"
             st.rerun()
 
-        # Card 3: Regulamento
         if st.button("📜 **Regulamento**\n\nConheça as regras e prioridades do grupo.", use_container_width=True, key="btn_card_regulamento"):
             st.session_state.pagina_atual = "📜 Regulamento"
             st.rerun()
 
     with c2:
-        # Card 4: Aniversariantes do Mês
         if st.button("🎂 **Aniversariantes**\n\nVeja quem faz aniversário no mês corrente.", use_container_width=True, key="btn_card_aniversariantes"):
             st.session_state.pagina_atual = "🎂 Aniversariantes"
             st.rerun()
 
-        # Card 5: Pagamento & Pix
         if st.button("💸 **Pagamento & Pix**\n\nChave Pix e envio de comprovantes.", use_container_width=True, key="btn_card_pagamento"):
             st.session_state.pagina_atual = "💸 Pagamento & Pix"
             st.rerun()
 
-        # Card 6: Elenco de Jogadoras
         if st.button("📋 **Elenco de Jogadoras**\n\nConsulte todas as atletas cadastradas.", use_container_width=True, key="btn_card_elenco"):
             st.session_state.pagina_atual = "📋 Elenco de Jogadoras"
             st.rerun()
@@ -377,9 +350,31 @@ elif menu == "📌 Presença no Jogo":
     nomes_ativas = {j["nome"] for j in jogadoras_ativas}
     presencas_ativas = [p for p in st.session_state.presencas if obter_nome_p(p) in nomes_ativas]
     
+    # Ordenação considerando a regra do fim da fila em caso de reconfirmação
     lista_atual = sorted(presencas_ativas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
-    mensalistas = [p for p in lista_atual if p.get("tipo") == "Mensalista"]
-    avulsas = [p for p in lista_atual if p.get("tipo") == "Avulso"]
+    
+    # Separando mensalistas e avulsas conforme horário limite (Segunda-feira 17:00)
+    mensalistas = []
+    avulsas = []
+    
+    for p in lista_atual:
+        tipo = obter_tipo_p(p)
+        dt_conf_str = p.get("dt_confirmacao", "")
+        atrasada_mensalista = False
+        
+        if dt_conf_str:
+            try:
+                dt_obj = datetime.fromisoformat(dt_conf_str)
+                # Verifica se confirmou após segunda-feira 17:00
+                if dt_obj.weekday() == 0 and dt_obj.hour >= 17:
+                    atrasada_mensalista = True
+            except:
+                pass
+                
+        if tipo == "Mensalista" and not atrasada_mensalista:
+            mensalistas.append(p)
+        else:
+            avulsas.append(p)
     
     confirmadas = mensalistas[:limite]
     espera = mensalistas[limite:] + avulsas
@@ -397,37 +392,53 @@ elif menu == "📌 Presença no Jogo":
             st.markdown(f"<div class='card-team'><b>{i}º:</b> {obter_nome_p(p)} `[{obter_tipo_p(p)}]`</div>", unsafe_allow_html=True)
 
     with col_l2:
-        st.write("### ✍️ Marcar Presença")
+        st.write("### ✍️ Gerenciar Minha Presença")
         if not st.session_state.usuario_logado:
             st.warning("Faça login na barra lateral para confirmar presença.")
         else:
-            with st.form("form_pres"):
-                c_ok = st.form_submit_button("👍 Confirmar Presença", use_container_width=True)
-                c_canc = st.form_submit_button("❌ Cancelar Presença", use_container_width=True)
-
             j_nome = st.session_state.usuario_logado
             dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == j_nome), None)
             tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
             
-            ja_conf = any(obter_nome_p(p) == j_nome for p in confirmadas or espera)
+            # Verifica posição atual da usuária
+            pos_conf = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == j_nome), None)
+            pos_esp = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == j_nome), None)
+            
+            if pos_conf:
+                st.success(f"🎉 Você está na **Lista Principal** na posição **{pos_conf}**!")
+            elif pos_esp:
+                st.warning(f"⏳ Você está na **Fila de Espera** na posição **{pos_esp}º**.")
+            else:
+                st.info("ℹ️ Você não está confirmada no momento.")
+
+            with st.form("form_pres"):
+                c_ok = st.form_submit_button("👍 Confirmar Presença", use_container_width=True)
+                c_canc = st.form_submit_button("❌ Cancelar Presença", use_container_width=True)
+
+            ja_na_lista = (pos_conf is not None or pos_esp is not None)
 
             if c_ok:
-                if ja_conf:
-                    st.error("Você já está na lista!")
-                else:
-                    st.session_state.presencas.append({"nome": j_nome, "hora": hoje_dt.strftime("%H:%M"), "tipo": tipo_j, "dt_confirmacao": hoje_dt.isoformat()})
-                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.success("Presença confirmada!")
-                    st.rerun()
+                # Remove registro anterior para recolocá-lo ao fim da fila (regra de reconfirmação / perda de prioridade)
+                st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
+                
+                st.session_state.presencas.append({
+                    "nome": j_nome, 
+                    "hora": hoje_dt.strftime("%H:%M"),
+                    "tipo": tipo_j,
+                    "dt_confirmacao": hoje_dt.isoformat() # Atualiza para o horário atual, mandando para o fim da fila
+                })
+                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                st.success("Presença registrada/atualizada com sucesso! (Movida para o fim da fila de preferências)")
+                st.rerun()
 
             if c_canc:
-                if ja_conf:
+                if ja_na_lista:
                     st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
                     salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.info("Presença cancelada.")
+                    st.info("Presença cancelada com sucesso!")
                     st.rerun()
                 else:
-                    st.error("Você não está na lista.")
+                    st.error("Seu nome não está na lista para ser cancelado.")
 
 elif menu == "🔀 Sorteio de Times":
     st.subheader("🔀 Sorteio de Times")
