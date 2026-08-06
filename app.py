@@ -130,6 +130,10 @@ ADMINS_FILE = "administradores.json"
 REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
 COMPROVANTES_FILE = "comprovantes.json"
+UPLOAD_DIR = "comprovantes_imgs"
+
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 def carregar_dados(filename, default):
     if os.path.exists(filename):
@@ -454,7 +458,7 @@ if menu == "📌 Presença no Jogo":
 
                 if btn_confirmar:
                     if ja_na_lista:
-                        st.warning("Seu nome já está registrado na lista!")
+                        st.error("⚠️ Seu nome já está registrado na lista de presença para esta rodada! Não é permitido confirmar mais de uma vez.")
                     else:
                         st.session_state.presencas.append({
                             "nome": jogadora_sel, 
@@ -463,6 +467,7 @@ if menu == "📌 Presença no Jogo":
                             "dt_confirmacao": hoje_dt.isoformat()
                         })
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.success("Presença confirmada com sucesso!")
                         st.rerun()
 
                 if btn_cancelar:
@@ -720,19 +725,35 @@ elif menu == "💸 Pagamento & Pix":
     """, unsafe_allow_html=True)
 
     if st.session_state.usuario_logado:
-        st.write("#### 📤 Enviar Comprovante de Pagamento")
+        st.write("#### 📤 Enviar Comprovante de Pagamento (Obrigatório anexar imagem)")
         with st.form("form_envio_comprovante", clear_on_submit=True):
             comp_mes = st.selectbox("Mês Referente:", [mes_vigente_str, "Mês Anterior", "Próximo Mês"])
             comp_obs = st.text_input("Observação (Ex: Pix referente a Mensalidade)")
-            if st.form_submit_button("📎 Enviar Notificação de Pagamento", use_container_width=True):
-                st.session_state.comprovantes.append({
-                    "jogadora": st.session_state.usuario_logado,
-                    "mes": comp_mes,
-                    "obs": comp_obs,
-                    "data": hoje_dt.strftime("%d/%m/%Y %H:%M")
-                })
-                salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                st.success("Comprovante enviado para validação da administração!")
+            arquivo_img = st.file_uploader("Anexar Imagem do Comprovante (PNG, JPG, JPEG) *", type=["png", "jpg", "jpeg"])
+            
+            btn_enviar_comp = st.form_submit_button("📎 Enviar Notificação de Pagamento", use_container_width=True)
+
+            if btn_enviar_comp:
+                if arquivo_img is None:
+                    st.error("⚠️ É obrigatório anexar a imagem do comprovante para realizar o envio!")
+                else:
+                    # Salvar arquivo de imagem em pasta física
+                    extensao = arquivo_img.name.split(".")[-1]
+                    nome_arquivo_unico = f"{st.session_state.usuario_logado}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{extensao}"
+                    caminho_completo = os.path.join(UPLOAD_DIR, nome_arquivo_unico)
+                    
+                    with open(caminho_completo, "wb") as f:
+                        f.write(arquivo_img.getbuffer())
+
+                    st.session_state.comprovantes.append({
+                        "jogadora": st.session_state.usuario_logado,
+                        "mes": comp_mes,
+                        "obs": comp_obs,
+                        "arquivo": caminho_completo,
+                        "data": hoje_dt.strftime("%d/%m/%Y %H:%M")
+                    })
+                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                    st.success("🎉 Comprovante enviado com sucesso para validação da administração!")
         
         st.markdown("---")
         st.write("#### 📋 Meus Comprovantes Enviados")
@@ -742,6 +763,8 @@ elif menu == "💸 Pagamento & Pix":
         else:
             for c in meus_comps:
                 st.markdown(f"<div class='card-interactive' style='padding: 10px 15px;'>• **{c['mes']}** - {c['obs']} <i>(Enviado em {c['data']})</i></div>", unsafe_allow_html=True)
+                if os.path.exists(c.get("arquivo", "")):
+                    st.image(c["arquivo"], caption="Comprovante enviado", width=250)
 
     if st.session_state.admin_logged:
         st.markdown("---")
@@ -755,6 +778,10 @@ elif menu == "💸 Pagamento & Pix":
                     <b>{comp['jogadora']}</b> — Mês: <code>{comp['mes']}</code> | Obs: <i>{comp['obs']}</i> ({comp['data']})
                 </div>
                 """, unsafe_allow_html=True)
+                
+                if os.path.exists(comp.get("arquivo", "")):
+                    st.image(comp["arquivo"], caption=f"Comprovante de {comp['jogadora']}", width=300)
+
                 if st.button(f"✅ Aprovar & Registrar no Caixa", key=f"apr_comp_{idx}"):
                     st.session_state.financeiro.append({
                         "data": hoje_dt.strftime("%d/%m/%Y"),
@@ -764,6 +791,8 @@ elif menu == "💸 Pagamento & Pix":
                         "categoria": "Mensalidade"
                     })
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                    
+                    # Remover arquivo físico opcional ou mantê-lo registrado
                     st.session_state.comprovantes.pop(idx)
                     salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                     st.success(f"Pagamento de {comp['jogadora']} aprovado e adicionado ao caixa!")
