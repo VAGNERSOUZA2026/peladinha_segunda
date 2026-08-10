@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (ESTILO DE CARDS E BOTÕES)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (CORREÇÃO DE CONTRASTE DOS RÓTULOS E TEXTOS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -31,11 +31,19 @@ st.markdown("""
     
     html, body, [class*="css"] { 
         font-family: 'Montserrat', sans-serif; 
+        color: #F3F4F6;
     }
 
     .stApp {
         background-color: #111827;
         color: #F3F4F6;
+    }
+
+    /* FORÇA OS RÓTULOS (LABELS) DOS INPUTS A FICAREM EM BRANCO NITÍDO */
+    .stTextInput label, .stSelectbox label, .stNumberInput label, .stFileUploader label, p, span, label {
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
     }
 
     .app-header {
@@ -54,7 +62,7 @@ st.markdown("""
     }
     .app-subtitle {
         font-size: 0.85rem;
-        color: #9CA3AF;
+        color: #D1D5DB;
         text-transform: uppercase;
         letter-spacing: 1px;
     }
@@ -66,6 +74,7 @@ st.markdown("""
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 15px;
+        color: #FFFFFF;
     }
 
     div.stButton > button:first-child {
@@ -163,7 +172,7 @@ if "pagina_atual" not in st.session_state:
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "perfil_logado" not in st.session_state:
-    st.session_state.perfil_logado = None # "Jogadora", "Admin", "Dev"
+    st.session_state.perfil_logado = None
 
 SENHA_MESTRE_DEV = "dev@2026"
 
@@ -186,7 +195,6 @@ if st.session_state.pagina_atual == "login":
             l_user = st.text_input("Usuário / Login", key="log_user")
             l_pass = st.text_input("Senha", type="password", key="log_pass")
             if st.form_submit_button("ENTRAR"):
-                # Verificar se é Admin
                 admin_encontrado = next((adm for adm in st.session_state.administradores if adm.get("login") == l_user and adm.get("senha") == l_pass), None)
                 if admin_encontrado:
                     st.session_state.usuario_logado = admin_encontrado["nome"]
@@ -194,7 +202,6 @@ if st.session_state.pagina_atual == "login":
                     st.session_state.pagina_atual = "dashboard"
                     st.rerun()
                 else:
-                    # Verificar se é Jogadora
                     user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
                     if user_found:
                         if user_found.get("status") == "Pendente":
@@ -273,16 +280,12 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    # Botão global para voltar ao menu principal de cards (se estiver em alguma aba interna)
     if st.session_state.pagina_atual != "dashboard":
         if st.button("⬅️ Voltar ao Menu Principal"):
             st.session_state.pagina_atual = "dashboard"
             st.rerun()
         st.markdown("---")
 
-    # -------------------------------------------------------------------------
-    # TELA DE MENU / CARDS PRINCIPAIS
-    # -------------------------------------------------------------------------
     if st.session_state.pagina_atual == "dashboard":
         cards = [
             ("📜 Regulamento", "regulamento"),
@@ -292,7 +295,6 @@ else:
             ("💸 Pagamento Pix", "pagamento")
         ]
 
-        # Fluxo de Caixa e Gerenciamento Geral aparecem apenas para Admin e Dev
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
             cards.append(("📊 Fluxo de Caixa", "caixa"))
             cards.append(("🛠️ Gerenciamento Geral", "gerenciamento"))
@@ -311,17 +313,11 @@ else:
             st.session_state.pagina_atual = "login"
             st.rerun()
 
-    # -------------------------------------------------------------------------
-    # 1. REGULAMENTO
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "regulamento":
         st.subheader("📜 Regulamento Interno & Boa Convivência")
         for reg in st.session_state.regulamento:
-            st.markdown(f"<div class='card-team'><h4 style='color: #881337;'>{reg['topico']}</h4><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card-team'><h4 style='color: #F43F5E;'>{reg['topico']}</h4><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # 2. LISTA DE PRESENÇA
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "lista":
         st.subheader("📌 Lista de Presença e Confirmações")
         limite = st.session_state.avisos.get("limite_vagas", 15)
@@ -436,9 +432,6 @@ else:
                         else:
                             st.error("Seu nome não está na lista.")
 
-    # -------------------------------------------------------------------------
-    # 3. SORTEIO DE TIMES
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "sorteio":
         st.subheader("🔀 Sorteio de Times (Oficial & Paralelo)")
         sorteio_salvo = st.session_state.sorteio_oficial
@@ -451,7 +444,7 @@ else:
                     st.markdown(f"• **{item}**")
                 st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.info("Nenhum sorteio oficial gerado ainda (Automático às 18:30).")
+            st.info("Nenhum sorteio oficial gerado ainda.")
 
         st.markdown("#### ⚡ Sorteio Paralelo (Baseado em Presença no Local)")
         if st.button("Gerar Sorteio Paralelo Agora", use_container_width=True):
@@ -465,18 +458,12 @@ else:
             else:
                 st.error("Atletas insuficientes para gerar o sorteio paralelo.")
 
-    # -------------------------------------------------------------------------
-    # 4. ELENCO DE JOGADORAS
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "elenco":
         st.subheader("📋 Elenco de Atletas Cadastradas")
         for j in st.session_state.jogadoras:
             if j.get("status") == "Ativo":
                 st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b><br><small>Tipo: `{j.get('tipo', 'Avulso')}` | Quitado: `{j.get('quitado', 'Não')}` | Nasc: {j.get('nascimento')}</small></div>", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # 5. PAGAMENTO PIX & COMPROVANTES
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "pagamento":
         st.subheader("💸 Pagamentos e Chave Pix")
         st.markdown(f"""
@@ -533,9 +520,6 @@ else:
                         st.success("Pagamento validado e fluxo de caixa atualizado com sucesso!")
                         st.rerun()
 
-    # -------------------------------------------------------------------------
-    # 6. FLUXO DE CAIXA (EXCLUSIVO ADMIN / DEV)
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "caixa":
         st.subheader("📊 Fluxo de Caixa da Peladinha")
         registros_caixa = st.session_state.financeiro
@@ -544,9 +528,6 @@ else:
         for item in registros_caixa:
             st.markdown(f"<div class='card-team'><b>Atleta:</b> {item['nome']} | <b>Data:</b> {item['data']} | Status: <code>{item['status']}</code></div>", unsafe_allow_html=True)
 
-    # -------------------------------------------------------------------------
-    # 7. GERENCIAMENTO GERAL / DESENVOLVEDOR (EXCLUSIVO ADMIN / DEV)
-    # -------------------------------------------------------------------------
     elif st.session_state.pagina_atual == "gerenciamento":
         st.subheader("🛠️ Painel de Gerenciamento Geral & Aprovações")
         
