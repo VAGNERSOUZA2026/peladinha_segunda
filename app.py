@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (CORREÇÃO DE CONTRASTE DOS RÓTULOS E TEXTOS)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (TEXTOS E RÓTULOS NÍTIDOS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -39,7 +39,6 @@ st.markdown("""
         color: #F3F4F6;
     }
 
-    /* FORÇA OS RÓTULOS (LABELS) DOS INPUTS A FICAREM EM BRANCO NITÍDO */
     .stTextInput label, .stSelectbox label, .stNumberInput label, .stFileUploader label, p, span, label {
         color: #FFFFFF !important;
         font-weight: 600 !important;
@@ -102,7 +101,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# TRATAMENTO DE DADOS (ARQUIVOS JSON)
+# ARQUIVOS JSON E PERSISTÊNCIA
 # -----------------------------------------------------------------------------
 DATA_FILE = "jogadoras.json"
 PRESENCAS_FILE = "presencas.json"
@@ -150,7 +149,10 @@ if "jogadoras" not in st.session_state:
 if "presencas" not in st.session_state:
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
 if "financeiro" not in st.session_state:
-    st.session_state.financeiro = carregar_dados(FINANCE_FILE, [])
+    st.session_state.financeiro = carregar_dados(FINANCE_FILE, [
+        {"mes": "Janeiro/2026", "tipo": "Receita", "descricao": "Mensalidades", "valor": 300.00},
+        {"mes": "Janeiro/2026", "tipo": "Despesa", "descricao": "Aluguel da Quadra", "valor": 200.00}
+    ])
 if "comprovantes" not in st.session_state:
     st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
 if "administradores" not in st.session_state:
@@ -174,10 +176,10 @@ if "usuario_logado" not in st.session_state:
 if "perfil_logado" not in st.session_state:
     st.session_state.perfil_logado = None
 
-SENHA_MESTRE_DEV = "dev@2026"
+SENHA_MESTRE_DEV = "1980"
 
 # -----------------------------------------------------------------------------
-# TELA DE LOGIN / CADASTRO / DEV (UNIFICADA)
+# TELA DE LOGIN / CADASTRO / DEV
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
     st.markdown("""
@@ -233,7 +235,7 @@ if st.session_state.pagina_atual == "login":
                             "tipo": c_tipo, "status": "Pendente", "quitado": "Não"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Cadastro realizado com sucesso! Aguarde a aprovação do Administrador.")
+                        st.success("Cadastro realizado com sucesso! O Administrador recebeu sua solicitação.")
                 else:
                     st.error("Preencha todos os campos obrigatórios!")
 
@@ -270,7 +272,7 @@ if st.session_state.pagina_atual == "login":
                     st.error("Senha mestre incorreta!")
 
 # -----------------------------------------------------------------------------
-# PAINEL PRINCIPAL (DASHBOARD E TELAS INTERNAS)
+# PAINEL PRINCIPAL (DASHBOARD E TELAS)
 # -----------------------------------------------------------------------------
 else:
     st.markdown(f"""
@@ -322,11 +324,7 @@ else:
         st.subheader("📌 Lista de Presença e Confirmações")
         limite = st.session_state.avisos.get("limite_vagas", 15)
         
-        jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
-        nomes_ativas = {j["nome"] for j in jogadoras_ativas}
-        presencas_ativas = [p for p in st.session_state.presencas if obter_nome_p(p) in nomes_ativas]
-        
-        lista_atual = sorted(presencas_ativas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
+        lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
         
         mensalistas = []
         avulsas = []
@@ -368,11 +366,14 @@ else:
         with col_l2:
             if st.session_state.perfil_logado in ["Admin", "Dev"]:
                 st.write("### 👑 Ações do Administrador")
+                
+                # Inclusão de Jogadora Cadastrada
                 with st.form("form_add_manual"):
-                    atativas_nomes = [j["nome"] for j in jogadoras_ativas]
-                    atleta_escolhida = st.selectbox("Incluir Atleta Manualmente", atativas_nomes)
-                    if st.form_submit_button("Forçar Inclusão"):
-                        if atleta_escolhida and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
+                    st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+                    atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastradas"])
+                    if st.form_submit_button("Incluir do Elenco"):
+                        if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
                             dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == atleta_escolhida), None)
                             st.session_state.presencas.append({
                                 "nome": atleta_escolhida, "hora": hoje_dt.strftime("%H:%M"),
@@ -380,10 +381,30 @@ else:
                                 "dt_confirmacao": hoje_dt.isoformat()
                             })
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                            st.success("Incluída com sucesso!")
+                            st.success(f"{atleta_escolhida} incluída com sucesso!")
                             st.rerun()
 
-                st.write("Remover Atleta:")
+                # Inclusão de Atleta Externa / Sem Cadastro
+                with st.form("form_add_externa"):
+                    st.write("<b>Adicionar Convidada / Avulsa (Sem Cadastro)</b>", unsafe_allow_html=True)
+                    nome_externa = st.text_input("Nome da Convidada")
+                    tipo_externa = st.selectbox("Tipo da Convidada", ["Avulso", "Mensalista"], key="tipo_ext")
+                    if st.form_submit_button("Incluir Convidada"):
+                        if nome_externa.strip():
+                            if not any(obter_nome_p(p) == nome_externa.strip() for p in st.session_state.presencas):
+                                st.session_state.presencas.append({
+                                    "nome": nome_externa.strip(), "hora": hoje_dt.strftime("%H:%M"),
+                                    "tipo": tipo_externa, "dt_confirmacao": hoje_dt.isoformat()
+                                })
+                                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                                st.success(f"Convidada {nome_externa.strip()} incluída!")
+                                st.rerun()
+                            else:
+                                st.error("Esta atleta já está na lista.")
+                        else:
+                            st.error("Informe o nome da convidada.")
+
+                st.write("### Remover da Lista:")
                 for p in st.session_state.presencas:
                     c_nome = obter_nome_p(p)
                     if st.button(f"Remover {c_nome}", key=f"rem_l_{c_nome}"):
@@ -513,20 +534,60 @@ else:
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         
                         st.session_state.financeiro.append({
-                            "nome": comp["nome"], "data": hoje_dt.strftime("%d/%m/%Y"), "status": "Quitado"
+                            "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Mensalidade - {comp['nome']}", "valor": 50.00
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                         salvar_dados(COMPROVANTES_FILE, comprovantes)
-                        st.success("Pagamento validado e fluxo de caixa atualizado com sucesso!")
+                        st.success("Pagamento validado e adicionado como receita no fluxo de caixa!")
                         st.rerun()
 
     elif st.session_state.pagina_atual == "caixa":
-        st.subheader("📊 Fluxo de Caixa da Peladinha")
+        st.subheader("📊 Fluxo de Caixa Completo")
+        
+        # Formulário para Admin/Dev lançar nova Receita ou Despesa
+        with st.form("form_lanca_caixa", clear_on_submit=True):
+            st.write("<b>Lançar Nova Receita ou Despesa</b>", unsafe_allow_html=True)
+            c_mes = st.text_input("Mês / Ano (Ex: Janeiro/2026)", value=hoje_dt.strftime("%B/%Y"))
+            c_tipo_fin = st.selectbox("Tipo", ["Receita", "Despesa"])
+            c_desc = st.text_input("Descrição (Ex: Compra de Coletes, Aluguel)")
+            c_valor = st.number_input("Valor (R$)", min_value=0.0, step=10.0)
+            if st.form_submit_button("Adicionar Lançamento"):
+                if c_desc.strip() and c_valor > 0:
+                    st.session_state.financeiro.append({
+                        "mes": c_mes.strip(), "tipo": c_tipo_fin, "descricao": c_desc.strip(), "valor": float(c_valor)
+                    })
+                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                    st.success("Lançamento adicionado com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Preencha a descrição e informe um valor válido.")
+
+        st.markdown("---")
+        
+        # Exibição de Receitas, Despesas e Totais
         registros_caixa = st.session_state.financeiro
         if not registros_caixa:
-            st.info("Nenhum registro de pagamento no fluxo de caixa.")
-        for item in registros_caixa:
-            st.markdown(f"<div class='card-team'><b>Atleta:</b> {item['nome']} | <b>Data:</b> {item['data']} | Status: <code>{item['status']}</code></div>", unsafe_allow_html=True)
+            st.info("Nenhum registro financeiro encontrado.")
+        else:
+            total_geral_rec = sum(item["valor"] for item in registros_caixa if item["tipo"] == "Receita")
+            total_geral_desp = sum(item["valor"] for item in registros_caixa if item["tipo"] == "Despesa")
+            saldo_total = total_geral_rec - total_geral_desp
+
+            st.markdown(f"""
+            <div class='card-team' style='border-top-color: #10B981;'>
+                <h3>💰 Saldo Total em Caixa: R$ {saldo_total:.2f}</h3>
+                <p>🟢 Total de Receitas: R$ {total_geral_rec:.2f} | 🔴 Total de Despesas: R$ {total_geral_desp:.2f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.write("### Histórico de Movimentações")
+            for idx, item in enumerate(registros_caixa):
+                cor_borda = "#10B981" if item["tipo"] == "Receita" else "#EF4444"
+                st.markdown(f"""
+                <div class='card-team' style='border-top-color: {cor_borda};'>
+                    <b>Mês:</b> {item.get('mes', 'Geral')} | <b>Tipo:</b> <code>{item['tipo']}</code> | <b>Descrição:</b> {item['descricao']} | <b>Valor:</b> R$ {item['valor']:.2f}
+                </div>
+                """, unsafe_allow_html=True)
 
     elif st.session_state.pagina_atual == "gerenciamento":
         st.subheader("🛠️ Painel de Gerenciamento Geral & Aprovações")
@@ -537,7 +598,7 @@ else:
             st.write("### Aprovação de Novas Atletas")
             pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
             if not pendentes:
-                st.info("Nenhum cadastro pendente.")
+                st.info("Nenhum cadastro pendente no momento.")
             for idx, j in enumerate(pendentes):
                 col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
                 with col_p1:
@@ -546,13 +607,13 @@ else:
                     if st.button("✅ Aprovar", key=f"aprov_{idx}"):
                         j["status"] = "Ativo"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"Atleta {j['nome']} aprovada!")
+                        st.success(f"✔️ Confirmação: A atleta {j['nome']} foi aprovada e ativada com sucesso!")
                         st.rerun()
                 with col_p3:
                     if st.button("❌ Recusar", key=f"rec_{idx}"):
                         st.session_state.jogadoras.remove(j)
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.warning("Cadastro removido.")
+                        st.warning(f"⚠️ O cadastro de {j['nome']} foi recusado/removido.")
                         st.rerun()
 
         with tab_ger2:
