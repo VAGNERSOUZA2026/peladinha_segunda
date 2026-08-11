@@ -180,7 +180,7 @@ if "versao_dados_cache" not in st.session_state:
     st.session_state.versao_dados_cache = str(len(st.session_state.presencas)) + "_" + str(len(st.session_state.jogadoras))
 
 SENHA_MESTRE_DEV = "1980"
-CODIGO_CONVITE_ADMIN = "PELADA2026"  # Senha secreta para liberar cadastro de administradores
+CODIGO_CONVITE_ADMIN = "PELADA2026"
 
 # -----------------------------------------------------------------------------
 # BOTÃO DE ATUALIZAÇÃO MANUAL INTELIGENTE (BARRA LATERAL)
@@ -273,7 +273,6 @@ if st.session_state.pagina_atual == "login":
             
             if st.form_submit_button("CADASTRAR ADMIN"):
                 if a_nome and a_user and a_pass and a_codigo:
-                    # TRAVA DE SEGURANÇA CORRIGIDA AQUI
                     if a_codigo.strip() != CODIGO_CONVITE_ADMIN:
                         st.error("❌ Código de convite inválido! Acesso negado para criação de administrador.")
                     elif any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
@@ -398,7 +397,7 @@ else:
                 
                 with st.form("form_add_manual"):
                     st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
                     atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastrada"])
                     if st.form_submit_button("Incluir do Elenco"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
@@ -427,4 +426,6 @@ else:
                                 st.success(f"Convidada {nome_externa.strip()} incluída!")
                                 st.rerun()
                             else:
-          
+                                st.error("Esta atleta já está na lista.")
+                        else:
+                    
