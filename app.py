@@ -270,20 +270,22 @@ if st.session_state.pagina_atual == "login":
             a_user = st.text_input("Login Admin *")
             a_pass = st.text_input("Senha Admin *", type="password")
             a_codigo = st.text_input("Código de Convite Secreto *", type="password")
+            
             if st.form_submit_button("CADASTRAR ADMIN"):
                 if a_nome and a_user and a_pass and a_codigo:
-                    if a_codigo != CODIGO_CONVITE_ADMIN:
-                        st.error("Código de convite inválido! Acesso negado para criação de administrador.")
+                    # TRAVA DE SEGURANÇA CORRIGIDA AQUI
+                    if a_codigo.strip() != CODIGO_CONVITE_ADMIN:
+                        st.error("❌ Código de convite inválido! Acesso negado para criação de administrador.")
                     elif any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
-                        st.error("Login de admin já existe!")
+                        st.error("❌ Este login de admin já existe!")
                     else:
                         st.session_state.administradores.append({
                             "nome": a_nome.strip(), "login": a_user.strip(), "senha": a_pass.strip()
                         })
                         salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                        st.success("Administrador cadastrado com sucesso! Já pode fazer login na aba 'Entrar'.")
+                        st.success("✔️ Administrador cadastrado com sucesso! Já pode fazer login na aba 'Entrar'.")
                 else:
-                    st.error("Preencha todos os campos, incluindo o código de convite!")
+                    st.error("⚠️ Preencha todos os campos, incluindo o código de convite!")
 
     with tab_dev:
         st.subheader("Acesso Restrito ao Desenvolvedor")
@@ -396,7 +398,7 @@ else:
                 
                 with st.form("form_add_manual"):
                     st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
                     atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastrada"])
                     if st.form_submit_button("Incluir do Elenco"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
@@ -425,242 +427,4 @@ else:
                                 st.success(f"Convidada {nome_externa.strip()} incluída!")
                                 st.rerun()
                             else:
-                                st.error("Esta atleta já está na lista.")
-                        else:
-                            st.error("Informe o nome da convidada.")
-
-                st.write("### Remover da Lista:")
-                for p in st.session_state.presencas:
-                    c_nome = obter_nome_p(p)
-                    if st.button(f"Remover {c_nome}", key=f"rem_l_{c_nome}"):
-                        st.session_state.presencas = [item for item in st.session_state.presencas if obter_nome_p(item) != c_nome]
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.rerun()
-            else:
-                st.write("### ✍️ Gerenciar Minha Presença")
-                if st.session_state.perfil_logado == "Jogadora":
-                    j_nome = st.session_state.usuario_logado
-                    dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == j_nome), None)
-                    tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
-                    
-                    pos_conf = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == j_nome), None)
-                    pos_esp = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == j_nome), None)
-                    
-                    if pos_conf:
-                        st.success(f"🎉 Você está na **Lista Principal** na posição **{pos_conf}**!")
-                    elif pos_esp:
-                        st.warning(f"⏳ Você está na **Fila de Espera** na posição **{pos_esp}º**.")
-                    else:
-                        st.info("ℹ️ Você não está confirmada.")
-
-                    with st.form("form_pres"):
-                        c_ok = st.form_submit_button("👍 Confirmar Presença", use_container_width=True)
-                        c_canc = st.form_submit_button("❌ Cancelar Presença", use_container_width=True)
-
-                    ja_na_lista = (pos_conf is not None or pos_esp is not None)
-
-                    if c_ok:
-                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
-                        st.session_state.presencas.append({
-                            "nome": j_nome, "hora": hoje_dt.strftime("%H:%M"),
-                            "tipo": tipo_j, "dt_confirmacao": hoje_dt.isoformat()
-                        })
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success("Presença atualizada!")
-                        st.rerun()
-
-                    if c_canc:
-                        if ja_na_lista:
-                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
-                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                            st.info("Presença cancelada!")
-                            st.rerun()
-                        else:
-                            st.error("Seu nome não está na lista.")
-
-    elif st.session_state.pagina_atual == "sorteio":
-        st.subheader("🔀 Sorteio de Times (Oficial & Paralelo)")
-        sorteio_salvo = st.session_state.sorteio_oficial
-        
-        if sorteio_salvo and "times" in sorteio_salvo:
-            st.write("#### 🏆 Sorteio Oficial")
-            for nome_time, membros in sorteio_salvo["times"].items():
-                st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
-                for item in membros:
-                    st.markdown(f"• **{item}**")
-                st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.info("Nenhum sorteio oficial gerado ainda.")
-
-        st.markdown("#### ⚡ Sorteio Paralelo (Baseado em Presença no Local)")
-        if st.button("Gerar Sorteio Paralelo Agora", use_container_width=True):
-            confirmadas_nomes = [obter_nome_p(p) for p in st.session_state.presencas]
-            if len(confirmadas_nomes) >= 2:
-                random.shuffle(confirmadas_nomes)
-                res_paralelo = {"Time A": confirmadas_nomes[::2], "Time B": confirmadas_nomes[1::2]}
-                st.success("Sorteio Paralelo Gerado com Sucesso!")
-                for nome_t, membros_t in res_paralelo.items():
-                    st.markdown(f"<div class='card-team'><b>{nome_t}:</b> {', '.join(membros_t)}</div>", unsafe_allow_html=True)
-            else:
-                st.error("Atletas insuficientes para gerar o sorteio paralelo.")
-
-    elif st.session_state.pagina_atual == "elenco":
-        st.subheader("📋 Elenco de Atletas Cadastradas")
-        for j in st.session_state.jogadoras:
-            if j.get("status") == "Ativo":
-                st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b><br><small>Tipo: `{j.get('tipo', 'Avulso')}` | Quitado: `{j.get('quitado', 'Não')}` | Nasc: {j.get('nascimento')}</small></div>", unsafe_allow_html=True)
-
-    elif st.session_state.pagina_atual == "pagamento":
-        st.subheader("💸 Pagamentos e Chave Pix")
-        st.markdown(f"""
-        <div class='card-team'>
-            📌 <b>Chave Pix Oficial:</b> <code>{st.session_state.avisos.get('pix', 'peladinhafc@email.com')}</code><br>
-            Vencimento: <b>{st.session_state.avisos.get('vencimento', 'Todo dia 10')}</b>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        if st.session_state.perfil_logado == "Jogadora":
-            st.write("### Enviar Comprovante de Pagamento")
-            with st.form("form_comprovante_envio", clear_on_submit=True):
-                arquivo_submetido = st.file_uploader("Selecione a imagem do comprovante", type=["png", "jpg", "jpeg"])
-                if st.form_submit_button("Enviar Comprovante"):
-                    if arquivo_submetido:
-                        caminho_arquivo = os.path.join(UPLOAD_DIR, f"{st.session_state.usuario_logado}_{int(datetime.now().timestamp())}.png")
-                        with open(caminho_arquivo, "wb") as f:
-                            f.write(arquivo_submetido.getbuffer())
-                        
-                        st.session_state.comprovantes.append({
-                            "nome": st.session_state.usuario_logado,
-                            "arquivo": caminho_arquivo,
-                            "data": hoje_dt.strftime("%d/%m/%Y"),
-                            "conferido": False
-                        })
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                        st.success("Comprovante enviado com sucesso para validação do Administrador!")
-                    else:
-                        st.error("Selecione um arquivo de imagem.")
-
-        if st.session_state.perfil_logado in ["Admin", "Dev"]:
-            st.write("### 👑 Conferência de Comprovantes Pendentes")
-            comprovantes = st.session_state.comprovantes
-            pendentes_comp = [c for c in comprovantes if not c.get("conferido", False)]
-            if not pendentes_comp:
-                st.info("Nenhum comprovante pendente para conferência.")
-            for idx, comp in enumerate(comprovantes):
-                if not comp.get("conferido", False):
-                    st.markdown(f"<div class='card-team'><b>Atleta:</b> {comp['nome']} | <b>Data:</b> {comp['data']}</div>", unsafe_allow_html=True)
-                    if os.path.exists(comp['arquivo']):
-                        st.image(comp['arquivo'], width=300)
-                    if st.button(f"Validar Pagamento de {comp['nome']}", key=f"val_comp_{idx}"):
-                        comp["conferido"] = True
-                        for j in st.session_state.jogadoras:
-                            if j["nome"] == comp["nome"]:
-                                j["quitado"] = "Sim"
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        
-                        st.session_state.financeiro.append({
-                            "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Mensalidade - {comp['nome']}", "valor": 50.00
-                        })
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        salvar_dados(COMPROVANTES_FILE, comprovantes)
-                        st.success("Pagamento validado e adicionado como receita no fluxo de caixa!")
-                        st.rerun()
-
-    elif st.session_state.pagina_atual == "caixa":
-        st.subheader("📊 Fluxo de Caixa Completo")
-        
-        with st.form("form_lanca_caixa", clear_on_submit=True):
-            st.write("<b>Lançar Nova Receita ou Despesa</b>", unsafe_allow_html=True)
-            c_mes = st.text_input("Mês / Ano (Ex: Janeiro/2026)", value=hoje_dt.strftime("%B/%Y"))
-            c_tipo_fin = st.selectbox("Tipo", ["Receita", "Despesa"])
-            c_desc = st.text_input("Descrição (Ex: Compra de Coletes, Aluguel)")
-            c_valor = st.number_input("Valor (R$)", min_value=0.0, step=10.0)
-            if st.form_submit_button("Adicionar Lançamento"):
-                if c_desc.strip() and c_valor > 0:
-                    st.session_state.financeiro.append({
-                        "mes": c_mes.strip(), "tipo": c_tipo_fin, "descricao": c_desc.strip(), "valor": float(c_valor)
-                    })
-                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Lançamento adicionado com sucesso!")
-                    st.rerun()
-                else:
-                    st.error("Preencha a descrição e informe um valor válido.")
-
-        st.markdown("---")
-        
-        registros_caixa = st.session_state.financeiro
-        if not registros_caixa:
-            st.info("Nenhum registro financeiro encontrado.")
-        else:
-            total_geral_rec = sum(item["valor"] for item in registros_caixa if item["tipo"] == "Receita")
-            total_geral_desp = sum(item["valor"] for item in registros_caixa if item["tipo"] == "Despesa")
-            saldo_total = total_geral_rec - total_geral_desp
-
-            st.markdown(f"""
-            <div class='card-team' style='border-top-color: #10B981;'>
-                <h3>💰 Saldo Total em Caixa: R$ {saldo_total:.2f}</h3>
-                <p>🟢 Total de Receitas: R$ {total_geral_rec:.2f} | 🔴 Total de Despesas: R$ {total_geral_desp:.2f}</p>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.write("### Histórico de Movimentações")
-            for idx, item in enumerate(registros_caixa):
-                cor_borda = "#10B981" if item["tipo"] == "Receita" else "#EF4444"
-                st.markdown(f"""
-                <div class='card-team' style='border-top-color: {cor_borda};'>
-                    <b>Mês:</b> {item.get('mes', 'Geral')} | <b>Tipo:</b> <code>{item['tipo']}</code> | <b>Descrição:</b> {item['descricao']} | <b>Valor:</b> R$ {item['valor']:.2f}
-                </div>
-                """, unsafe_allow_html=True)
-
-    elif st.session_state.pagina_atual == "gerenciamento":
-        st.subheader("🛠️ Painel de Gerenciamento Geral & Aprovações")
-        
-        tab_ger1, tab_ger2, tab_ger3 = st.tabs(["📝 Aprovar Cadastros", "⚙️ Configurações Gerais", "🔒 Gestão de Contas (Dev)"])
-
-        with tab_ger1:
-            st.write("### Aprovação de Novas Atletas")
-            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
-            if not pendentes:
-                st.info("Nenhum cadastro pendente no momento.")
-            for idx, j in enumerate(pendentes):
-                col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
-                with col_p1:
-                    st.write(f"**{j['nome']}** (`{j.get('tipo', 'Avulso')}`) - Nasc: {j.get('nascimento')}")
-                with col_p2:
-                    if st.button("✅ Aprovar", key=f"aprov_{idx}"):
-                        j["status"] = "Ativo"
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success(f"✔️ Confirmação: A atleta {j['nome']} foi aprovada e ativada com sucesso!")
-                        st.rerun()
-                with col_p3:
-                    if st.button("❌ Recusar", key=f"rec_{idx}"):
-                        st.session_state.jogadoras.remove(j)
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.warning(f"⚠️ O cadastro de {j['nome']} foi recusado/removido.")
-                        st.rerun()
-
-        with tab_ger2:
-            with st.form("form_cfg_geral_painel"):
-                limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
-                pix_val = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
-                if st.form_submit_button("Salvar Ajustes"):
-                    st.session_state.avisos["limite_vagas"] = limite_v
-                    st.session_state.avisos["pix"] = pix_val
-                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Configurações atualizadas!")
-
-        with tab_ger3:
-            if st.session_state.perfil_logado == "Dev":
-                st.write("### Gerenciamento de Credenciais de Administradores (Restrito ao Desenvolvedor)")
-                for idx, adm in enumerate(st.session_state.administradores):
-                    st.markdown(f"<div class='card-team'><b>Admin:</b> {adm['nome']} | <b>Login:</b> <code>{adm['login']}</code></div>", unsafe_allow_html=True)
-                    if st.button(f"Excluir Admin {adm['nome']}", key=f"del_adm_{idx}"):
-                        if len(st.session_state.administradores) > 1:
-                            st.session_state.administradores.pop(idx)
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador removido!")
-                            st.rerun()
-                        else:
-                            st.error("Não é permitido excluir o último administrador.")
-            else:
-                st.warning("Esta seção de gerenciamento de credenciais mestre é restrita ao Desenvolvedor.")
+          
