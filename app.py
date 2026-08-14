@@ -34,12 +34,11 @@ def obter_imagem_base64(caminhos):
             return base64.b64encode(data).decode("utf-8")
     return None
 
-# Tenta encontrar a imagem com os nomes possíveis enviados
 img_base64 = obter_imagem_base64(["images (1).jpg", "images (1)_2.jpg", "fundo.jpg"])
-bg_declaracao = f'url("data:image/jpeg;base64,{img_base64}")' if img_base64 else 'none'
+bg_url = f"url('data:image/jpeg;base64,{img_base64}')" if img_base64 else "none"
 
 # ESTILIZAÇÃO GERAL E CORREÇÃO DAS ABAS (TABS)
-st.markdown(f"""
+css_estilo = f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
     
@@ -53,7 +52,7 @@ st.markdown(f"""
 
     /* Imagem de Fundo em Tela Cheia */
     .stApp {{
-        background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.88)), {bg_declaracao};
+        background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.88)), {bg_url};
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
@@ -64,7 +63,7 @@ st.markdown(f"""
         color: #FFFFFF !important;
     }}
 
-    /* CORREÇÃO DAS ABAS DO STREAMLIT (Para o texto de Criar Conta e Dev aparecerem perfeitamente) */
+    /* CORREÇÃO DAS ABAS DO STREAMLIT (Criar Conta e Dev) */
     [data-baseweb="tab"] {{
         color: #FFFFFF !important;
         font-weight: 700 !important;
@@ -142,7 +141,8 @@ st.markdown(f"""
         border-radius: 8px !important;
     }}
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(css_estilo, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PERSISTÊNCIA DE DADOS (JSON)
