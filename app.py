@@ -25,40 +25,59 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Função para converter imagem local em Base64
-def obter_imagem_base64(caminho_arquivo):
-    if os.path.exists(caminho_arquivo):
-        with open(caminho_arquivo, "rb") as f:
-            data = f.read()
-        return base64.b64encode(data).decode("utf-8")
+# Função robusta para converter imagem local em Base64
+def obter_imagem_base64(caminhos):
+    for caminho in caminhos:
+        if os.path.exists(caminho):
+            with open(caminho, "rb") as f:
+                data = f.read()
+            return base64.b64encode(data).decode("utf-8")
     return None
 
-img_base64 = obter_imagem_base64("images (1).jpg")
-if not img_base64 and os.path.exists("fundo.jpg"):
-    img_base64 = obter_imagem_base64("fundo.jpg")
-
+# Tenta encontrar a imagem com os nomes possíveis enviados
+img_base64 = obter_imagem_base64(["images (1).jpg", "images (1)_2.jpg", "fundo.jpg"])
 bg_declaracao = f'url("data:image/jpeg;base64,{img_base64}")' if img_base64 else 'none'
 
-# ESTILIZAÇÃO GERAL (Com correção de contraste para textos e labels)
-st.markdown("""
+# ESTILIZAÇÃO GERAL E CORREÇÃO DAS ABAS (TABS)
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
     
-    html, body, [class*="css"] { 
+    html, body, [class*="css"] {{ 
         font-family: 'Montserrat', sans-serif; 
-        color: #FFFFFF !important;
-    }
+    }}
 
-    [data-testid="stSidebar"] {
+    [data-testid="stSidebar"] {{
         display: none;
-    }
+    }}
 
-    /* Forçar títulos e labels a ficarem visíveis e brancos */
-    h1, h2, h3, h4, h5, h6, label, .stMarkdown p, span {
+    /* Imagem de Fundo em Tela Cheia */
+    .stApp {{
+        background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.88)), {bg_declaracao};
+        background-size: cover;
+        background-position: center;
+        background-attachment: fixed;
+    }}
+
+    /* Forçar visibilidade e contraste de títulos, textos e labels */
+    h1, h2, h3, h4, h5, h6, label, .stMarkdown p, span {{
         color: #FFFFFF !important;
-    }
+    }}
 
-    .app-header {
+    /* CORREÇÃO DAS ABAS DO STREAMLIT (Para o texto de Criar Conta e Dev aparecerem perfeitamente) */
+    [data-baseweb="tab"] {{
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+    }}
+    [data-baseweb="tab"] div {{
+        color: #FFFFFF !important;
+    }}
+    [aria-selected="true"] {{
+        color: #EC4899 !important;
+        border-bottom-color: #EC4899 !important;
+    }}
+
+    .app-header {{
         background: rgba(24, 24, 32, 0.85);
         padding: 20px;
         border-radius: 16px;
@@ -68,13 +87,13 @@ st.markdown("""
         text-align: center;
         backdrop-filter: blur(8px);
     }
-    .app-title {
+    .app-title {{
         font-size: 1.6rem;
         font-weight: 700;
         color: #FFFFFF !important;
         margin-top: 5px;
-    }
-    .app-subtitle {
+    }}
+    .app-subtitle {{
         font-size: 0.8rem;
         color: #EC4899 !important;
         text-transform: uppercase;
@@ -82,7 +101,7 @@ st.markdown("""
         font-weight: 700;
     }
 
-    .card-team {
+    .card-team {{
         background: rgba(24, 24, 32, 0.92) !important;
         border: 1px solid rgba(236, 72, 153, 0.5) !important;
         border-top: 4px solid #EC4899 !important;
@@ -93,11 +112,11 @@ st.markdown("""
         color: #FFFFFF !important;
         backdrop-filter: blur(8px);
     }
-    .card-team h3, .card-team b, .card-team p, .card-team span {
+    .card-team h3, .card-team b, .card-team p, .card-team span {{
         color: #FFFFFF !important;
-    }
+    }}
 
-    div.stButton > button {
+    div.stButton > button {{
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
         font-weight: 700 !important;
@@ -105,34 +124,22 @@ st.markdown("""
         border: 1px solid #DB2777 !important;
         width: 100% !important;
         box-shadow: 0px 3px 6px rgba(236, 72, 153, 0.4);
-    }
-    div.stButton > button:hover {
+    }}
+    div.stButton > button:hover {{
         background-color: #DB2777 !important;
-    }
+    }}
 
-    div[data-testid="stFormSubmitButton"] > button {
+    div[data-testid="stFormSubmitButton"] > button {{
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
         font-weight: 700 !important;
-    }
+    }}
 
-    .stTextInput input, .stSelectbox select, .stNumberInput input {
+    .stTextInput input, .stSelectbox select, .stNumberInput input {{
         background-color: rgba(24, 24, 32, 0.9) !important;
         color: #FFFFFF !important;
         border: 1px solid #EC4899 !important;
         border-radius: 8px !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Injeção isolada da imagem de fundo com gradiente escuro
-st.markdown(f"""
-<style>
-    .stApp {{
-        background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.85)), {bg_declaracao};
-        background-size: cover;
-        background-position: center;
-        background-attachment: fixed;
     }}
 </style>
 """, unsafe_allow_html=True)
