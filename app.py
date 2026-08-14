@@ -12,7 +12,7 @@ fuso_br = timezone(timedelta(hours=-3))
 hoje_dt = datetime.now(fuso_br)
 hoje_str = hoje_dt.strftime("%d/%m")
 mes_vigente_str = hoje_dt.strftime("%m/%Y")
-data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
+ano_vigente_str = hoje_dt.strftime("%Y")
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA (SEM SIDEBAR)
@@ -130,7 +130,7 @@ if "presencas" not in st.session_state:
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
 if "financeiro" not in st.session_state:
     st.session_state.financeiro = carregar_dados(FINANCE_FILE, [
-        {"descricao": "Mensalidade da Quadra (Fixa)", "valor": 300.00, "tipo": "Saída", "data": hoje_str}
+        {"descricao": "Mensalidade da Quadra (Fixa)", "valor": 300.00, "tipo": "Saída", "mes": mes_vigente_str, "semana": "Semana 1", "ano": ano_vigente_str, "data": hoje_str}
     ])
 if "comprovantes" not in st.session_state:
     st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
@@ -154,7 +154,7 @@ if "regulamento" not in st.session_state:
         },
         {
             "topico": "⚖️ 2. Sorteio de Times (Regra Oficial)", 
-            "regrinha": "O sorteio principal dos times acontece de forma automatizada pelo sistema às segundas-feiras às **18:30** (ou manualmente através da painel de administração). O formato oficial é composto por **5 jogadoras por time**, totalizando **3 times** na quadra (15 atletas). Adicionalmente, as jogadoras presentes podem acionar a função de **Sorteio Paralelo na Quadra** a qualquer momento."
+            "regrinha": "O sorteio principal dos times acontece de forma automatizada pelo sistema às segundas-feiras às **18:30** (ou manualmente através do painel de administração). O formato oficial é composto por **5 jogadoras por time**, totalizando **3 times** na quadra (15 atletas). Adicionalmente, as jogadoras presentes podem acionar a função de **Sorteio Paralelo na Quadra** a qualquer momento."
         },
         {
             "topico": "🤝 3. Normas de Convivência e Conduta na Peladinha", 
@@ -331,7 +331,7 @@ if menu == "🏠 Início":
                 st.session_state.pagina_atual = "📊 Fluxo de Caixa"
                 st.rerun()
 
-            if st.button("⚙️ Painel Admin\n\nGerenciamento de cadastros e acessos", use_container_width=True):
+            if st.button("⚙️ Painel Admin\n\nGerenciamento de regulamento e acessos", use_container_width=True):
                 st.session_state.pagina_atual = "⚙️ Painel Admin"
                 st.rerun()
 
@@ -514,6 +514,8 @@ elif menu == "💸 Pagamento & Pix":
     with st.form("form_comprovante", clear_on_submit=True):
         c_nome_jogadora = st.selectbox("Seu Nome", [j["nome"] for j in st.session_state.jogadoras])
         c_mes = st.text_input("Mês Referente", value=mes_vigente_str)
+        c_semana = st.selectbox("Semana Referente", ["Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
+        c_ano = st.text_input("Ano Referente", value=ano_vigente_str)
         arquivo_up = st.file_uploader("Enviar Imagem do Comprovante", type=["png", "jpg", "jpeg"])
         
         btn_env_comp = st.form_submit_button("Enviar Comprovante")
@@ -521,6 +523,8 @@ elif menu == "💸 Pagamento & Pix":
             st.session_state.comprovantes.append({
                 "jogadora": c_nome_jogadora,
                 "mes": c_mes,
+                "semana": c_semana,
+                "ano": c_ano,
                 "status": "Pendente de Aprovação",
                 "valor": float(st.session_state.avisos.get("valor_mensalidade", 80.00))
             })
@@ -558,53 +562,126 @@ elif menu == "📊 Fluxo de Caixa":
     else:
         st.subheader("📊 Fluxo de Caixa / Financeiro")
         
-        mensalistas_cadastradas = sorted([j for j in st.session_state.jogadoras if j.get("tipo") == "Mensalista"], key=lambda x: x["nome"])
-        
-        st.write("### 🟢 Receitas - Mensalistas (Ordem Alfabética)")
-        for m in mensalistas_cadastradas:
-            st.markdown(f"• **{m['nome']}** — Status: `{m.get('status_pagamento', 'Pendente')}`")
-
-        # Exibir comprovantes aprovados integrados nas receitas
-        st.write("### 💵 Entradas via Comprovantes Aprovados")
-        comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
-        total_comprovantes = 0.0
-        if not comprovantes_aprovados:
-            st.info("Nenhum comprovante aprovado registrado ainda.")
-        else:
-            for comp in comprovantes_aprovados:
-                v_comp = float(comp.get("valor", 80.00))
-                total_comprovantes += v_comp
-                st.markdown(f"<div class='card-team'>🟢 <b>Mensalidade / Pix:</b> {comp['jogadora']} (Mês: {comp['mes']}) — R$ {v_comp:.2f}</div>", unsafe_allow_html=True)
-
-        st.write("### 🟢 Receitas - Avulsas")
-        qtd_avulsas_jogo = st.number_input("Quantidade de Avulsas no Jogo", min_value=0, value=0)
-        valor_avulsa_unit = st.number_input("Valor Unitário da Avulsa (R$)", min_value=0.0, value=25.0)
-        total_avulsas_calc = qtd_avulsas_jogo * valor_avulsa_unit
-        st.info(f"Total arrecadado com Avulsas: **R$ {total_avulsas_calc:.2f}**")
+        # Filtros de visualização temporal
+        col_f1, col_f2, col_f3 = st.columns(3)
+        with col_f1:
+            filtro_ano = st.text_input("Filtrar por Ano", value=ano_vigente_str)
+        with col_f2:
+            filtro_mes = st.text_input("Filtrar por Mês (MM/AAAA)", value=mes_vigente_str)
+        with col_f3:
+            filtro_semana = st.selectbox("Filtrar por Semana", ["Todas", "Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
 
         st.markdown("---")
-        st.write("### 🔴 Despesas")
+        
+        # --- RECEITAS ---
+        st.write("### 🟢 Entradas (Receitas)")
+        
+        # Comprovantes aprovados filtrados
+        comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
+        
+        # Se o comprovante não tiver os campos de semana/ano/mês antigos, atribuímos padrões para não quebrar
+        comp_filtrados = []
+        for comp in comprovantes_aprovados:
+            c_ano = comp.get("ano", ano_vigente_str)
+            c_mes = comp.get("mes", mes_vigente_str)
+            c_sem = comp.get("semana", "Semana 1")
+            
+            match_ano = (not filtro_ano) or (c_ano == filtro_ano)
+            match_mes = (not filtro_mes) or (c_mes == filtro_mes)
+            match_sem = (filtro_semana == "Todas") or (c_sem == filtro_semana)
+            
+            if match_ano and match_mes and match_sem:
+                comp_filtrados.append(comp)
+
+        total_comprovantes = 0.0
+        if not comp_filtrados:
+            st.info("Nenhuma entrada de Pix/Comprovante aprovado para o filtro selecionado.")
+        else:
+            for comp in comp_filtrados:
+                v_comp = float(comp.get("valor", 80.00))
+                total_comprovantes += v_comp
+                st.markdown(f"<div class='card-team'>🟢 <b>Pix / Mensalidade:</b> {comp['jogadora']} — R$ {v_comp:.2f} <br><small>Mês: {comp.get('mes')} | {comp.get('semana', 'Semana 1')} | Ano: {comp.get('ano', ano_vigente_str)}</small></div>", unsafe_allow_html=True)
+
+        st.write("#### Entradas Avulsas")
+        qtd_avulsas_jogo = st.number_input("Quantidade de Avulsas no Período", min_value=0, value=0)
+        valor_avulsa_unit = st.number_input("Valor Unitário da Avulsa (R$)", min_value=0.0, value=25.0)
+        total_avulsas_calc = qtd_avulsas_jogo * valor_avulsa_unit
+        st.info(f"Total arrecadado com Avulsas no filtro: **R$ {total_avulsas_calc:.2f}**")
+
+        st.markdown("---")
+        
+        # --- DESPESAS ---
+        st.write("### 🔴 Despesas & Lançamentos")
+        
+        # Filtrar despesas (saídas)
+        despesas_filtradas = []
+        for d in st.session_state.financeiro:
+            if d.get("tipo") == "Saída":
+                d_ano = d.get("ano", ano_vigente_str)
+                d_mes = d.get("mes", mes_vigente_str)
+                d_sem = d.get("semana", "Semana 1")
+                
+                match_ano = (not filtro_ano) or (d_ano == filtro_ano)
+                match_mes = (not filtro_mes) or (d_mes == filtro_mes)
+                match_sem = (filtro_semana == "Todas") or (d_sem == filtro_semana)
+                
+                if match_ano and match_mes and match_sem:
+                    despesas_filtradas.append(d)
+
         total_saidas = 0.0
-        for f in st.session_state.financeiro:
-            if f.get("tipo") == "Saída":
+        if not despesas_filtradas:
+            st.info("Nenhuma despesa registrada para este filtro.")
+        else:
+            for idx, f in enumerate(despesas_filtradas):
                 val_saida = float(f.get('valor', 0))
                 total_saidas += val_saida
-                st.markdown(f"<div class='card-team'>🔴 <b>{f.get('descricao')}</b> — R$ {val_saida:.2f}</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='card-team'>🔴 <b>{f.get('descricao')}</b> — R$ {val_saida:.2f} <br><small>Mês: {f.get('mes')} | {f.get('semana')} | Ano: {f.get('ano')}</small></div>", unsafe_allow_html=True)
 
-        with st.form("form_nova_despesa", clear_on_submit=True):
-            d_desc = st.text_input("Nome da Nova Despesa")
-            d_val = st.number_input("Valor da Despesa (R$)", min_value=0.0, format="%.2f")
-            if st.form_submit_button("Adicionar Despesa"):
+        # Formulário para lançar despesa com valor customizado, mês, semana e ano
+        st.write("#### ➕ Adicionar Nova Despesa (Aluguel, Materiais, etc.)")
+        with st.form("form_nova_despesa_custom", clear_on_submit=True):
+            d_desc = st.text_input("Descrição da Despesa (Ex: Aluguel da Quadra, Coletes)")
+            d_val = st.number_input("Valor da Despesa (R$)", min_value=0.0, format="%.2f", value=300.0)
+            d_mes = st.text_input("Mês da Despesa (MM/AAAA)", value=mes_vigente_str)
+            d_semana = st.selectbox("Semana da Despesa", ["Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
+            d_ano = st.text_input("Ano da Despesa", value=ano_vigente_str)
+            
+            if st.form_submit_button("Lançar Despesa"):
                 if d_desc and d_val > 0:
-                    st.session_state.financeiro.append({"descricao": d_desc, "valor": d_val, "tipo": "Saída", "data": hoje_str})
+                    st.session_state.financeiro.append({
+                        "descricao": d_desc,
+                        "valor": d_val,
+                        "tipo": "Saída",
+                        "mes": d_mes,
+                        "semana": d_semana,
+                        "ano": d_ano,
+                        "data": hoje_str
+                    })
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                    st.success("Despesa adicionada!")
+                    st.success("Despesa lançada com sucesso!")
                     st.rerun()
 
         st.markdown("---")
+        
+        # Totais do período filtrado e Resumo Anual Global
         total_entradas_geral = total_comprovantes + total_avulsas_calc
-        saldo_final = total_entradas_geral - total_saidas
-        st.metric(label="Saldo Geral do Caixa", value=f"R$ {saldo_final:.2f}", delta=f"Entradas: R$ {total_entradas_geral:.2f} | Saídas: R$ {total_saidas:.2f}")
+        saldo_periodo = total_entradas_geral - total_saidas
+        
+        st.metric(label=f"Balanço do Filtro ({filtro_mes} - {filtro_semana})", value=f"R$ {saldo_periodo:.2f}", delta=f"Receitas: R$ {total_entradas_geral:.2f} | Despesas: R$ {total_saidas:.2f}")
+
+        # Cálculo de Totalizador Geral do Ano
+        total_entradas_ano = sum(float(c.get("valor", 80)) for c in comprovantes_aprovados if c.get("ano", ano_vigente_str) == ano_vigente_str)
+        total_saidas_ano = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo") == "Saída" and d.get("ano", ano_vigente_str) == ano_vigente_str)
+        saldo_anual = total_entradas_ano - total_saidas_ano
+        
+        st.markdown(f"""
+        <div class='card-team' style='border-top-color: #2563EB;'>
+            <h3>📅 Resumo Consolidado do Ano ({ano_vigente_str})</h3>
+            <p><b>Total de Entradas no Ano:</b> R$ {total_entradas_ano:.2f}</p>
+            <p><b>Total de Despesas no Ano:</b> R$ {total_saidas_ano:.2f}</p>
+            <p><b>Saldo Final do Ano:</b> <b>R$ {saldo_anual:.2f}</b></p>
+        </div>
+        """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAINEL ADMIN
@@ -615,54 +692,84 @@ elif menu == "⚙️ Painel Admin":
     else:
         st.subheader("⚙️ Painel de Administração")
         
-        st.write("### 🛡️ Validação de Comprovantes Pix")
-        if not st.session_state.comprovantes:
-            st.info("Nenhum comprovante pendente.")
-        else:
-            for idx, comp in enumerate(st.session_state.comprovantes):
-                if comp.get("status") == "Pendente de Aprovação":
-                    st.markdown(f"<div class='card-team'><b>Jogadora:</b> {comp['jogadora']} | <b>Mês:</b> {comp['mes']}</div>", unsafe_allow_html=True)
-                    if st.button(f"Aprovar Pagamento de {comp['jogadora']}", key=f"aprov_{idx}"):
-                        comp["status"] = "Aprovado"
-                        for j in st.session_state.jogadoras:
-                            if j["nome"] == comp["jogadora"]:
-                                j["status_pagamento"] = "Pago"
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Pagamento aprovado, status atualizado e integrado ao Fluxo de Caixa!")
-                        st.rerun()
+        tab_adm_comp, tab_adm_reg, tab_adm_cad = st.tabs(["💳 Validar Comprovantes", "📜 Gerenciar Regulamento", "📝 Cadastros"])
 
-        st.markdown("---")
-        st.write("### 📝 Gerenciar Cadastros de Jogadoras e Administradores")
-        
-        with st.form("form_cad_geral_admin", clear_on_submit=True):
-            cg_nome = st.text_input("Nome Completo *")
-            cg_nasc = st.text_input("Nascimento (DD/MM)")
-            cg_tipo = st.selectbox("Categoria", ["Mensalista", "Avulsa"])
-            cg_papel = st.selectbox("Papel no Sistema", ["Jogadora", "Administrador"])
-            cg_login = st.text_input("Login *")
-            cg_senha = st.text_input("Senha *", type="password")
+        with tab_adm_comp:
+            st.write("### 🛡️ Validação de Comprovantes Pix")
+            pendentes = [c for c in st.session_state.comprovantes if c.get("status") == "Pendente de Aprovação"]
+            if not pendentes:
+                st.info("Nenhum comprovante pendente de aprovação.")
+            else:
+                for idx, comp in enumerate(st.session_state.comprovantes):
+                    if comp.get("status") == "Pendente de Aprovação":
+                        st.markdown(f"<div class='card-team'><b>Jogadora:</b> {comp['jogadora']} | <b>Mês:</b> {comp.get('mes')} | <b>{comp.get('semana', 'Semana 1')}</b> | <b>Valor:</b> R$ {comp.get('valor', 80.00):.2f}</div>", unsafe_allow_html=True)
+                        if st.button(f"Aprovar Pagamento de {comp['jogadora']} ({comp.get('semana', '')})", key=f"aprov_{idx}"):
+                            comp["status"] = "Aprovado"
+                            for j in st.session_state.jogadoras:
+                                if j["nome"] == comp["jogadora"]:
+                                    j["status_pagamento"] = "Pago"
+                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.success("Pagamento aprovado e integrado automaticamente no Fluxo de Caixa!")
+                            st.rerun()
+
+        with tab_adm_reg:
+            st.write("### 📜 Editar Regulamento e Regras de Convivência")
+            st.info("Adicione novos tópicos ou altere as regras conforme novas situações surjam no grupo.")
             
-            if st.form_submit_button("Cadastrar Usuário"):
-                if cg_nome and cg_login and cg_senha:
-                    if cg_papel == "Administrador":
-                        if len(st.session_state.administradores) >= 3:
-                            st.error("O limite máximo de 3 administradores já foi atingido.")
+            # Formulário para adicionar nova regra
+            with st.form("form_novo_regulamento", clear_on_submit=True):
+                r_topico = st.text_input("Título do Tópico (Ex: 📌 5. Nova Regra de Coletes)")
+                r_texto = st.text_area("Texto explicativo da regra / convivência")
+                if st.form_submit_button("Adicionar Tópico ao Regulamento"):
+                    if r_topico and r_texto:
+                        st.session_state.regulamento.append({"topico": r_topico, "regrinha": r_texto})
+                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                        st.success("Regulamento atualizado com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("Preencha o título e o texto.")
+
+            st.markdown("---")
+            st.write("### Tópicos Atuais do Regulamento")
+            for idx, reg in enumerate(st.session_state.regulamento):
+                st.markdown(f"<div class='card-team'><b>{reg['topico']}</b><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
+                if st.button(f"🗑️ Excluir Tópico {idx+1}", key=f"del_reg_{idx}"):
+                    st.session_state.regulamento.pop(idx)
+                    salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                    st.success("Tópico removido!")
+                    st.rerun()
+
+        with tab_adm_cad:
+            st.write("### 📝 Gerenciar Cadastros")
+            with st.form("form_cad_geral_admin", clear_on_submit=True):
+                cg_nome = st.text_input("Nome Completo *")
+                cg_nasc = st.text_input("Nascimento (DD/MM)")
+                cg_tipo = st.selectbox("Categoria", ["Mensalista", "Avulsa"])
+                cg_papel = st.selectbox("Papel no Sistema", ["Jogadora", "Administrador"])
+                cg_login = st.text_input("Login *")
+                cg_senha = st.text_input("Senha *", type="password")
+                
+                if st.form_submit_button("Cadastrar Usuário"):
+                    if cg_nome and cg_login and cg_senha:
+                        if cg_papel == "Administrador":
+                            if len(st.session_state.administradores) >= 3:
+                                st.error("O limite máximo de 3 administradores já foi atingido.")
+                            else:
+                                st.session_state.administradores.append({"nome": cg_nome, "login": cg_login, "senha": cg_senha})
+                                salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                                st.success("Administrador cadastrado com sucesso!")
+                                st.rerun()
                         else:
-                            st.session_state.administradores.append({"nome": cg_nome, "login": cg_login, "senha": cg_senha})
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador cadastrado com sucesso!")
+                            st.session_state.jogadoras.append({
+                                "nome": cg_nome, "nascimento": cg_nasc, "tipo": cg_tipo,
+                                "login": cg_login, "senha": cg_senha, "status_pagamento": "Pendente", "status": "Ativo"
+                            })
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.success("Jogadora cadastrada com sucesso!")
                             st.rerun()
                     else:
-                        st.session_state.jogadoras.append({
-                            "nome": cg_nome, "nascimento": cg_nasc, "tipo": cg_tipo,
-                            "login": cg_login, "senha": cg_senha, "status_pagamento": "Pendente", "status": "Ativo"
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Jogadora cadastrada com sucesso!")
-                        st.rerun()
-                else:
-                    st.error("Preencha todos os campos obrigatórios.")
+                        st.error("Preencha todos os campos obrigatórios.")
 
 # -----------------------------------------------------------------------------
 # PÁGINA: ÁREA DO DESENVOLVEDOR
@@ -683,5 +790,6 @@ elif menu == "🛠️ Área do Desenvolvedor":
             if os.path.exists(PRESENCAS_FILE): os.remove(PRESENCAS_FILE)
             if os.path.exists(COMPROVANTES_FILE): os.remove(COMPROVANTES_FILE)
             if os.path.exists(FINANCE_FILE): os.remove(FINANCE_FILE)
+            if os.path.exists(REGULAMENTO_FILE): os.remove(REGULAMENTO_FILE)
             st.success("Sistema resetado com sucesso!")
             st.rerun()
