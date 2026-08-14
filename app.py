@@ -35,48 +35,48 @@ def obter_imagem_base64(caminhos):
     return None
 
 img_base64 = obter_imagem_base64(["images (1).jpg", "images (1)_2.jpg", "fundo.jpg"])
-bg_url = f"url('data:image/jpeg;base64,{img_base64}')" if img_base64 else "none"
+bg_url = 'url("data:image/jpeg;base64,' + img_base64 + '")' if img_base64 else 'none'
 
-# ESTILIZAÇÃO GERAL E CORREÇÃO DAS ABAS (TABS)
-css_estilo = f"""
+# ESTILIZAÇÃO GERAL E CORREÇÃO DAS ABAS (TABS) - SEM F-STRING GLOBAL
+css_estilo = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
     
-    html, body, [class*="css"] {{ 
+    html, body, [class*="css"] { 
         font-family: 'Montserrat', sans-serif; 
-    }}
+    }
 
-    [data-testid="stSidebar"] {{
+    [data-testid="stSidebar"] {
         display: none;
-    }}
+    }
 
     /* Imagem de Fundo em Tela Cheia */
-    .stApp {{
-        background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.88)), {bg_url};
+    .stApp {
+        background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.88)), BACKGROUND_URL_PLACEHOLDER;
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
-    }}
+    }
 
     /* Forçar visibilidade e contraste de títulos, textos e labels */
-    h1, h2, h3, h4, h5, h6, label, .stMarkdown p, span {{
+    h1, h2, h3, h4, h5, h6, label, .stMarkdown p, span {
         color: #FFFFFF !important;
-    }}
+    }
 
     /* CORREÇÃO DAS ABAS DO STREAMLIT (Criar Conta e Dev) */
-    [data-baseweb="tab"] {{
+    [data-baseweb="tab"] {
         color: #FFFFFF !important;
         font-weight: 700 !important;
-    }}
-    [data-baseweb="tab"] div {{
+    }
+    [data-baseweb="tab"] div {
         color: #FFFFFF !important;
-    }}
-    [aria-selected="true"] {{
+    }
+    [aria-selected="true"] {
         color: #EC4899 !important;
         border-bottom-color: #EC4899 !important;
-    }}
+    }
 
-    .app-header {{
+    .app-header {
         background: rgba(24, 24, 32, 0.85);
         padding: 20px;
         border-radius: 16px;
@@ -86,13 +86,13 @@ css_estilo = f"""
         text-align: center;
         backdrop-filter: blur(8px);
     }
-    .app-title {{
+    .app-title {
         font-size: 1.6rem;
         font-weight: 700;
         color: #FFFFFF !important;
         margin-top: 5px;
-    }}
-    .app-subtitle {{
+    }
+    .app-subtitle {
         font-size: 0.8rem;
         color: #EC4899 !important;
         text-transform: uppercase;
@@ -100,7 +100,7 @@ css_estilo = f"""
         font-weight: 700;
     }
 
-    .card-team {{
+    .card-team {
         background: rgba(24, 24, 32, 0.92) !important;
         border: 1px solid rgba(236, 72, 153, 0.5) !important;
         border-top: 4px solid #EC4899 !important;
@@ -111,11 +111,11 @@ css_estilo = f"""
         color: #FFFFFF !important;
         backdrop-filter: blur(8px);
     }
-    .card-team h3, .card-team b, .card-team p, .card-team span {{
+    .card-team h3, .card-team b, .card-team p, .card-team span {
         color: #FFFFFF !important;
-    }}
+    }
 
-    div.stButton > button {{
+    div.stButton > button {
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
         font-weight: 700 !important;
@@ -123,25 +123,27 @@ css_estilo = f"""
         border: 1px solid #DB2777 !important;
         width: 100% !important;
         box-shadow: 0px 3px 6px rgba(236, 72, 153, 0.4);
-    }}
-    div.stButton > button:hover {{
+    }
+    div.stButton > button:hover {
         background-color: #DB2777 !important;
-    }}
+    }
 
-    div[data-testid="stFormSubmitButton"] > button {{
+    div[data-testid="stFormSubmitButton"] > button {
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
         font-weight: 700 !important;
-    }}
+    }
 
-    .stTextInput input, .stSelectbox select, .stNumberInput input {{
+    .stTextInput input, .stSelectbox select, .stNumberInput input {
         background-color: rgba(24, 24, 32, 0.9) !important;
         color: #FFFFFF !important;
         border: 1px solid #EC4899 !important;
         border-radius: 8px !important;
-    }}
+    }
 </style>
 """
+# Substitui o marcador pela url da imagem de forma segura
+css_estilo = css_estilo.replace("BACKGROUND_URL_PLACEHOLDER", bg_url)
 st.markdown(css_estilo, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
@@ -306,13 +308,12 @@ if not st.session_state.usuario_logado:
 # -----------------------------------------------------------------------------
 # CABEÇALHO DO APLICATIVO LOGADO
 # -----------------------------------------------------------------------------
-st.markdown(f"""
-<div class='app-header' style='padding: 15px; display: flex; justify-content: space-between; align-items: center;'>
-    <div>
-        <div class='app-subtitle'>Peladinha FC | Atleta: <b>{st.session_state.usuario_logado} ({st.session_state.cargo_logado})</b></div>
-    </div>
-</div>
-""", unsafe_allow_html=True)
+st.markdown(
+    "<div class='app-header' style='padding: 15px; display: flex; justify-content: space-between; align-items: center;'>"
+    "<div><div class='app-subtitle'>Peladinha FC | Atleta: <b>" + str(st.session_state.usuario_logado) + " (" + str(st.session_state.cargo_logado) + ")</b></div></div>"
+    "</div>",
+    unsafe_allow_html=True
+)
 
 col_sair1, col_sair2 = st.columns([4, 1])
 with col_sair2:
@@ -396,7 +397,7 @@ elif menu == "📌 Presença no Jogo":
     with col_A:
         st.write("### ✍️ Sua Ação")
         if st.session_state.cargo_logado == "Jogadora":
-            st.write(f"Jogadora logada: **{jogadora_atual_nome}**")
+            st.write("Jogadora logada: **" + str(jogadora_atual_nome) + "**")
             
             registro_presenca = next((p for p in st.session_state.presencas if p["nome"] == jogadora_atual_nome), None)
             ja_confirmada = registro_presenca is not None
@@ -446,17 +447,17 @@ elif menu == "📌 Presença no Jogo":
         principal = combinada[:limite]
         espera = combinada[limite:]
 
-        st.write(f"**🟢 Lista Principal ({len(principal)}/{limite})**")
+        st.write("**🟢 Lista Principal (" + str(len(principal)) + "/" + str(limite) + ")**")
         for idx, p in enumerate(principal, 1):
             j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
-            st.markdown(f"<div class='card-team'><b>{idx}.</b> {p['nome']} `[{tipo}]` — <i>Conf: {p['hora']}</i></div>", unsafe_allow_html=True)
+            st.markdown("<div class='card-team'><b>" + str(idx) + ".</b> " + p['nome'] + " <code>[" + tipo + "]</code> — <i>Conf: " + p['hora'] + "</i></div>", unsafe_allow_html=True)
 
-        st.write(f"**⏳ Fila de Espera ({len(espera)})**")
+        st.write("**⏳ Fila de Espera (" + str(len(espera)) + ")**")
         for idx, p in enumerate(espera, 1):
             j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
-            st.markdown(f"<div class='card-team'><b>{idx}º espera:</b> {p['nome']} `[{tipo}]`</div>", unsafe_allow_html=True)
+            st.markdown("<div class='card-team'><b>" + str(idx) + "º espera:</b> " + p['nome'] + " <code>[" + tipo + "]</code></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: SORTEIO DE TIMES
@@ -465,13 +466,13 @@ elif menu == "🔀 Sorteio de Times":
     st.subheader("🔀 Sorteio de Times em Tempo Real")
     sorteio_atual = st.session_state.sorteio_oficial
     if sorteio_atual and "times" in sorteio_atual:
-        st.write(f"### Sorteio Vigente ({sorteio_atual.get('tipo', 'Principal')} - {sorteio_atual.get('data')})")
+        st.write("### Sorteio Vigente (" + str(sorteio_atual.get('tipo', 'Principal')) + " - " + str(sorteio_atual.get('data')) + ")")
         cols = st.columns(len(sorteio_atual["times"]))
         for idx, (t_nome, membros) in enumerate(sorteio_atual["times"].items()):
             with cols[idx]:
-                st.markdown(f"<div class='card-team'><h3>⚽ {t_nome}</h3>", unsafe_allow_html=True)
+                st.markdown("<div class='card-team'><h3>⚽ " + t_nome + "</h3>", unsafe_allow_html=True)
                 for m in membros:
-                    st.markdown(f"• {m}")
+                    st.markdown("• " + m)
                 st.markdown("</div>", unsafe_allow_html=True)
     else:
         st.warning("Nenhum sorteio realizado para hoje ainda.")
@@ -503,7 +504,7 @@ elif menu == "📋 Elenco de Jogadoras":
     st.subheader("📋 Elenco de Jogadoras")
     for j in st.session_state.jogadoras:
         status_aprov = j.get('tipo_status', 'Aprovada')
-        st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b> — Categoria: `[{j.get('tipo', 'Avulsa')}]` ({status_aprov}) | Pagamento: <b>{j.get('status_pagamento', 'Pendente')}</b></div>", unsafe_allow_html=True)
+        st.markdown("<div class='card-team'><b>⚽ " + j['nome'] + "</b> — Categoria: <code>[" + j.get('tipo', 'Avulsa') + "]</code> (" + status_aprov + ") | Pagamento: <b>" + j.get('status_pagamento', 'Pendente') + "</b></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAGAMENTO & PIX
@@ -511,12 +512,13 @@ elif menu == "📋 Elenco de Jogadoras":
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Pagamento & Chave Pix")
     pix_chave = st.session_state.avisos.get("pix", "peladinhafc@email.com")
-    st.markdown(f"""
-    <div class='card-team'>
-        <h3>💳 Dados para Transferência</h3>
-        <p><b>Chave Pix:</b> <code>{pix_chave}</code></p>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown(
+        "<div class='card-team'>"
+        "<h3>💳 Dados para Transferência</h3>"
+        "<p><b>Chave Pix:</b> <code>" + pix_chave + "</code></p>"
+        "</div>",
+        unsafe_allow_html=True
+    )
 
     with st.form("form_comprovante", clear_on_submit=True):
         c_nome_jogadora = st.selectbox("Seu Nome", [j["nome"] for j in st.session_state.jogadoras])
@@ -542,7 +544,7 @@ elif menu == "💸 Pagamento & Pix":
 elif menu == "📜 Regulamento":
     st.subheader("📜 Regulamento Interno")
     for reg in st.session_state.regulamento:
-        st.markdown(f"<div class='card-team'><h3>{reg['topico']}</h3><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
+        st.markdown("<div class='card-team'><h3>" + reg['topico'] + "</h3><p>" + reg['regrinha'] + "</p></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: ANIVERSARIANTES
@@ -552,7 +554,7 @@ elif menu == "🎂 Aniversariantes":
     mes_atual_s = hoje_dt.strftime("/%m")
     aniversariantes = [j for j in st.session_state.jogadoras if j.get("nascimento", "").endswith(mes_atual_s)]
     for j in aniversariantes:
-        st.markdown(f"<div class='card-team'>🎉 <b>{j['nome']}</b> — Nascimento: <code>{j.get('nascimento')}</code></div>", unsafe_allow_html=True)
+        st.markdown("<div class='card-team'>🎉 <b>" + j['nome'] + "</b> — Nascimento: <code>" + j.get('nascimento') + "</code></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: FLUXO DE CAIXA
@@ -562,7 +564,7 @@ elif menu == "📊 Fluxo de Caixa":
     comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
     total_comprovantes = sum(float(c.get("valor", 80.00)) for c in comprovantes_aprovados)
     total_saidas = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo") == "Saída")
-    st.metric(label="Balanço Geral", value=f"R$ {total_comprovantes - total_saidas:.2f}")
+    st.metric(label="Balanço Geral", value="R$ " + str(total_comprovantes - total_saidas))
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAINEL ADMIN
@@ -577,9 +579,9 @@ elif menu == "⚙️ Painel Admin":
             if j_item.get("tipo") == "Mensalista" and j_item.get("tipo_status", "Aprovada") != "Aprovada":
                 col_ap1, col_ap2 = st.columns([2, 1])
                 with col_ap1:
-                    st.markdown(f"• **{j_item['nome']}**")
+                    st.markdown("• **" + j_item['nome'] + "**")
                 with col_ap2:
-                    if st.button("✅ Aprovar", key=f"aprovar_m_{idx_j}"):
+                    if st.button("✅ Aprovar", key="aprovar_m_" + str(idx_j)):
                         j_item["tipo_status"] = "Aprovada"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.rerun()
@@ -604,7 +606,7 @@ elif menu == "⚙️ Painel Admin":
         st.write("### 🛡️ Comprovantes")
         for idx, comp in enumerate(st.session_state.comprovantes):
             if comp.get("status") == "Pendente de Aprovação":
-                if st.button(f"Aprovar de {comp['jogadora']}", key=f"aprov_{idx}"):
+                if st.button("Aprovar de " + comp['jogadora'], key="aprov_" + str(idx)):
                     comp["status"] = "Aprovado"
                     salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                     st.rerun()
