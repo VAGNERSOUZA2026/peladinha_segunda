@@ -123,7 +123,7 @@ def salvar_dados(filename, data):
     except:
         pass
 
-# Inicialização do Session State (Removido item fixo hardcoded sem mês para permitir controle total pelo Admin)
+# Inicialização do Session State
 if "jogadoras" not in st.session_state:
     st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
 if "presencas" not in st.session_state:
@@ -327,11 +327,11 @@ if menu == "🏠 Início":
             st.rerun()
 
         if st.session_state.cargo_logado in ["Administrador", "Desenvolvedor"]:
-            if st.button("📊 Fluxo de Caixa\n\nDespesas e receitas do grupo", use_container_width=True):
+            if st.button("📊 Fluxo de Caixa\n\nDespesas, receitas e gráficos", use_container_width=True):
                 st.session_state.pagina_atual = "📊 Fluxo de Caixa"
                 st.rerun()
 
-            if st.button("⚙️ Painel Admin\n\nGerenciamento de regulamento e acessos", use_container_width=True):
+            if st.button("⚙️ Painel Admin\n\nGerenciamento de presenças, atletas e regras", use_container_width=True):
                 st.session_state.pagina_atual = "⚙️ Painel Admin"
                 st.rerun()
 
@@ -365,7 +365,7 @@ elif menu == "📌 Presença no Jogo":
                     "hora": hoje_dt.strftime("%H:%M:%S"),
                     "dt_confirmacao": hoje_dt.isoformat(),
                     "mes": mes_vigente_str,
-                    "semana": "Semana 1" # Por padrão atribui a semana vigente, editável se necessário
+                    "semana": "Semana 1"
                 })
                 salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                 st.success("Presença confirmada com sucesso!")
@@ -376,7 +376,7 @@ elif menu == "📌 Presença no Jogo":
                 salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                 st.warning("Que pena! Aguardamos você na próxima.")
         else:
-            st.info("Modo Admin/Dev: A gestão de presenças individuais é feita pelas próprias jogadoras.")
+            st.info("Modo Admin/Dev: Você pode adicionar ou confirmar qualquer jogadora diretamente no 'Painel Admin' na aba de presenças.")
 
     with col_B:
         st.write("### 📋 Status da Lista")
@@ -489,37 +489,12 @@ elif menu == "🔀 Sorteio de Times":
 # PÁGINA: ELENCO DE JOGADORAS
 # -----------------------------------------------------------------------------
 elif menu == "📋 Elenco de Jogadoras":
-    st.subheader("📋 Elenco de Jogadoras & Gráficos de Frequência")
+    st.subheader("📋 Elenco de Jogadoras")
     if not st.session_state.jogadoras:
         st.info("Nenhuma jogadora cadastrada.")
     else:
         for j in st.session_state.jogadoras:
             st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b> — Categoria: `[{j.get('tipo', 'Avulsa')}]` | Pagamento: <b>{j.get('status_pagamento', 'Pendente')}</b><br><small>Nascimento: {j.get('nascimento', 'N/A')}</small></div>", unsafe_allow_html=True)
-
-    st.markdown("---")
-    st.write("### 📊 Gráficos e Análise de Mensalistas vs Avulsas por Semana e Mês")
-    st.info("Aqui você analisa em qual semana e mês a quantidade de avulsas e mensalistas compareceram à quadra.")
-
-    # Agrupar presenças por mês e semana separando mensalistas de avulsas
-    dados_grafico_freq = []
-    for p in st.session_state.presencas:
-        j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
-        tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
-        # Tenta extrair mês/semana da presença ou usa o vigente
-        p_mes = p.get("mes", mes_vigente_str)
-        p_sem = p.get("semana", "Semana 1")
-        dados_grafico_freq.append({"Mes": p_mes, "Semana": p_sem, "Tipo": tipo})
-
-    if dados_grafico_freq:
-        df_freq = pd.DataFrame(dados_grafico_freq)
-        # Tabela dinâmica / Contagem cruzada por Mês, Semana e Tipo
-        df_pivot = df_freq.pivot_table(index=["Mes", "Semana"], columns="Tipo", aggfunc=len, fill_value=0)
-        st.dataframe(df_pivot, use_container_width=True)
-        
-        # Gráfico de barras nativo do Streamlit nas cores tradicionais
-        st.bar_chart(df_freq.pivot_table(index="Semana", columns="Tipo", aggfunc=len, fill_value=0))
-    else:
-        st.info("Ainda não há registros de presença suficientes para gerar o gráfico de frequência.")
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAGAMENTO & PIX
@@ -581,13 +556,13 @@ elif menu == "🎂 Aniversariantes":
             st.markdown(f"<div class='card-team'>🎉 <b>{j['nome']}</b> — Nascimento: <code>{j.get('nascimento')}</code></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA: FLUXO DE CAIXA (ADMIN / DEV)
+# PÁGINA: FLUXO DE CAIXA (ADMIN / DEV) - COM GRÁFICOS DE RECEITAS E FREQUÊNCIA
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa":
     if st.session_state.cargo_logado not in ["Administrador", "Desenvolvedor"]:
         st.error("Acesso restrito aos administradores.")
     else:
-        st.subheader("📊 Fluxo de Caixa / Financeiro")
+        st.subheader("📊 Fluxo de Caixa / Financeiro & Gráficos")
         
         # Filtros de visualização temporal
         col_f1, col_f2, col_f3 = st.columns(3)
@@ -601,7 +576,7 @@ elif menu == "📊 Fluxo de Caixa":
         st.markdown("---")
         
         # --- RECEITAS ---
-        st.write("### 🟢 Entradas (Receitas) & Gráficos Tradicionais")
+        st.write("### 🟢 Entradas (Receitas)")
         
         comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
         
@@ -613,7 +588,7 @@ elif menu == "📊 Fluxo de Caixa":
             
             match_ano = (not filtro_ano) or (c_ano == filtro_ano)
             match_mes = (not filtro_mes) or (c_mes == filtro_mes)
-            match_sem = (filtro_semana == "Todas") or (c_sem == filtro_sem)
+            match_sem = (filtro_semana == "Todas") or (c_sem == filtro_semana)
             
             if match_ano and match_mes and match_sem:
                 comp_filtrados.append(comp)
@@ -633,18 +608,48 @@ elif menu == "📊 Fluxo de Caixa":
         total_avulsas_calc = qtd_avulsas_jogo * valor_avulsa_unit
         st.info(f"Total arrecadado com Avulsas no filtro: **R$ {total_avulsas_calc:.2f}**")
 
-        # Gráfico de Receitas nas cores tradicionais (Verde para Entradas / Vermelho para Saídas)
+        # --- GRÁFICO DE RECEITAS (CORES TRADICIONAIS) ---
         st.write("#### 📊 Gráfico de Receitas por Semana")
         dados_receita_graf = []
         for c in comp_filtrados:
             dados_receita_graf.append({"Semana": c.get("semana", "Semana 1"), "Receita Pix": float(c.get("valor", 80))})
         if dados_receita_graf:
             df_rec = pd.DataFrame(dados_receita_graf).groupby("Semana").sum()
-            st.bar_chart(df_rec, color="#10B981") # Verde tradicional de receita
+            st.bar_chart(df_rec)
+        else:
+            st.info("Sem dados suficientes para o gráfico de receitas na semana.")
+
+        st.markdown("---")
+
+        # --- GRÁFICO DE JOGADORAS (MENSALISTAS VS AVULSAS POR SEMANA/MÊS) DENTRO DO FLUXO DE CAIXA ---
+        st.write("### 📊 Gráfico de Frequência de Jogadoras (Mensalistas vs Avulsas)")
+        st.info("Análise de quantas mensalistas e avulsas compareceram à quadra por semana e mês.")
+        
+        dados_grafico_freq = []
+        for p in st.session_state.presencas:
+            j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
+            tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
+            p_mes = p.get("mes", mes_vigente_str)
+            p_sem = p.get("semana", "Semana 1")
+            
+            match_ano = (not filtro_ano) or (p_mes.endswith(filtro_ano))
+            match_mes = (not filtro_mes) or (p_mes == filtro_mes)
+            match_sem = (filtro_semana == "Todas") or (p_sem == filtro_semana)
+            
+            if match_ano and match_mes and match_sem:
+                dados_grafico_freq.append({"Semana": p_sem, "Tipo": tipo, "Contagem": 1})
+
+        if dados_grafico_freq:
+            df_freq = pd.DataFrame(dados_grafico_freq)
+            df_pivot = df_freq.pivot_table(index="Semana", columns="Tipo", values="Contagem", aggfunc="sum", fill_value=0)
+            st.dataframe(df_pivot, use_container_width=True)
+            st.bar_chart(df_pivot)
+        else:
+            st.info("Nenhum registro de presença para o filtro selecionado.")
 
         st.markdown("---")
         
-        # --- DESPESAS (COM OPÇÃO DE EDIÇÃO COMPLETA) ---
+        # --- DESPESAS ---
         st.write("### 🔴 Despesas & Lançamentos (Totalmente Editáveis)")
         
         despesas_filtradas = []
@@ -656,7 +661,7 @@ elif menu == "📊 Fluxo de Caixa":
                 
                 match_ano = (not filtro_ano) or (d_ano == filtro_ano)
                 match_mes = (not filtro_mes) or (d_mes == filtro_mes)
-                match_sem = (filtro_semana == "Todas") or (d_sem == filtro_sem)
+                match_sem = (filtro_semana == "Todas") or (d_sem == filtro_semana)
                 
                 if match_ano and match_mes and match_sem:
                     despesas_filtradas.append((idx_orig, d))
@@ -669,7 +674,6 @@ elif menu == "📊 Fluxo de Caixa":
                 val_saida = float(f.get('valor', 0))
                 total_saidas += val_saida
                 
-                # Card com opção interativa para o Administrador alterar o valor ou excluir diretamente na tela
                 with st.expander(f"🔴 {f.get('descricao')} — R$ {val_saida:.2f} ({f.get('mes')} | {f.get('semana')})"):
                     with st.form(f"form_edit_desp_{idx_orig}"):
                         novo_desc = st.text_input("Editar Descrição", value=f.get('descricao'))
@@ -736,7 +740,7 @@ elif menu == "📊 Fluxo de Caixa":
         st.metric(label=f"Balanço do Filtro ({filtro_mes} - {filtro_semana})", value=f"R$ {saldo_periodo:.2f}", delta=f"Receitas: R$ {total_entradas_geral:.2f} | Despesas: R$ {total_saidas:.2f}")
 
         total_entradas_ano = sum(float(c.get("valor", 80)) for c in comprovantes_aprovados if c.get("ano", ano_vigente_str) == ano_vigente_str)
-        total_saidas_ano = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo") == "Saída" and d.get("ano", ano_vigente_str) == ano_vigente_str)
+        total_saidas_ano = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo"] == "Saída" and d.get("ano", ano_vigente_str) == ano_vigente_str)
         saldo_anual = total_entradas_ano - total_saidas_ano
         
         st.markdown(f"""
@@ -762,7 +766,7 @@ elif menu == "📊 Fluxo de Caixa":
         """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# PÁGINA: PAINEL ADMIN
+# PÁGINA: PAINEL ADMIN (COM INCLUSÃO DIRETA DE JOGADORAS E CONTROLE DE PRESENÇAS)
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
     if st.session_state.cargo_logado not in ["Administrador", "Desenvolvedor"]:
@@ -770,7 +774,62 @@ elif menu == "⚙️ Painel Admin":
     else:
         st.subheader("⚙️ Painel de Administração (Tudo Editável)")
         
-        tab_adm_comp, tab_adm_reg, tab_adm_cad = st.tabs(["💳 Validar Comprovantes", "📜 Gerenciar Regulamento", "📝 Cadastros & Editar Dados"])
+        tab_adm_pres, tab_adm_comp, tab_adm_reg, tab_adm_cad = st.tabs(["📌 Gerenciar Presenças", "💳 Validar Comprovantes", "📜 Regulamento", "📝 Cadastros & Atletas"])
+
+        with tab_adm_pres:
+            st.write("### 📌 Incluir ou Confirmar Jogadoras Diretamente (Sem precisar de login/cadastro)")
+            st.info("Aqui o administrador pode adicionar qualquer jogadora na lista de presença do jogo atual instantaneamente.")
+            
+            with st.form("form_admin_incluir_presenca", clear_on_submit=True):
+                nome_jogadora_manual = st.text_input("Nome da Jogadora para Adicionar à Presença")
+                tipo_jogadora_manual = st.selectbox("Categoria", ["Mensalista", "Avulsa"])
+                semana_manual = st.selectbox("Semana do Jogo", ["Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
+                
+                if st.form_submit_button("Confirmar Presença Manualmente"):
+                    if nome_jogadora_manual:
+                        # Verifica se ela já está no elenco geral, se não, cadastra automaticamente
+                        if not any(j["nome"].lower() == nome_jogadora_manual.strip().lower() for j in st.session_state.jogadoras):
+                            st.session_state.jogadoras.append({
+                                "nome": nome_jogadora_manual.strip(),
+                                "nascimento": "01/01",
+                                "tipo": tipo_jogadora_manual,
+                                "login": nome_jogadora_manual.strip().lower().replace(" ", ""),
+                                "senha": "123",
+                                "status_pagamento": "Pendente",
+                                "status": "Ativo"
+                            })
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+
+                        # Adiciona na lista de presenças se já não estiver
+                        st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"].lower() != nome_jogadora_manual.strip().lower()]
+                        st.session_state.presencas.append({
+                            "nome": nome_jogadora_manual.strip(),
+                            "hora": hoje_dt.strftime("%H:%M:%S"),
+                            "dt_confirmacao": hoje_dt.isoformat(),
+                            "mes": mes_vigente_str,
+                            "semana": semana_manual
+                        })
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.success(f"Jogadora {nome_jogadora_manual} confirmada com sucesso na presença!")
+                        st.rerun()
+                    else:
+                        st.error("Informe o nome da jogadora.")
+
+            st.markdown("---")
+            st.write("### Jogadoras Confirmadas Atualmente na Lista")
+            if not st.session_state.presencas:
+                st.info("Nenhuma presença confirmada no momento.")
+            else:
+                for idx_p, p_item in enumerate(st.session_state.presencas):
+                    col_p1, col_p2 = st.columns([3, 1])
+                    with col_p1:
+                        st.markdown(f"• **{p_item['nome']}** (Confirmado às {p_item.get('hora', '')})")
+                    with col_p2:
+                        if st.button("Remover", key=f"rem_pres_{idx_p}"):
+                            st.session_state.presencas.pop(idx_p)
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            st.success("Removido da presença!")
+                            st.rerun()
 
         with tab_adm_comp:
             st.write("### 🛡️ Validação de Comprovantes Pix")
