@@ -210,6 +210,7 @@ with st.sidebar:
                 if admin_encontrado:
                     st.session_state.admin_logged = True
                     st.session_state.admin_nome = admin_encontrado["nome"]
+                    st.success("Admin logado com sucesso!")
                     st.rerun()
                 else:
                     st.error("Senha incorreta!")
@@ -217,6 +218,7 @@ with st.sidebar:
         st.info(f"Admin: **{st.session_state.admin_nome}**")
         if st.button("Sair do Admin", use_container_width=True):
             st.session_state.admin_logged = False
+            st.session_state.admin_nome = ""
             st.rerun()
 
 # -----------------------------------------------------------------------------
@@ -319,7 +321,6 @@ elif menu == "📌 Presença no Jogo":
         for i, p in enumerate(espera, 1):
             st.markdown(f"<div class='card-team'><b>{i}º:</b> {obter_nome_p(p)} `[{obter_tipo_p(p)}]`</div>", unsafe_allow_html=True)
 
-        # 👑 ZERAR LISTA (EXCLUSIVO ADMIN)
         if st.session_state.admin_logged:
             st.markdown("---")
             st.subheader("👑 Ações do Administrador")
@@ -332,7 +333,6 @@ elif menu == "📌 Presença no Jogo":
     with col_l2:
         st.write("### ✍️ Gestão de Presença")
         
-        # VERIFICAÇÃO DE EXCLUSIVIDADE DO ADMINISTRADOR PARA CONFIRMAR/CANCELAR
         if not st.session_state.admin_logged:
             st.warning("🔒 Apenas o **Administrador** pode confirmar ou cancelar jogadoras na lista.")
             st.info("Faça login na Área do Administrador na barra lateral para gerenciar as presenças.")
@@ -461,16 +461,18 @@ elif menu == "📜 Regulamento":
 
 elif menu == "📋 Elenco de Jogadoras":
     st.subheader("📋 Elenco de Jogadoras")
-    for j in st.session_state.jogadoras:
-        st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b><br><small>Tipo: `{j.get('tipo', 'Avulso')}` | Nasc: {j.get('nascimento', 'N/A')}</small></div>", unsafe_allow_html=True)
+    if not st.session_state.jogadoras:
+        st.info("Nenhuma jogadora cadastrada ainda. Acesse o Painel Admin para cadastrar.")
+    else:
+        for j in st.session_state.jogadoras:
+            st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b><br><small>Tipo: `{j.get('tipo', 'Avulso')}` | Nasc: {j.get('nascimento', 'N/A')}</small></div>", unsafe_allow_html=True)
 
 elif menu == "⚙️ Painel Admin":
     if not st.session_state.admin_logged:
-        st.error("Acesso restrito.")
+        st.error("Acesso restrito. Faça login como Administrador na barra lateral.")
     else:
         st.subheader("⚙️ Painel de Administração")
         
-        # ABA DE CONFIGURAÇÕES GERAIS
         with st.form("form_cfg"):
             st.write("### 📌 Configurações do Grupo")
             limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
@@ -484,7 +486,6 @@ elif menu == "⚙️ Painel Admin":
 
         st.markdown("---")
         
-        # ABA EXCLUSIVA DE CADASTRO DE JOGADORAS PELO ADMIN
         st.write("### 📝 Cadastrar Nova Jogadora (Exclusivo Admin)")
         with st.form("form_cad_admin", clear_on_submit=True):
             cad_nome = st.text_input("Nome Completo da Jogadora *")
@@ -495,8 +496,7 @@ elif menu == "⚙️ Painel Admin":
             
             if st.form_submit_button("Cadastrar Jogadora no Sistema"):
                 if cad_nome:
-                    # Verifica se já existe
-                    if any(j.get("nome").lower() == cad_nome.strip().lower() for j in st.session_state.jogadoras):
+                    if any(j.get("nome", "").lower() == cad_nome.strip().lower() for j in st.session_state.jogadoras):
                         st.error("Já existe uma jogadora cadastrada com este nome!")
                     else:
                         st.session_state.jogadoras.append({
