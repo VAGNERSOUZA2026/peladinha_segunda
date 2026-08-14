@@ -15,7 +15,7 @@ mes_vigente_str = hoje_dt.strftime("%m/%Y")
 data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA (FORÇANDO O MODO CLARO)
+# CONFIGURAÇÃO DA PÁGINA (MODO CLARO)
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Peladinha FC | Gestão Inteligente",
@@ -25,7 +25,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (TEMA CLARO COM ALTO CONTRASTE NOS BOTÕES)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (MODO CLARO)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -35,13 +35,11 @@ st.markdown("""
         font-family: 'Montserrat', sans-serif; 
     }
 
-    /* TELA E FUNDO GERAL CLARO */
     .stApp {
         background-color: #F8FAFC;
         color: #1E293B;
     }
 
-    /* CABEÇALHO */
     .app-header {
         background: #FFFFFF;
         padding: 20px;
@@ -63,7 +61,6 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    /* CARDS DE CONTEÚDO */
     .card-team {
         background: #FFFFFF;
         border: 1px solid #E2E8F0;
@@ -74,7 +71,6 @@ st.markdown("""
         box-shadow: 0px 2px 6px rgba(0, 0, 0, 0.02);
     }
 
-    /* BOTÕES COM CORES SÓLIDAS E GARANTIDAS NO MODO CLARO */
     div.stButton > button {
         background-color: #0D9488 !important;
         color: #FFFFFF !important;
@@ -90,7 +86,6 @@ st.markdown("""
         border-color: #115E59 !important;
     }
 
-    /* CAMPOS DE TEXTO E INPUTS */
     .stTextInput input, .stSelectbox select, .stNumberInput input {
         background-color: #FFFFFF !important;
         color: #1E293B !important;
@@ -152,7 +147,12 @@ if "comprovantes" not in st.session_state:
 if "administradores" not in st.session_state:
     st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980"}])
 if "avisos" not in st.session_state:
-    st.session_state.avisos = carregar_dados(AVISOS_FILE, {"vencimento": "Todo dia 10", "pix": "peladinhafc@email.com", "limite_vagas": 15})
+    st.session_state.avisos = carregar_dados(AVISOS_FILE, {
+        "vencimento": "Todo dia 10", 
+        "pix": "peladinhafc@email.com", 
+        "limite_vagas": 15,
+        "codigo_cadastro": "pelada123"  # Código secreto padrão para cadastro
+    })
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade."},
@@ -212,9 +212,14 @@ with st.sidebar:
             c_tipo = st.selectbox("Tipo:", ["Avulso", "Mensalista"])
             c_user = st.text_input("Login *")
             c_pass = st.text_input("Senha *", type="password")
+            c_codigo = st.text_input("Código Secreto do Grupo *", type="password", placeholder="Fornecido pelo Admin")
+            
             if st.form_submit_button("Criar Conta", use_container_width=True):
-                if c_nome and c_user and c_pass:
-                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
+                codigo_correto = st.session_state.avisos.get("codigo_cadastro", "pelada123")
+                if c_nome and c_user and c_pass and c_codigo:
+                    if c_codigo.strip() != codigo_correto:
+                        st.error("Código secreto do grupo incorreto!")
+                    elif any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
                         st.error("Login já em uso!")
                     else:
                         st.session_state.jogadoras.append({
@@ -223,10 +228,9 @@ with st.sidebar:
                             "tipo": c_tipo, "status": "Ativo"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Conta criada com sucesso!")
-                        st.rerun()
+                        st.success("Conta criada com sucesso! Faça login acima.")
                 else:
-                    st.error("Preencha os campos obrigatórios!")
+                    st.error("Preencha todos os campos obrigatórios!")
 
     st.markdown("---")
     st.subheader("🔒 Área do Administrador")
@@ -348,7 +352,7 @@ elif menu == "📌 Presença no Jogo":
         for i, p in enumerate(espera, 1):
             st.markdown(f"<div class='card-team'><b>{i}º:</b> {obter_nome_p(p)} `[{obter_tipo_p(p)}]`</div>", unsafe_allow_html=True)
 
-        # 👑 OPÇÃO EXCLUSIVA DO ADMINISTRADOR PARA ZERAR A LISTA
+        # 👑 ZERAR LISTA (EXCLUSIVO ADMIN)
         if st.session_state.admin_logged:
             st.markdown("---")
             st.subheader("👑 Painel do Administrador")
@@ -359,52 +363,44 @@ elif menu == "📌 Presença no Jogo":
                 st.rerun()
 
     with col_l2:
-        st.write("### ✍️ Gerenciar Minha Presença")
-        if not st.session_state.usuario_logado:
-            st.warning("Faça login na barra lateral para interagir.")
+        st.write("### ✍️ Gerenciar Presenças")
+        
+        # VERIFICAÇÃO DE EXCLUSIVIDADE DO ADMINISTRADOR PARA CONFIRMAR/CANCELAR
+        if not st.session_state.admin_logged:
+            st.warning("🔒 Apenas o **Administrador** pode confirmar ou cancelar jogadoras na lista.")
+            st.info("Você pode visualizar o status atual da lista ao lado.")
         else:
-            j_nome = st.session_state.usuario_logado
-            dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == j_nome), None)
-            tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
+            st.success("👑 Modo Admin Ativo: Você pode gerenciar as presenças abaixo.")
             
-            pos_conf = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == j_nome), None)
-            pos_esp = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == j_nome), None)
-            
-            if pos_conf:
-                st.success(f"🎉 Você está na **Lista Principal** na posição **{pos_conf}**!")
-            elif pos_esp:
-                st.warning(f"⏳ Você está na **Fila de Espera** na posição **{pos_esp}º**.")
+            # SELETOR DE JOGADORA PARA O ADMIN GERENCIAR
+            nomes_cadastradas = [j["nome"] for j in jogadoras_ativas]
+            if not nomes_cadastradas:
+                st.info("Nenhuma jogadora cadastrada no sistema.")
             else:
-                st.info("ℹ️ Você não está confirmada no momento.")
+                alvo_jogadora = st.selectbox("Selecione a Jogadora", nomes_cadastradas)
+                dados_alvo = next((j for j in st.session_state.jogadoras if j["nome"] == alvo_jogadora), None)
+                tipo_alvo = dados_alvo.get("tipo", "Avulso") if dados_alvo else "Avulso"
+                
+                c_ok = st.button("👍 Confirmar Presença (Admin)", use_container_width=True)
+                c_canc = st.button("❌ Remover / Cancelar Presença (Admin)", use_container_width=True)
 
-            st.markdown("---")
-            
-            # BOTÕES DIRETOS VISÍVEIS NO MODO CLARO
-            c_ok = st.button("👍 Confirmar Presença", use_container_width=True)
-            c_canc = st.button("❌ Cancelar Presença", use_container_width=True)
-
-            ja_na_lista = (pos_conf is not None or pos_esp is not None)
-
-            if c_ok:
-                st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
-                st.session_state.presencas.append({
-                    "nome": j_nome, 
-                    "hora": hoje_dt.strftime("%H:%M"),
-                    "tipo": tipo_j,
-                    "dt_confirmacao": hoje_dt.isoformat()
-                })
-                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                st.success("Presença atualizada com sucesso!")
-                st.rerun()
-
-            if c_canc:
-                if ja_na_lista:
-                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
+                if c_ok:
+                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != alvo_jogadora]
+                    st.session_state.presencas.append({
+                        "nome": alvo_jogadora, 
+                        "hora": hoje_dt.strftime("%H:%M"),
+                        "tipo": tipo_alvo,
+                        "dt_confirmacao": hoje_dt.isoformat()
+                    })
                     salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.info("Presença cancelada com sucesso!")
+                    st.success(f"Presença de **{alvo_jogadora}** confirmada com sucesso!")
                     st.rerun()
-                else:
-                    st.error("Seu nome não está na lista.")
+
+                if c_canc:
+                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != alvo_jogadora]
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.info(f"Presença de **{alvo_jogadora}** cancelada com sucesso!")
+                    st.rerun()
 
 elif menu == "📊 Fluxo de Caixa":
     st.subheader("📊 Fluxo de Caixa / Financeiro")
@@ -510,8 +506,11 @@ elif menu == "⚙️ Painel Admin":
         with st.form("form_cfg"):
             limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
             pix_val = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
+            codigo_val = st.text_input("Código Secreto para Cadastro de Novas Jogadoras", value=st.session_state.avisos.get("codigo_cadastro", "pelada123"))
+            
             if st.form_submit_button("Salvar Configurações"):
                 st.session_state.avisos["limite_vagas"] = limite_v
                 st.session_state.avisos["pix"] = pix_val
+                st.session_state.avisos["codigo_cadastro"] = codigo_val
                 salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                st.success("Salvo com sucesso!")
+                st.success("Configurações salvas com sucesso!")
