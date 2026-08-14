@@ -473,6 +473,7 @@ elif menu == "⚙️ Painel Admin":
     else:
         st.subheader("⚙️ Painel de Administração")
         
+        # 1. CONFIGURAÇÕES GERAIS
         with st.form("form_cfg"):
             st.write("### 📌 Configurações do Grupo")
             limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
@@ -486,6 +487,7 @@ elif menu == "⚙️ Painel Admin":
 
         st.markdown("---")
         
+        # 2. CADASTRAR NOVA JOGADORA
         st.write("### 📝 Cadastrar Nova Jogadora (Exclusivo Admin)")
         with st.form("form_cad_admin", clear_on_submit=True):
             cad_nome = st.text_input("Nome Completo da Jogadora *")
@@ -512,3 +514,37 @@ elif menu == "⚙️ Painel Admin":
                         st.rerun()
                 else:
                     st.error("O campo Nome é obrigatório!")
+
+        st.markdown("---")
+
+        # 3. CADASTRAR NOVO ADMINISTRADOR (Até 3 admins)
+        st.write("### 🛡️ Gerenciar / Cadastrar Administradores (Até 3)")
+        st.info(f"Atualmente existem **{len(st.session_state.administradores)}** administrador(es) cadastrado(s).")
+        
+        # Listar admins atuais
+        for idx, adm in enumerate(st.session_state.administradores, 1):
+            st.markdown(f"• **Admin {idx}:** {adm.get('nome')} (Login: `{adm.get('login')}`)")
+
+        if len(st.session_state.administradores) < 3:
+            with st.form("form_cad_admin_extra", clear_on_submit=True):
+                novo_adm_nome = st.text_input("Nome do Novo Administrador *")
+                novo_adm_login = st.text_input("Login do Administrador *")
+                novo_adm_senha = st.text_input("Senha do Administrador *", type="password")
+                
+                if st.form_submit_button("Adicionar Novo Administrador"):
+                    if novo_adm_nome and novo_adm_login and novo_adm_senha:
+                        if any(a.get("login") == novo_adm_login.strip() for a in st.session_state.administradores):
+                            st.error("Este login de administrador já está em uso!")
+                        else:
+                            st.session_state.administradores.append({
+                                "nome": novo_adm_nome.strip(),
+                                "login": novo_adm_login.strip(),
+                                "senha": novo_adm_senha.strip()
+                            })
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.success(f"Administrador **{novo_adm_nome}** cadastrado com sucesso!")
+                            st.rerun()
+                    else:
+                        st.error("Preencha todos os campos para cadastrar o admin!")
+        else:
+            st.warning("⚠️ O limite máximo de 3 administradores já foi atingido.")
