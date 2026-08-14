@@ -341,7 +341,7 @@ if menu == "🏠 Início":
                 st.rerun()
 
 # -----------------------------------------------------------------------------
-# PÁGINA: PRESENÇA NO JOGO (COM INCLUSÃO RÁPIDA PELO ADMIN)
+# PÁGINA: PRESENÇA NO JOGO
 # -----------------------------------------------------------------------------
 elif menu == "📌 Presença no Jogo":
     st.subheader("📌 Confirmação de Presença")
@@ -402,13 +402,13 @@ elif menu == "📌 Presença no Jogo":
                         st.warning("Esta jogadora já está na lista.")
 
             with st.form("form_cadastrar_inserir_rapido", clear_on_submit=True):
-                st.write("#### Cadastrar Nova Jogadora (Avulsa)")
+                st.write("#### Incluir Nova Jogadora (Avulsa)")
                 novo_nome_avulso = st.text_input("Nome Completo da Nova Atleta")
-                btn_cad_avulso = st.form_submit_button("Cadastrar e Inserir na Lista")
+                btn_cad_avulso = st.form_submit_button("Incluir na Lista")
                 if btn_cad_avulso:
                     if novo_nome_avulso.strip():
                         nome_limpo = novo_nome_avulso.strip()
-                        # Cadastra automaticamente como Avulsa para ir para a fila correta
+                        # Cadastra automaticamente como Avulsa no sistema para constar na lista geral
                         if not any(j["nome"].lower() == nome_limpo.lower() for j in st.session_state.jogadoras):
                             st.session_state.jogadoras.append({
                                 "nome": nome_limpo,
@@ -431,7 +431,7 @@ elif menu == "📌 Presença no Jogo":
                                 "semana": "Semana 1"
                             })
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                            st.success(f"{nome_limpo} cadastrada como Avulsa e inserida na lista!")
+                            st.success(f"{nome_limpo} incluída com sucesso na lista!")
                             st.rerun()
                         else:
                             st.warning("Essa atleta já está na lista de presença.")
@@ -460,11 +460,13 @@ elif menu == "📌 Presença no Jogo":
                 except:
                     pass
 
+            # Garante separação rigorosa de tipos: Avulsas entram sempre na lista de avulsas, independentemente de quando foram inseridas manualmente
             if tipo == "Mensalista" and not atrasada_mensalista:
                 mensalistas_confirmadas.append(p)
             else:
                 avulsas_confirmadas.append(p)
 
+        # Regra de posicionamento: Mensalistas priorizadas na principal, avulsas entram após ou na espera conforme ordem de confirmação
         combinada = mensalistas_confirmadas + avulsas_confirmadas
         principal = combinada[:limite]
         espera = combinada[limite:]
@@ -473,35 +475,37 @@ elif menu == "📌 Presença no Jogo":
         for idx, p in enumerate(principal, 1):
             j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
+            hora_conf = p.get("hora", "")
             
             if st.session_state.cargo_logado in ["Administrador", "Desenvolvedor"]:
                 col_p_nome, col_p_del = st.columns([4, 1])
                 with col_p_nome:
-                    st.markdown(f"<b>{idx}.</b> {p['nome']} `[{tipo}]`", unsafe_allow_html=True)
+                    st.markdown(f"<b>{idx}.</b> {p['nome']} `[{tipo}]` — <i>Conf: {hora_conf}</i>", unsafe_allow_html=True)
                 with col_p_del:
                     if st.button("❌", key=f"del_prin_{p['nome']}"):
                         st.session_state.presencas = [item for item in st.session_state.presencas if item["nome"] != p["nome"]]
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.rerun()
             else:
-                st.markdown(f"<div class='card-team'><b>{idx}.</b> {p['nome']} `[{tipo}]` — <i>Conf: {p['hora']}</i></div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='card-team'><b>{idx}.</b> {p['nome']} `[{tipo}]` — <i>Conf: {hora_conf}</i></div>", unsafe_allow_html=True)
 
         st.write(f"**⏳ Fila de Espera ({len(espera)})**")
         for idx, p in enumerate(espera, 1):
             j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
+            hora_conf = p.get("hora", "")
             
             if st.session_state.cargo_logado in ["Administrador", "Desenvolvedor"]:
                 col_e_nome, col_e_del = st.columns([4, 1])
                 with col_e_nome:
-                    st.markdown(f"<b>{idx}º esp:</b> {p['nome']} `[{tipo}]`", unsafe_allow_html=True)
+                    st.markdown(f"<b>{idx}º esp:</b> {p['nome']} `[{tipo}]` — <i>Conf: {hora_conf}</i>", unsafe_allow_html=True)
                 with col_e_del:
                     if st.button("❌", key=f"del_esp_{p['nome']}"):
                         st.session_state.presencas = [item for item in st.session_state.presencas if item["nome"] != p["nome"]]
                         salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                         st.rerun()
             else:
-                st.markdown(f"<div class='card-team'><b>{idx}º espera:</b> {p['nome']} `[{tipo}]`</div>", unsafe_allow_html=True)
+                st.markdown(f"<div class='card-team'><b>{idx}º espera:</b> {p['nome']} `[{tipo}]` — <i>Conf: {hora_conf}</i></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: SORTEIO DE TIMES
@@ -900,7 +904,7 @@ elif menu == "⚙️ Painel Admin":
                 if btn_salvar_cfg:
                     st.session_state.avisos["vencimento"] = cfg_venc
                     st.session_state.avisos["pix"] = cfg_pix
-                    st.session_state.avisos["limite_vagas"] = int(cfg_limite)
+                    st.session_state.avisos["limite_vgages"] = int(cfg_limite)
                     st.session_state.avisos["valor_mensalidade"] = float(cfg_v_mensal)
                     st.session_state.avisos["valor_avulsa"] = float(cfg_v_avulsa)
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
