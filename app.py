@@ -408,7 +408,7 @@ elif menu == "📌 Presença no Jogo":
                 if btn_cad_avulso:
                     if novo_nome_avulso.strip():
                         nome_limpo = novo_nome_avulso.strip()
-                        # Cadastra automaticamente como Avulsa no sistema para constar na lista geral
+                        # Cadastra explicitamente como Avulsa no sistema para garantir que nunca seja tratada como Mensalista
                         if not any(j["nome"].lower() == nome_limpo.lower() for j in st.session_state.jogadoras):
                             st.session_state.jogadoras.append({
                                 "nome": nome_limpo,
@@ -420,8 +420,14 @@ elif menu == "📌 Presença no Jogo":
                                 "status": "Ativo"
                             })
                             salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        else:
+                            # Se já existe, força o tipo para Avulsa caso estivesse incorreto
+                            for j in st.session_state.jogadoras:
+                                if j["nome"].lower() == nome_limpo.lower():
+                                    j["tipo"] = "Avulsa"
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         
-                        # Adiciona na presença como Avulsa
+                        # Adiciona na presença
                         if not any(p["nome"].lower() == nome_limpo.lower() for p in st.session_state.presencas):
                             st.session_state.presencas.append({
                                 "nome": nome_limpo,
@@ -447,7 +453,7 @@ elif menu == "📌 Presença no Jogo":
         avulsas_confirmadas = []
         
         for p in lista_ordenada:
-            j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
+            j_info = next((j for j in st.session_state.jogadoras if j["nome"].lower() == p["nome"].lower()), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
             
             atrasada_mensalista = False
@@ -460,20 +466,20 @@ elif menu == "📌 Presença no Jogo":
                 except:
                     pass
 
-            # Separação estricta e correta: Avulsas vão sempre para a lista de avulsas, respeitando o tipo real da jogadora no cadastro
+            # Separação rigorosa e isolada por tipo
             if tipo == "Mensalista" and not atrasada_mensalista:
                 mensalistas_confirmadas.append(p)
             else:
                 avulsas_confirmadas.append(p)
 
-        # Regra de posicionamento: Mensalistas priorizadas na principal, avulsas entram após ou na espera conforme ordem de confirmação cronológica
+        # Regra de posicionamento: Mensalistas priorizadas na principal, avulsas entram após ou na espera conforme ordem cronológica
         combinada = mensalistas_confirmadas + avulsas_confirmadas
         principal = combinada[:limite]
         espera = combinada[limite:]
 
         st.write(f"**🟢 Lista Principal ({len(principal)}/{limite})**")
         for idx, p in enumerate(principal, 1):
-            j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
+            j_info = next((j for j in st.session_state.jogadoras if j["nome"].lower() == p["nome"].lower()), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
             hora_conf = p.get("hora", "")
             
@@ -491,7 +497,7 @@ elif menu == "📌 Presença no Jogo":
 
         st.write(f"**⏳ Fila de Espera ({len(espera)})**")
         for idx, p in enumerate(espera, 1):
-            j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
+            j_info = next((j for j in st.session_state.jogadoras if j["nome"].lower() == p["nome"].lower()), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
             hora_conf = p.get("hora", "")
             
@@ -706,7 +712,7 @@ elif menu == "📊 Fluxo de Caixa":
         
         dados_grafico_freq = []
         for p in st.session_state.presencas:
-            j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
+            j_info = next((j for j in st.session_state.jogadoras if j["nome"].lower() == p["nome"].lower()), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
             p_mes = p.get("mes", mes_vigente_str)
             p_sem = p.get("semana", "Semana 1")
