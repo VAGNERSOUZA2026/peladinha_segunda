@@ -24,7 +24,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Estilização inspirada no design de futebol feminino (Tons de Rosa Choque, Preto e Fundo Escuro Sofisticado)
+# Estilização profissional e refinada (Tons de Rosa Choque e Fundo Escuro Sofisticado)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
@@ -87,6 +87,13 @@ st.markdown("""
     }
     div.stButton > button:hover {
         background-color: #DB2777 !important;
+    }
+
+    /* Correção do botão de formulário para garantir alto contraste */
+    div[data-testid="stFormSubmitButton"] > button {
+        background-color: #EC4899 !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
     }
 
     .stTextInput input, .stSelectbox select, .stNumberInput input {
@@ -171,7 +178,7 @@ if "cargo_logado" not in st.session_state:
     st.session_state.cargo_logado = None
 
 # -----------------------------------------------------------------------------
-# TELA DE AUTENTICAÇÃO E ENTRADA COM BANNER VISUAL (FUTEBOL FEMININO)
+# TELA DE AUTENTICAÇÃO E ENTRADA
 # -----------------------------------------------------------------------------
 if not st.session_state.usuario_logado:
     st.markdown("""
@@ -182,7 +189,6 @@ if not st.session_state.usuario_logado:
     </div>
     """, unsafe_allow_html=True)
 
-    # Exibição segura da imagem inspiradora junto ao painel de login/cadastro
     try:
         if os.path.exists("WhatsApp Image 2026-08-14 at 19.27.58.jpeg"):
             st.image("WhatsApp Image 2026-08-14 at 19.27.58.jpeg", use_container_width=True)
@@ -222,7 +228,7 @@ if not st.session_state.usuario_logado:
 
     with tab_cadastrar:
         st.write("### Cadastro de Nova Jogadora")
-        st.info("⚠️ Nota: Se escolher o cadastro como **Mensalista**, ele ficará pendente de validação/confirmação pelo Administrador para garantir a lisura das vagas principais.")
+        st.info("⚠️ Nota: Se escolher o cadastro como **Mensalista**, ele ficará pendente de validação/confirmação pelo Administrador.")
         with st.form("form_novo_cadastro", clear_on_submit=True):
             c_nome = st.text_input("Nome Completo *")
             c_nasc = st.text_input("Data de Nascimento (DD/MM)", placeholder="Ex: 22/07")
@@ -248,10 +254,7 @@ if not st.session_state.usuario_logado:
                             "status": "Ativo"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        if c_tipo == "Mensalista":
-                            st.success("Cadastro realizado! Como Mensalista, sua categoria aguarda validação do Administrador para evitar fraudes nas vagas.")
-                        else:
-                            st.success("Cadastro realizado com sucesso! Vá na aba 'Entrar'.")
+                        st.success("Cadastro realizado com sucesso! Vá na aba 'Entrar'.")
                 else:
                     st.error("Preencha todos os campos obrigatórios.")
 
@@ -266,7 +269,7 @@ if not st.session_state.usuario_logado:
                     st.session_state.cargo_logado = "Desenvolvedor"
                     st.rerun()
                 else:
-                    st.error("Senha de desenvolvedor incorreta!")
+                    st.error("Senha incorreta!")
 
     st.stop()
 
@@ -292,7 +295,7 @@ with col_sair2:
 st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# NAVEGAÇÃO DE PÁGINAS / CARDS PRINCIPAIS
+# NAVEGAÇÃO DE PÁGINAS
 # -----------------------------------------------------------------------------
 menu = st.session_state.pagina_atual
 
@@ -303,7 +306,7 @@ if menu != "🏠 Início":
     st.markdown("---")
 
 # -----------------------------------------------------------------------------
-# TELA INICIAL (MENU DE CARDS)
+# TELA INICIAL
 # -----------------------------------------------------------------------------
 if menu == "🏠 Início":
     st.subheader("Escolha abaixo a opção desejada:")
@@ -341,7 +344,7 @@ if menu == "🏠 Início":
                 st.session_state.pagina_atual = "📊 Fluxo de Caixa"
                 st.rerun()
 
-            if st.button("⚙️ Painel Admin\n\nValidação de perfis, presenças e regras", use_container_width=True):
+            if st.button("⚙️ Painel Admin\n\nValidação de perfis e presenças", use_container_width=True):
                 st.session_state.pagina_atual = "⚙️ Painel Admin"
                 st.rerun()
 
@@ -356,7 +359,6 @@ if menu == "🏠 Início":
 elif menu == "📌 Presença no Jogo":
     st.subheader("📌 Confirmação de Presença")
     limite = int(st.session_state.avisos.get("limite_vagas", 15))
-    
     jogadora_atual_nome = st.session_state.usuario_logado if st.session_state.cargo_logado == "Jogadora" else None
 
     col_A, col_B = st.columns([1, 1])
@@ -388,14 +390,13 @@ elif menu == "📌 Presença no Jogo":
                 if c_aus:
                     st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"] != jogadora_atual_nome]
                     salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.warning("Presença cancelada. Se você confirmar novamente mais tarde, sua prioridade obedecerá rigorosamente ao horário da nova confirmação.")
+                    st.warning("Presença cancelada.")
                     st.rerun()
         else:
             st.info("Modo Admin/Dev: Gerencie presenças livremente pelo 'Painel Admin'.")
 
     with col_B:
         st.write("### 📋 Status da Lista")
-        
         lista_ordenada = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
         
         mensalistas_confirmadas = []
@@ -404,19 +405,9 @@ elif menu == "📌 Presença no Jogo":
         for p in lista_ordenada:
             j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
-            
-            atrasada_mensalista = False
-            dt_conf_str = p.get("dt_confirmacao", "")
-            if dt_conf_str:
-                try:
-                    dt_obj = datetime.fromisoformat(dt_conf_str)
-                    if dt_obj.weekday() == 0 and (dt_obj.hour > 17 or (dt_obj.hour == 17 and dt_obj.minute > 30)):
-                        atrasada_mensalista = True
-                except:
-                    pass
-
             status_tipo_aprovado = j_info.get("tipo_status", "Aprovada") if j_info else "Aprovada"
-            if tipo == "Mensalista" and status_tipo_aprovado == "Aprovada" and not atrasada_mensalista:
+            
+            if tipo == "Mensalista" and status_tipo_aprovado == "Aprovada":
                 mensalistas_confirmadas.append(p)
             else:
                 avulsas_confirmadas.append(p)
@@ -442,8 +433,6 @@ elif menu == "📌 Presença no Jogo":
 # -----------------------------------------------------------------------------
 elif menu == "🔀 Sorteio de Times":
     st.subheader("🔀 Sorteio de Times em Tempo Real")
-    st.info("Regra: 5 jogadoras por time num total de 3 times (Total de 15 jogadoras).")
-
     sorteio_atual = st.session_state.sorteio_oficial
     if sorteio_atual and "times" in sorteio_atual:
         st.write(f"### Sorteio Vigente ({sorteio_atual.get('tipo', 'Principal')} - {sorteio_atual.get('data')})")
@@ -458,8 +447,6 @@ elif menu == "🔀 Sorteio de Times":
         st.warning("Nenhum sorteio realizado para hoje ainda.")
 
     st.markdown("---")
-    st.write("### 🎲 Executar Sorteio")
-    
     col_s1, col_s2 = st.columns(2)
     with col_s1:
         if st.button("Executar Sorteio Principal (Admin)", use_container_width=True):
@@ -476,42 +463,19 @@ elif menu == "🔀 Sorteio de Times":
                     "times": {"Time 1": t1, "Time 2": t2, "Time 3": t3}
                 }
                 salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
-                st.success("Sorteio principal realizado com sucesso!")
+                st.success("Sorteio realizado!")
                 st.rerun()
             else:
-                st.error("Jogadoras insuficientes para o sorteio principal.")
-
-    with col_s2:
-        if st.button("🎲 Sorteio Paralelo na Quadra (Presentes)", use_container_width=True):
-            nomes_disp = [p["nome"] for p in st.session_state.presencas]
-            if len(nomes_disp) >= 3:
-                random.shuffle(nomes_disp)
-                t1 = nomes_disp[0:5]
-                t2 = nomes_disp[5:10]
-                t3 = nomes_disp[10:15] if len(nomes_disp) >= 15 else nomes_disp[10:]
-                
-                st.session_state.sorteio_oficial = {
-                    "tipo": "Paralelo na Quadra",
-                    "data": hoje_str,
-                    "times": {"Time A": t1, "Time B": t2, "Time C": t3}
-                }
-                salvar_dados(SORTEIO_FILE, st.session_state.sorteio_oficial)
-                st.success("Sorteio paralelo realizado!")
-                st.rerun()
-            else:
-                st.error("Poucas jogadoras presentes para o sorteio paralelo.")
+                st.error("Jogadoras insuficientes.")
 
 # -----------------------------------------------------------------------------
 # PÁGINA: ELENCO DE JOGADORAS
 # -----------------------------------------------------------------------------
 elif menu == "📋 Elenco de Jogadoras":
     st.subheader("📋 Elenco de Jogadoras")
-    if not st.session_state.jogadoras:
-        st.info("Nenhuma jogadora cadastrada.")
-    else:
-        for j in st.session_state.jogadoras:
-            status_aprov = j.get('tipo_status', 'Aprovada')
-            st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b> — Categoria: `[{j.get('tipo', 'Avulsa')}]` ({status_aprov}) | Pagamento: <b>{j.get('status_pagamento', 'Pendente')}</b><br><small>Nascimento: {j.get('nascimento', 'N/A')}</small></div>", unsafe_allow_html=True)
+    for j in st.session_state.jogadoras:
+        status_aprov = j.get('tipo_status', 'Aprovada')
+        st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b> — Categoria: `[{j.get('tipo', 'Avulsa')}]` ({status_aprov}) | Pagamento: <b>{j.get('status_pagamento', 'Pendente')}</b></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAGAMENTO & PIX
@@ -519,26 +483,20 @@ elif menu == "📋 Elenco de Jogadoras":
 elif menu == "💸 Pagamento & Pix":
     st.subheader("💸 Pagamento & Chave Pix")
     pix_chave = st.session_state.avisos.get("pix", "peladinhafc@email.com")
-    vencimento = st.session_state.avisos.get("vencimento", "Todo dia 10")
-    
     st.markdown(f"""
     <div class='card-team'>
         <h3>💳 Dados para Transferência</h3>
         <p><b>Chave Pix:</b> <code>{pix_chave}</code></p>
-        <p><b>Vencimento:</b> {vencimento}</p>
     </div>
     """, unsafe_allow_html=True)
 
-    st.write("### 📤 Enviar Comprovante de Pagamento")
     with st.form("form_comprovante", clear_on_submit=True):
         c_nome_jogadora = st.selectbox("Seu Nome", [j["nome"] for j in st.session_state.jogadoras])
         c_mes = st.text_input("Mês Referente", value=mes_vigente_str)
         c_semana = st.selectbox("Semana Referente", ["Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
         c_ano = st.text_input("Ano Referente", value=ano_vigente_str)
-        arquivo_up = st.file_uploader("Enviar Imagem do Comprovante", type=["png", "jpg", "jpeg"])
         
-        btn_env_comp = st.form_submit_button("Enviar Comprovante")
-        if btn_env_comp:
+        if st.form_submit_button("Enviar Comprovante"):
             st.session_state.comprovantes.append({
                 "jogadora": c_nome_jogadora,
                 "mes": c_mes,
@@ -548,13 +506,13 @@ elif menu == "💸 Pagamento & Pix":
                 "valor": float(st.session_state.avisos.get("valor_mensalidade", 80.00))
             })
             salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-            st.success("Comprovante enviado com sucesso! O administrador irá validar em breve.")
+            st.success("Comprovante enviado com sucesso!")
 
 # -----------------------------------------------------------------------------
 # PÁGINA: REGULAMENTO
 # -----------------------------------------------------------------------------
 elif menu == "📜 Regulamento":
-    st.subheader("📜 Regulamento Interno & Conduta")
+    st.subheader("📜 Regulamento Interno")
     for reg in st.session_state.regulamento:
         st.markdown(f"<div class='card-team'><h3>{reg['topico']}</h3><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
 
@@ -565,173 +523,82 @@ elif menu == "🎂 Aniversariantes":
     st.subheader("🎂 Aniversariantes do Mês")
     mes_atual_s = hoje_dt.strftime("/%m")
     aniversariantes = [j for j in st.session_state.jogadoras if j.get("nascimento", "").endswith(mes_atual_s)]
-    
-    if not aniversariantes:
-        st.info("Nenhuma aniversariante cadastrada para este mês.")
-    else:
-        for j in aniversariantes:
-            st.markdown(f"<div class='card-team'>🎉 <b>{j['nome']}</b> — Nascimento: <code>{j.get('nascimento')}</code></div>", unsafe_allow_html=True)
+    for j in aniversariantes:
+        st.markdown(f"<div class='card-team'>🎉 <b>{j['nome']}</b> — Nascimento: <code>{j.get('nascimento')}</code></div>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # PÁGINA: FLUXO DE CAIXA
 # -----------------------------------------------------------------------------
 elif menu == "📊 Fluxo de Caixa":
-    if st.session_state.cargo_logado not in ["Administrador", "Desenvolvedor"]:
-        st.error("Acesso restrito aos administradores.")
-    else:
-        st.subheader("📊 Fluxo de Caixa / Financeiro & Gráficos")
-        
-        col_f1, col_f2, col_f3 = st.columns(3)
-        with col_f1:
-            filtro_ano = st.text_input("Filtrar por Ano", value=ano_vigente_str)
-        with col_f2:
-            filtro_mes = st.text_input("Filtrar por Mês (MM/AAAA)", value=mes_vigente_str)
-        with col_f3:
-            filtro_semana = st.selectbox("Filtrar por Semana", ["Todas", "Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
-
-        st.markdown("---")
-        st.write("### 🟢 Entradas (Receitas)")
-        
-        comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
-        comp_filtrados = [c for c in comprovantes_aprovados if (not filtro_ano or c.get("ano", ano_vigente_str) == filtro_ano) and (not filtro_mes or c.get("mes", mes_vigente_str) == filtro_mes) and (filtro_semana == "Todas" or c.get("semana") == filtro_semana)]
-
-        total_comprovantes = 0.0
-        for comp in comp_filtrados:
-            v_comp = float(comp.get("valor", 80.00))
-            total_comprovantes += v_comp
-            st.markdown(f"<div class='card-team'>🟢 <b>Pix / Mensalidade:</b> {comp['jogadora']} — R$ {v_comp:.2f}</div>", unsafe_allow_html=True)
-
-        st.markdown("---")
-        total_saidas = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo") == "Saída")
-        
-        st.metric(label=f"Balanço Geral", value=f"R$ {total_comprovantes - total_saidas:.2f}")
+    st.subheader("📊 Fluxo de Caixa / Financeiro")
+    comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
+    total_comprovantes = sum(float(c.get("valor", 80.00)) for c in comprovantes_aprovados)
+    total_saidas = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo") == "Saída")
+    st.metric(label="Balanço Geral", value=f"R$ {total_comprovantes - total_saidas:.2f}")
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAINEL ADMIN
 # -----------------------------------------------------------------------------
 elif menu == "⚙️ Painel Admin":
-    if st.session_state.cargo_logado not in ["Administrador", "Desenvolvedor"]:
-        st.error("Acesso restrito.")
-    else:
-        st.subheader("⚙️ Painel de Administração & Validação de Perfis")
-        
-        tab_adm_perf, tab_adm_pres, tab_adm_comp, tab_adm_reg, tab_adm_cad = st.tabs(["👥 Validar Mensalistas", "📌 Presenças", "💳 Comprovantes", "📜 Regulamento", "📝 Cadastros"])
+    st.subheader("⚙️ Painel de Administração")
+    tab_adm_perf, tab_adm_pres, tab_adm_comp, tab_adm_reg = st.tabs(["👥 Validar Mensalistas", "📌 Presenças", "💳 Comprovantes", "📜 Regulamento"])
 
-        with tab_adm_perf:
-            st.write("### 👥 Aprovação de Cadastros de Mensalistas (Evitar Má-Fé nas Vagas)")
-            st.info("Aqui o administrador aprova ou rejeita o status de Mensalista das novas jogadoras, protegendo a prioridade da lista principal.")
-            
-            mensalistas_pendentes = [j for j in st.session_state.jogadoras if j.get("tipo") == "Mensalista" and j.get("tipo_status", "Aprovada") != "Aprovada"]
-            
-            if not mensalistas_pendentes:
-                st.info("Nenhuma mensalista pendente de aprovação no momento.")
-            else:
-                for idx_j, j_item in enumerate(st.session_state.jogadoras):
-                    if j_item.get("tipo") == "Mensalista" and j_item.get("tipo_status", "Aprovada") != "Aprovada":
-                        col_ap1, col_ap2, col_ap3 = st.columns([2, 1, 1])
-                        with col_ap1:
-                            st.markdown(f"• **{j_item['nome']}** (Login: `{j_item['login']}`)")
-                        with col_ap2:
-                            if st.button("✅ Aprovar Mensalista", key=f"aprovar_m_{idx_j}"):
-                                j_item["tipo_status"] = "Aprovada"
-                                salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                                st.success(f"{j_item['nome']} aprovada como Mensalista!")
-                                st.rerun()
-                        with col_ap3:
-                            if st.button("❌ Rebaixar p/ Avulsa", key=f"rejeitar_m_{idx_j}"):
-                                j_item["tipo"] = "Avulsa"
-                                j_item["tipo_status"] = "Aprovada"
-                                salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                                st.warning(f"{j_item['nome']} alterada para categoria Avulsa.")
-                                st.rerun()
-
-        with tab_adm_pres:
-            st.write("### 📌 Incluir ou Confirmar Jogadoras Diretamente")
-            with st.form("form_admin_incluir_presenca", clear_on_submit=True):
-                nome_jogadora_manual = st.text_input("Nome da Jogadora para Adicionar à Presença")
-                tipo_jogadora_manual = st.selectbox("Categoria", ["Mensalista", "Avulsa"])
-                semana_manual = st.selectbox("Semana do Jogo", ["Semana 1", "Semana 2", "Semana 3", "Semana 4", "Semana 5"])
-                
-                if st.form_submit_button("Confirmar Presença Manualmente"):
-                    if nome_jogadora_manual:
-                        st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"].lower() != nome_jogadora_manual.strip().lower()]
-                        st.session_state.presencas.append({
-                            "nome": nome_jogadora_manual.strip(),
-                            "hora": hoje_dt.strftime("%H:%M:%S"),
-                            "dt_confirmacao": hoje_dt.isoformat(),
-                            "mes": mes_vigente_str,
-                            "semana": semana_manual
-                        })
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success(f"Jogadora {nome_jogadora_manual} confirmada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("Informe o nome da jogadora.")
-
-            st.markdown("---")
-            for idx_p, p_item in enumerate(st.session_state.presencas):
-                col_p1, col_p2 = st.columns([3, 1])
-                with col_p1:
-                    st.markdown(f"• **{p_item['nome']}** (Confirmado às {p_item.get('hora', '')})")
-                with col_p2:
-                    if st.button("Remover", key=f"rem_pres_{idx_p}"):
-                        st.session_state.presencas.pop(idx_p)
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.rerun()
-
-        with tab_adm_comp:
-            st.write("### 🛡️ Validação de Comprovantes Pix")
-            pendentes = [c for c in st.session_state.comprovantes if c.get("status") == "Pendente de Aprovação"]
-            if not pendentes:
-                st.info("Nenhum comprovante pendente.")
-            else:
-                for idx, comp in enumerate(st.session_state.comprovantes):
-                    if comp.get("status") == "Pendente de Aprovação":
-                        st.markdown(f"<div class='card-team'><b>Jogadora:</b> {comp['jogadora']} | <b>Valor:</b> R$ {comp.get('valor', 80.00):.2f}</div>", unsafe_allow_html=True)
-                        if st.button(f"Aprovar de {comp['jogadora']}", key=f"aprov_{idx}"):
-                            comp["status"] = "Aprovado"
-                            for j in st.session_state.jogadoras:
-                                if j["nome"] == comp["jogadora"]:
-                                    j["status_pagamento"] = "Pago"
-                            salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success("Aprovado!")
-                            st.rerun()
-
-        with tab_adm_reg:
-            st.write("### 📜 Regulamento e Avisos")
-            with st.form("form_novo_regulamento", clear_on_submit=True):
-                r_topico = st.text_input("Título do Tópico")
-                r_texto = st.text_area("Texto")
-                if st.form_submit_button("Adicionar"):
-                    if r_topico and r_texto:
-                        st.session_state.regulamento.append({"topico": r_topico, "regrinha": r_texto})
-                        salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
-                        st.rerun()
-
-        with tab_adm_cad:
-            st.write("### 📝 Gerenciar Atletas")
-            for idx_j, j_item in enumerate(st.session_state.jogadoras):
-                with st.expander(f"⚽ {j_item['nome']} ({j_item.get('tipo', 'Avulsa')})"):
-                    if st.button("Remover Jogadora", key=f"rem_j_{idx_j}"):
-                        st.session_state.jogadoras.pop(idx_j)
+    with tab_adm_perf:
+        st.write("### 👥 Aprovação de Mensalistas")
+        for idx_j, j_item in enumerate(st.session_state.jogadoras):
+            if j_item.get("tipo") == "Mensalista" and j_item.get("tipo_status", "Aprovada") != "Aprovada":
+                col_ap1, col_ap2 = st.columns([2, 1])
+                with col_ap1:
+                    st.markdown(f"• **{j_item['nome']}**")
+                with col_ap2:
+                    if st.button("✅ Aprovar", key=f"aprovar_m_{idx_j}"):
+                        j_item["tipo_status"] = "Aprovada"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.rerun()
+
+    with tab_adm_pres:
+        st.write("### 📌 Presenças")
+        with st.form("form_admin_incluir_presenca", clear_on_submit=True):
+            nome_j_man = st.text_input("Nome da Jogadora")
+            if st.form_submit_button("Adicionar Presença"):
+                if nome_j_man:
+                    st.session_state.presencas.append({
+                        "nome": nome_j_man.strip(),
+                        "hora": hoje_dt.strftime("%H:%M:%S"),
+                        "dt_confirmacao": hoje_dt.isoformat(),
+                        "mes": mes_vigente_str,
+                        "semana": "Semana 1"
+                    })
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.rerun()
+
+    with tab_adm_comp:
+        st.write("### 🛡️ Comprovantes")
+        for idx, comp in enumerate(st.session_state.comprovantes):
+            if comp.get("status") == "Pendente de Aprovação":
+                if st.button(f"Aprovar de {comp['jogadora']}", key=f"aprov_{idx}"):
+                    comp["status"] = "Aprovado"
+                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                    st.rerun()
+
+    with tab_adm_reg:
+        st.write("### 📜 Regulamento")
+        with st.form("form_novo_reg", clear_on_submit=True):
+            t = st.text_input("Título")
+            x = st.text_area("Texto")
+            if st.form_submit_button("Adicionar Regra"):
+                if t and x:
+                    st.session_state.regulamento.append({"topico": t, "regrinha": x})
+                    salvar_dados(REGULAMENTO_FILE, st.session_state.regulamento)
+                    st.rerun()
 
 # -----------------------------------------------------------------------------
 # PÁGINA: ÁREA DO DESENVOLVEDOR
 # -----------------------------------------------------------------------------
 elif menu == "🛠️ Área do Desenvolvedor":
-    if st.session_state.cargo_logado != "Desenvolvedor":
-        st.error("Acesso exclusivo do Desenvolvedor.")
-    else:
-        st.subheader("🛠️ Área do Desenvolvedor")
-        st.write("### 🔑 Administradores")
-        for idx, adm in enumerate(st.session_state.administradores, 1):
-            st.markdown(f"• **Admin {idx}:** {adm.get('nome')} (Login: `{adm.get('login')}`)")
-
-        if st.button("🔄 Resetar Dados de Fábrica"):
-            for f_path in [DATA_FILE, PRESENCAS_FILE, COMPROVANTES_FILE, FINANCE_FILE, REGULAMENTO_FILE]:
-                if os.path.exists(f_path): os.remove(f_path)
-            st.success("Resetado!")
-            st.rerun()
+    st.subheader("🛠️ Área do Desenvolvedor")
+    if st.button("🔄 Resetar Dados de Fábrica"):
+        for f_path in [DATA_FILE, PRESENCAS_FILE, COMPROVANTES_FILE, FINANCE_FILE, REGULAMENTO_FILE]:
+            if os.path.exists(f_path): os.remove(f_path)
+        st.success("Resetado!")
+        st.rerun()
