@@ -404,7 +404,7 @@ elif menu == "📌 Presença no Jogo":
             with st.form("form_cadastrar_inserir_rapido", clear_on_submit=True):
                 st.write("#### Incluir Nova Jogadora (Avulsa)")
                 novo_nome_avulso = st.text_input("Nome Completo da Nova Atleta")
-                btn_cad_avulso = st.form_submit_button("Incluir na Lista")
+                btn_cad_avulso = st.form_submit_button("Incluir")
                 if btn_cad_avulso:
                     if novo_nome_avulso.strip():
                         nome_limpo = novo_nome_avulso.strip()
@@ -460,13 +460,13 @@ elif menu == "📌 Presença no Jogo":
                 except:
                     pass
 
-            # Garante separação rigorosa de tipos: Avulsas entram sempre na lista de avulsas, independentemente de quando foram inseridas manualmente
+            # Separação estricta e correta: Avulsas vão sempre para a lista de avulsas, respeitando o tipo real da jogadora no cadastro
             if tipo == "Mensalista" and not atrasada_mensalista:
                 mensalistas_confirmadas.append(p)
             else:
                 avulsas_confirmadas.append(p)
 
-        # Regra de posicionamento: Mensalistas priorizadas na principal, avulsas entram após ou na espera conforme ordem de confirmação
+        # Regra de posicionamento: Mensalistas priorizadas na principal, avulsas entram após ou na espera conforme ordem de confirmação cronológica
         combinada = mensalistas_confirmadas + avulsas_confirmadas
         principal = combinada[:limite]
         espera = combinada[limite:]
@@ -904,7 +904,7 @@ elif menu == "⚙️ Painel Admin":
                 if btn_salvar_cfg:
                     st.session_state.avisos["vencimento"] = cfg_venc
                     st.session_state.avisos["pix"] = cfg_pix
-                    st.session_state.avisos["limite_vgages"] = int(cfg_limite)
+                    st.session_state.avisos["limite_vagas"] = int(cfg_limite)
                     st.session_state.avisos["valor_mensalidade"] = float(cfg_v_mensal)
                     st.session_state.avisos["valor_avulsa"] = float(cfg_v_avulsa)
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
