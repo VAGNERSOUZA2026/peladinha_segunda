@@ -38,6 +38,9 @@ img_base64 = obter_imagem_base64("images (1).jpg")
 if not img_base64 and os.path.exists("fundo.jpg"):
     img_base64 = obter_imagem_base64("fundo.jpg")
 
+# Fallback caso a imagem não exista para evitar quebra total do app
+bg_style = f'url("data:image/jpeg;base64,{img_base64}")' if img_base64 else 'none'
+
 # Estilização com Fundo Base64 Aplicado e Alta Legibilidade nos Cards
 css_fundo = f"""
 <style>
@@ -49,7 +52,7 @@ css_fundo = f"""
 
     .stApp {{
         background: linear-gradient(rgba(15, 15, 19, 0.82), rgba(15, 15, 19, 0.85)), 
-                    url("data:image/jpeg;base64,{img_base64}");
+                    {bg_style};
         background-size: cover;
         background-position: center;
         background-attachment: fixed;
