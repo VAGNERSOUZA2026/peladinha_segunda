@@ -355,26 +355,31 @@ elif menu == "📌 Presença no Jogo":
         st.write("### ✍️ Sua Ação")
         if st.session_state.cargo_logado == "Jogadora":
             st.write(f"Jogadora logada: **{jogadora_atual_nome}**")
-            c_pres = st.button("✅ Confirmar Presença", use_container_width=True)
-            c_aus = st.button("❌ Informar Ausência", use_container_width=True)
             
-            if c_pres:
-                st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"] != jogadora_atual_nome]
-                st.session_state.presencas.append({
-                    "nome": jogadora_atual_nome,
-                    "hora": hoje_dt.strftime("%H:%M:%S"),
-                    "dt_confirmacao": hoje_dt.isoformat(),
-                    "mes": mes_vigente_str,
-                    "semana": "Semana 1"
-                })
-                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                st.success("Presença confirmada com sucesso!")
-                st.rerun()
-                
-            if c_aus:
-                st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"] != jogadora_atual_nome]
-                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                st.warning("Que pena! Aguardamos você na próxima.")
+            # Verifica se ela já está confirmada
+            ja_confirmada = any(p["nome"] == jogadora_atual_nome for p in st.session_state.presencas)
+            
+            if not ja_confirmada:
+                c_pres = st.button("✅ Confirmar Presença", use_container_width=True)
+                if c_pres:
+                    st.session_state.presencas.append({
+                        "nome": jogadora_atual_nome,
+                        "hora": hoje_dt.strftime("%H:%M:%S"),
+                        "dt_confirmacao": hoje_dt.isoformat(),
+                        "mes": mes_vigente_str,
+                        "semana": "Semana 1"
+                    })
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.success("Presença confirmada com sucesso!")
+                    st.rerun()
+            else:
+                st.info("Você já confirmou presença!")
+                c_aus = st.button("❌ Desconfirmar / Informar Ausência", use_container_width=True)
+                if c_aus:
+                    st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"] != jogadora_atual_nome]
+                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                    st.warning("Presença cancelada com sucesso.")
+                    st.rerun()
         else:
             st.info("Modo Admin/Dev: Você pode adicionar ou confirmar qualquer jogadora diretamente no 'Painel Admin' na aba de presenças.")
 
@@ -608,7 +613,7 @@ elif menu == "📊 Fluxo de Caixa":
         total_avulsas_calc = qtd_avulsas_jogo * valor_avulsa_unit
         st.info(f"Total arrecadado com Avulsas no filtro: **R$ {total_avulsas_calc:.2f}**")
 
-        # --- GRÁFICO DE RECEITAS (CORES TRADICIONAIS) ---
+        # --- GRÁFICO DE RECEITAS ---
         st.write("#### 📊 Gráfico de Receitas por Semana")
         dados_receita_graf = []
         for c in comp_filtrados:
@@ -740,7 +745,7 @@ elif menu == "📊 Fluxo de Caixa":
         st.metric(label=f"Balanço do Filtro ({filtro_mes} - {filtro_semana})", value=f"R$ {saldo_periodo:.2f}", delta=f"Receitas: R$ {total_entradas_geral:.2f} | Despesas: R$ {total_saidas:.2f}")
 
         total_entradas_ano = sum(float(c.get("valor", 80)) for c in comprovantes_aprovados if c.get("ano", ano_vigente_str) == ano_vigente_str)
-        total_saidas_ano = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo"] == "Saída" and d.get("ano", ano_vigente_str) == ano_vigente_str)
+        total_saidas_ano = sum(float(d.get("valor", 0)) for d in st.session_state.financeiro if d.get("tipo") == "Saída" and d.get("ano", ano_vigente_str) == ano_vigente_str)
         saldo_anual = total_entradas_ano - total_saidas_ano
         
         st.markdown(f"""
