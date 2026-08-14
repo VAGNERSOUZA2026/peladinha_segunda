@@ -166,7 +166,7 @@ if "cargo_logado" not in st.session_state:
     st.session_state.cargo_logado = None
 
 # -----------------------------------------------------------------------------
-# TELA DE AUTENTICAÇÃO E ENTRADA (SE NÃO ESTIVER LOGADO)
+# TELA DE AUTENTICAÇÃO E ENTRADA
 # -----------------------------------------------------------------------------
 if not st.session_state.usuario_logado:
     st.markdown("""
@@ -187,20 +187,17 @@ if not st.session_state.usuario_logado:
             btn_entrar = st.form_submit_button("ENTRAR")
             
             if btn_entrar:
-                # Verificar se é o Desenvolvedor
                 if u_login == "Dev" and u_senha == "1980":
                     st.session_state.usuario_logado = "Desenvolvedor"
                     st.session_state.cargo_logado = "Desenvolvedor"
                     st.rerun()
                 
-                # Verificar se é Administrador
                 admin_encontrado = next((adm for adm in st.session_state.administradores if adm.get("login") == u_login and adm.get("senha") == u_senha), None)
                 if admin_encontrado:
                     st.session_state.usuario_logado = admin_encontrado["nome"]
                     st.session_state.cargo_logado = "Administrador"
                     st.rerun()
                 
-                # Verificar se é Jogadora
                 jogadora_encontrada = next((j for j in st.session_state.jogadoras if j.get("login") == u_login and j.get("senha") == u_senha), None)
                 if jogadora_encontrada:
                     st.session_state.usuario_logado = jogadora_encontrada["nome"]
@@ -286,7 +283,6 @@ if menu != "🏠 Início":
 if menu == "🏠 Início":
     st.subheader("Escolha abaixo a opção desejada:")
     
-    # Grid de botões estilo cards
     c1, c2 = st.columns(2)
     
     with c1:
@@ -315,7 +311,6 @@ if menu == "🏠 Início":
             st.session_state.pagina_atual = "💸 Pagamento & Pix"
             st.rerun()
 
-        # Visível apenas para Administradores e Desenvolvedor
         if st.session_state.cargo_logado in ["Administrador", "Desenvolvedor"]:
             if st.button("📊 Fluxo de Caixa\n\nDespesas e receitas do grupo", use_container_width=True):
                 st.session_state.pagina_atual = "📊 Fluxo de Caixa"
@@ -349,7 +344,6 @@ elif menu == "📌 Presença no Jogo":
             c_aus = st.button("❌ Informar Ausência", use_container_width=True)
             
             if c_pres:
-                # Remover anterior se houver
                 st.session_state.presencas = [p for p in st.session_state.presencas if p["nome"] != jogadora_atual_nome]
                 st.session_state.presencas.append({
                     "nome": jogadora_atual_nome,
@@ -365,15 +359,13 @@ elif menu == "📌 Presença no Jogo":
                 salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                 st.warning("Que pena! Aguardamos você na próxima.")
         else:
-            st.info("Modo Admin/Dev: A gestão de presenças individuais é feita pelas próprias jogadoras ou pelo painel admin.")
+            st.info("Modo Admin/Dev: A gestão de presenças individuais é feita pelas próprias jogadoras.")
 
     with col_B:
         st.write("### 📋 Status da Lista")
         
-        # Filtrar e ordenar por ordem de confirmação (quem chegou antes fica melhor posicionado)
         lista_ordenada = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
         
-        # Aplicar lógica de prioridade para mensalistas até as 17:30
         mensalistas_confirmadas = []
         avulsas_confirmadas = []
         
@@ -381,7 +373,6 @@ elif menu == "📌 Presença no Jogo":
             j_info = next((j for j in st.session_state.jogadoras if j["nome"] == p["nome"]), None)
             tipo = j_info.get("tipo", "Avulsa") if j_info else "Avulsa"
             
-            # Verificar regra de horário (17:30 de segunda)
             atrasada_mensalista = False
             dt_conf_str = p.get("dt_confirmacao", "")
             if dt_conf_str:
@@ -398,8 +389,8 @@ elif menu == "📌 Presença no Jogo":
                 avulsas_confirmadas.append(p)
 
         combinada = mensalistas_confirmadas + avulsas_confirmadas
-         principal = combinada[:limite]
-         espera = combinada[limite:]
+        principal = combinada[:limite]
+        espera = combinada[limite:]
 
         st.write(f"**🟢 Lista Principal ({len(principal)}/{limite})**")
         for idx, p in enumerate(principal, 1):
@@ -551,7 +542,6 @@ elif menu == "📊 Fluxo de Caixa":
     else:
         st.subheader("📊 Fluxo de Caixa / Financeiro")
         
-        # Calcular receitas e despesas
         mensalistas_cadastradas = sorted([j for j in st.session_state.jogadoras if j.get("tipo") == "Mensalista"], key=lambda x: x["nome"])
         
         st.write("### 🟢 Receitas - Mensalistas (Ordem Alfabética)")
@@ -598,7 +588,6 @@ elif menu == "⚙️ Painel Admin":
                     st.markdown(f"<div class='card-team'><b>Jogadora:</b> {comp['jogadora']} | <b>Mês:</b> {comp['mes']}</div>", unsafe_allow_html=True)
                     if st.button(f"Aprovar Pagamento de {comp['jogadora']}", key=f"aprov_{idx}"):
                         comp["status"] = "Aprovado"
-                        # Atualizar status da jogadora para Pago
                         for j in st.session_state.jogadoras:
                             if j["nome"] == comp["jogadora"]:
                                 j["status_pagamento"] = "Pago"
