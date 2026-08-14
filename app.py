@@ -24,7 +24,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# Ocultar barra lateral nativa do Streamlit via CSS
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
@@ -107,10 +106,6 @@ ADMINS_FILE = "administradores.json"
 REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
 COMPROVANTES_FILE = "comprovantes.json"
-UPLOAD_DIR = "comprovantes_imgs"
-
-if not os.path.exists(UPLOAD_DIR):
-    os.makedirs(UPLOAD_DIR)
 
 def carregar_dados(filename, default):
     if os.path.exists(filename):
@@ -147,13 +142,28 @@ if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
         "vencimento": "Todo dia 10", 
         "pix": "peladinhafc@email.com", 
-        "limite_vagas": 15
+        "limite_vagas": 15,
+        "valor_mensalidade": 80.00,
+        "valor_avulsa": 25.00
     })
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
-        {"topico": "📌 1. Horários e Limite de Vagas", "regrinha": "As mensalistas têm prioridade para confirmar presença até às 17:30 de segunda-feira. Caso não preencham o limite de vagas até este horário, as avulsas que confirmaram mais cedo sobem para a lista principal."},
-        {"topico": "⚖️ 2. Sorteio de Times", "regrinha": "O sorteio principal acontece automaticamente às segundas-feiras às 18:30 (ou manualmente pelo admin). Os times são compostos por 5 jogadoras em um total de 3 times. Há também a opção de sorteio paralelo na quadra para quem estiver presente."},
-        {"topico": "🤝 3. Convivência e Conduta", "regrinha": "Respeito mútuo é obrigatório. O descumprimento das regras de boa convivência e conduta resultará na exclusão imediata da jogadora do grupo."}
+        {
+            "topico": "📌 1. Horários, Confirmação e Limite de Vagas", 
+            "regrinha": "As mensalistas têm prioridade absoluta para confirmar presença na lista principal até às **17:30 de segunda-feira**. Caso as mensalistas não preencham o limite total de vagas (15 vagas) até este horário limite, as avulsas que confirmaram presença mais cedo sobem automaticamente para a lista principal respeitando a ordem cronológica de confirmação."
+        },
+        {
+            "topico": "⚖️ 2. Sorteio de Times (Regra Oficial)", 
+            "regrinha": "O sorteio principal dos times acontece de forma automatizada pelo sistema às segundas-feiras às **18:30** (ou manualmente através da painel de administração). O formato oficial é composto por **5 jogadoras por time**, totalizando **3 times** na quadra (15 atletas). Adicionalmente, as jogadoras presentes podem acionar a função de **Sorteio Paralelo na Quadra** a qualquer momento."
+        },
+        {
+            "topico": "🤝 3. Normas de Convivência e Conduta na Peladinha", 
+            "regrinha": "• **Respeito Mútuo:** O ambiente da peladinha é voltado para o esporte, lazer e integração. Qualquer forma de agressão verbal, falta de respeito com colegas, adversárias ou com a organização não será tolerada.\n• **Pontualidade:** Chegar com antecedência para que as partidas comecem no horário estipulado pela quadra.\n• **Fair Play:** O espírito esportivo deve prevalecer em todas as disputas dentro de quadra.\n• **Penalidade:** O descumprimento grave das regras de convivência resultará em advertência e, em caso de reincidência, na **exclusão definitiva** da jogadora do grupo e do aplicativo."
+        },
+        {
+            "topico": "💸 4. Regras de Pagamento e Inadimplência", 
+            "regrinha": "O pagamento das mensalidades deve ser efetuado via Pix até o dia de vencimento estipulado (dia 10 de cada mês). O comprovante precisa obrigatoriamente ser enviado pelo aplicativo na aba 'Pagamento & Pix' para validação da administração e atualização automática no Fluxo de Caixa do grupo."
+        }
     ])
 if "sorteio_oficial" not in st.session_state:
     st.session_state.sorteio_oficial = carregar_dados(SORTEIO_FILE, {})
@@ -237,11 +247,16 @@ if not st.session_state.usuario_logado:
 
     with tab_dev:
         st.write("### Acesso Restrito do Desenvolvedor")
-        st.info("Utilize as credenciais padrão de desenvolvedor para manutenção.")
-        if st.button("Entrar como Desenvolvedor"):
-            st.session_state.usuario_logado = "Desenvolvedor"
-            st.session_state.cargo_logado = "Desenvolvedor"
-            st.rerun()
+        with st.form("form_login_dev_seguro"):
+            senha_dev_input = st.text_input("Senha de Desenvolvedor", type="password")
+            btn_entrar_dev = st.form_submit_button("Acessar Painel Dev")
+            if btn_entrar_dev:
+                if senha_dev_input == "1980":
+                    st.session_state.usuario_logado = "Desenvolvedor"
+                    st.session_state.cargo_logado = "Desenvolvedor"
+                    st.rerun()
+                else:
+                    st.error("Senha de desenvolvedor incorreta!")
 
     st.stop()
 
@@ -506,7 +521,8 @@ elif menu == "💸 Pagamento & Pix":
             st.session_state.comprovantes.append({
                 "jogadora": c_nome_jogadora,
                 "mes": c_mes,
-                "status": "Pendente de Aprovação"
+                "status": "Pendente de Aprovação",
+                "valor": float(st.session_state.avisos.get("valor_mensalidade", 80.00))
             })
             salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
             st.success("Comprovante enviado com sucesso! O administrador irá validar em breve.")
@@ -548,6 +564,18 @@ elif menu == "📊 Fluxo de Caixa":
         for m in mensalistas_cadastradas:
             st.markdown(f"• **{m['nome']}** — Status: `{m.get('status_pagamento', 'Pendente')}`")
 
+        # Exibir comprovantes aprovados integrados nas receitas
+        st.write("### 💵 Entradas via Comprovantes Aprovados")
+        comprovantes_aprovados = [c for c in st.session_state.comprovantes if c.get("status") == "Aprovado"]
+        total_comprovantes = 0.0
+        if not comprovantes_aprovados:
+            st.info("Nenhum comprovante aprovado registrado ainda.")
+        else:
+            for comp in comprovantes_aprovados:
+                v_comp = float(comp.get("valor", 80.00))
+                total_comprovantes += v_comp
+                st.markdown(f"<div class='card-team'>🟢 <b>Mensalidade / Pix:</b> {comp['jogadora']} (Mês: {comp['mes']}) — R$ {v_comp:.2f}</div>", unsafe_allow_html=True)
+
         st.write("### 🟢 Receitas - Avulsas")
         qtd_avulsas_jogo = st.number_input("Quantidade de Avulsas no Jogo", min_value=0, value=0)
         valor_avulsa_unit = st.number_input("Valor Unitário da Avulsa (R$)", min_value=0.0, value=25.0)
@@ -556,9 +584,12 @@ elif menu == "📊 Fluxo de Caixa":
 
         st.markdown("---")
         st.write("### 🔴 Despesas")
+        total_saidas = 0.0
         for f in st.session_state.financeiro:
             if f.get("tipo") == "Saída":
-                st.markdown(f"<div class='card-team'>🔴 <b>{f.get('descricao')}</b> — R$ {float(f.get('valor', 0)):.2f}</div>", unsafe_allow_html=True)
+                val_saida = float(f.get('valor', 0))
+                total_saidas += val_saida
+                st.markdown(f"<div class='card-team'>🔴 <b>{f.get('descricao')}</b> — R$ {val_saida:.2f}</div>", unsafe_allow_html=True)
 
         with st.form("form_nova_despesa", clear_on_submit=True):
             d_desc = st.text_input("Nome da Nova Despesa")
@@ -569,6 +600,11 @@ elif menu == "📊 Fluxo de Caixa":
                     salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                     st.success("Despesa adicionada!")
                     st.rerun()
+
+        st.markdown("---")
+        total_entradas_geral = total_comprovantes + total_avulsas_calc
+        saldo_final = total_entradas_geral - total_saidas
+        st.metric(label="Saldo Geral do Caixa", value=f"R$ {saldo_final:.2f}", delta=f"Entradas: R$ {total_entradas_geral:.2f} | Saídas: R$ {total_saidas:.2f}")
 
 # -----------------------------------------------------------------------------
 # PÁGINA: PAINEL ADMIN
@@ -593,7 +629,7 @@ elif menu == "⚙️ Painel Admin":
                                 j["status_pagamento"] = "Pago"
                         salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Pagamento aprovado e status atualizado!")
+                        st.success("Pagamento aprovado, status atualizado e integrado ao Fluxo de Caixa!")
                         st.rerun()
 
         st.markdown("---")
@@ -645,5 +681,7 @@ elif menu == "🛠️ Área do Desenvolvedor":
         if st.button("🔄 Resetar Dados de Exemplo / Fábrica"):
             if os.path.exists(DATA_FILE): os.remove(DATA_FILE)
             if os.path.exists(PRESENCAS_FILE): os.remove(PRESENCAS_FILE)
+            if os.path.exists(COMPROVANTES_FILE): os.remove(COMPROVANTES_FILE)
+            if os.path.exists(FINANCE_FILE): os.remove(FINANCE_FILE)
             st.success("Sistema resetado com sucesso!")
             st.rerun()
