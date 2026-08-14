@@ -147,12 +147,7 @@ if "comprovantes" not in st.session_state:
 if "administradores" not in st.session_state:
     st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980"}])
 if "avisos" not in st.session_state:
-    st.session_state.avisos = carregar_dados(AVISOS_FILE, {
-        "vencimento": "Todo dia 10", 
-        "pix": "peladinhafc@email.com", 
-        "limite_vagas": 15,
-        "codigo_cadastro": "pelada123"  # Código secreto padrão para cadastro
-    })
+    st.session_state.avisos = carregar_dados(AVISOS_FILE, {"vencimento": "Todo dia 10", "pix": "peladinhafc@email.com", "limite_vagas": 15})
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade", "regrinha": "Mensalistas confirmando até as 17:00 de segunda têm prioridade."},
@@ -203,34 +198,6 @@ with st.sidebar:
                     st.rerun()
                 else:
                     st.error("Login ou senha incorretos!")
-
-        st.markdown("---")
-        st.subheader("📝 Cadastrar Nova Jogadora")
-        with st.form("form_cad_player", clear_on_submit=True):
-            c_nome = st.text_input("Seu Nome *")
-            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
-            c_tipo = st.selectbox("Tipo:", ["Avulso", "Mensalista"])
-            c_user = st.text_input("Login *")
-            c_pass = st.text_input("Senha *", type="password")
-            c_codigo = st.text_input("Código Secreto do Grupo *", type="password", placeholder="Fornecido pelo Admin")
-            
-            if st.form_submit_button("Criar Conta", use_container_width=True):
-                codigo_correto = st.session_state.avisos.get("codigo_cadastro", "pelada123")
-                if c_nome and c_user and c_pass and c_codigo:
-                    if c_codigo.strip() != codigo_correto:
-                        st.error("Código secreto do grupo incorreto!")
-                    elif any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
-                        st.error("Login já em uso!")
-                    else:
-                        st.session_state.jogadoras.append({
-                            "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
-                            "login": c_user.strip(), "senha": c_pass.strip(),
-                            "tipo": c_tipo, "status": "Ativo"
-                        })
-                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Conta criada com sucesso! Faça login acima.")
-                else:
-                    st.error("Preencha todos os campos obrigatórios!")
 
     st.markdown("---")
     st.subheader("🔒 Área do Administrador")
@@ -355,34 +322,33 @@ elif menu == "📌 Presença no Jogo":
         # 👑 ZERAR LISTA (EXCLUSIVO ADMIN)
         if st.session_state.admin_logged:
             st.markdown("---")
-            st.subheader("👑 Painel do Administrador")
-            if st.button("🗑️ Zerar Lista de Presença", use_container_width=True):
+            st.subheader("👑 Ações do Administrador")
+            if st.button("🗑️ Zerar Lista de Presença Inteira", use_container_width=True):
                 st.session_state.presencas = []
                 salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                 st.success("A lista de presença foi zerada com sucesso!")
                 st.rerun()
 
     with col_l2:
-        st.write("### ✍️ Gerenciar Presenças")
+        st.write("### ✍️ Gestão de Presença")
         
         # VERIFICAÇÃO DE EXCLUSIVIDADE DO ADMINISTRADOR PARA CONFIRMAR/CANCELAR
         if not st.session_state.admin_logged:
             st.warning("🔒 Apenas o **Administrador** pode confirmar ou cancelar jogadoras na lista.")
-            st.info("Você pode visualizar o status atual da lista ao lado.")
+            st.info("Faça login na Área do Administrador na barra lateral para gerenciar as presenças.")
         else:
-            st.success("👑 Modo Admin Ativo: Você pode gerenciar as presenças abaixo.")
+            st.success("👑 Modo Admin Ativo: Gerencie as presenças abaixo.")
             
-            # SELETOR DE JOGADORA PARA O ADMIN GERENCIAR
             nomes_cadastradas = [j["nome"] for j in jogadoras_ativas]
             if not nomes_cadastradas:
-                st.info("Nenhuma jogadora cadastrada no sistema.")
+                st.info("Nenhuma jogadora cadastrada no sistema. Cadastre-as no Painel Admin.")
             else:
                 alvo_jogadora = st.selectbox("Selecione a Jogadora", nomes_cadastradas)
                 dados_alvo = next((j for j in st.session_state.jogadoras if j["nome"] == alvo_jogadora), None)
                 tipo_alvo = dados_alvo.get("tipo", "Avulso") if dados_alvo else "Avulso"
                 
-                c_ok = st.button("👍 Confirmar Presença (Admin)", use_container_width=True)
-                c_canc = st.button("❌ Remover / Cancelar Presença (Admin)", use_container_width=True)
+                c_ok = st.button("👍 Confirmar Presença no Jogo", use_container_width=True)
+                c_canc = st.button("❌ Remover / Cancelar Presença", use_container_width=True)
 
                 if c_ok:
                     st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != alvo_jogadora]
@@ -503,14 +469,46 @@ elif menu == "⚙️ Painel Admin":
         st.error("Acesso restrito.")
     else:
         st.subheader("⚙️ Painel de Administração")
+        
+        # ABA DE CONFIGURAÇÕES GERAIS
         with st.form("form_cfg"):
+            st.write("### 📌 Configurações do Grupo")
             limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
             pix_val = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
-            codigo_val = st.text_input("Código Secreto para Cadastro de Novas Jogadoras", value=st.session_state.avisos.get("codigo_cadastro", "pelada123"))
             
             if st.form_submit_button("Salvar Configurações"):
                 st.session_state.avisos["limite_vagas"] = limite_v
                 st.session_state.avisos["pix"] = pix_val
-                st.session_state.avisos["codigo_cadastro"] = codigo_val
                 salvar_dados(AVISOS_FILE, st.session_state.avisos)
                 st.success("Configurações salvas com sucesso!")
+
+        st.markdown("---")
+        
+        # ABA EXCLUSIVA DE CADASTRO DE JOGADORAS PELO ADMIN
+        st.write("### 📝 Cadastrar Nova Jogadora (Exclusivo Admin)")
+        with st.form("form_cad_admin", clear_on_submit=True):
+            cad_nome = st.text_input("Nome Completo da Jogadora *")
+            cad_nasc = st.text_input("Data de Nascimento (DD/MM)", placeholder="Ex: 15/05")
+            cad_tipo = st.selectbox("Tipo de Jogadora", ["Avulso", "Mensalista"])
+            cad_login = st.text_input("Login para ela (Opcional)", placeholder="Ex: maria")
+            cad_senha = st.text_input("Senha para ela (Opcional)", type="password", placeholder="Ex: 1234")
+            
+            if st.form_submit_button("Cadastrar Jogadora no Sistema"):
+                if cad_nome:
+                    # Verifica se já existe
+                    if any(j.get("nome").lower() == cad_nome.strip().lower() for j in st.session_state.jogadoras):
+                        st.error("Já existe uma jogadora cadastrada com este nome!")
+                    else:
+                        st.session_state.jogadoras.append({
+                            "nome": cad_nome.strip(),
+                            "nascimento": cad_nasc.strip(),
+                            "login": cad_login.strip() if cad_login else cad_nome.strip().lower().replace(" ", ""),
+                            "senha": cad_senha.strip() if cad_senha else "1234",
+                            "tipo": cad_tipo,
+                            "status": "Ativo"
+                        })
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success(f"Jogadora **{cad_nome}** cadastrada com sucesso!")
+                        st.rerun()
+                else:
+                    st.error("O campo Nome é obrigatório!")
