@@ -39,17 +39,23 @@ if not img_base64 and os.path.exists("fundo.jpg"):
 
 bg_declaracao = f'url("data:image/jpeg;base64,{img_base64}")' if img_base64 else 'none'
 
-# ESTILIZAÇÃO GERAL (Sem conflitos de f-string nas chaves)
+# ESTILIZAÇÃO GERAL (Com correção de contraste para textos e labels)
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
     
     html, body, [class*="css"] { 
         font-family: 'Montserrat', sans-serif; 
+        color: #FFFFFF !important;
     }
 
     [data-testid="stSidebar"] {
         display: none;
+    }
+
+    /* Forçar títulos e labels a ficarem visíveis e brancos */
+    h1, h2, h3, h4, h5, h6, label, .stMarkdown p, span {
+        color: #FFFFFF !important;
     }
 
     .app-header {
@@ -65,12 +71,12 @@ st.markdown("""
     .app-title {
         font-size: 1.6rem;
         font-weight: 700;
-        color: #FFFFFF;
+        color: #FFFFFF !important;
         margin-top: 5px;
     }
     .app-subtitle {
         font-size: 0.8rem;
-        color: #EC4899;
+        color: #EC4899 !important;
         text-transform: uppercase;
         letter-spacing: 1.5px;
         font-weight: 700;
