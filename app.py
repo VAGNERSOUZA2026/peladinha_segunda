@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (COR ROSA DO FLUXO DE CAIXA E LETRAS PRETAS)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (TEXTOS BRANCOS NOS CARDS E AJUSTES DE CONTRASTE)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -66,7 +66,7 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    /* CARDS COM A COR ROSA DO FLUXO DE CAIXA E LETRAS PRETAS */
+    /* CARDS COM FUNDO ROSA E TEXTOS EM BRANCO PARA DESTAQUE */
     .card-team {
         background: #EC4899 !important;
         border: 1px solid #DB2777 !important;
@@ -74,16 +74,16 @@ st.markdown("""
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 15px;
-        color: #000000 !important;
+        color: #FFFFFF !important;
     }
     .card-team h3, .card-team h4, .card-team p, .card-team b, .card-team span, .card-team small, .card-team code {
-        color: #000000 !important;
+        color: #FFFFFF !important;
     }
 
-    /* BOTÕES COM A MESMA COR ROSA E LETRAS PRETAS */
+    /* BOTÕES COM A MESMA COR ROSA E TEXTO BRANCO */
     div.stButton > button:first-child {
         background-color: #EC4899 !important;
-        color: #000000 !important;
+        color: #FFFFFF !important;
         font-weight: 700 !important;
         border-radius: 10px !important;
         border: 1px solid #DB2777 !important;
@@ -94,7 +94,7 @@ st.markdown("""
     div.stButton > button:first-child:hover {
         background-color: #DB2777 !important;
         border-color: #BE185D !important;
-        color: #000000 !important;
+        color: #FFFFFF !important;
     }
 
     .stTextInput input, .stSelectbox select, .stNumberInput input {
@@ -116,6 +116,15 @@ st.markdown("""
     }
     [data-testid="stFileUploader"] section div, [data-testid="stFileUploader"] span, [data-testid="stFileUploader"] small {
         color: #FFFFFF !important;
+    }
+    
+    /* CORREÇÃO PARA BOTÕES DE SUBMIT DE FORMULÁRIOS */
+    div.stFormSubmitButton > button:first-child {
+        background-color: #EC4899 !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border-radius: 10px !important;
+        border: 1px solid #DB2777 !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -182,7 +191,7 @@ if "avisos" not in st.session_state:
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade de Mensalistas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda-feira têm prioridade nas 15 vagas."},
-        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após as 17:00, se sobrarem vagas, sobem automaticamente."},
+        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após las 17:00, se sobrarem vagas, sobem automaticamente."},
         {"topico": "⏰ 3. Fechamento da Lista", "regrinha": "A lista fecha rigidamente às 18:00 de toda segunda-feira."},
         {"topico": "🤝 4. Boa Convivência", "regrinha": "Respeito mútuo em campo e fora dele é obrigatório para todas as atletas."}
     ])
@@ -309,7 +318,7 @@ else:
         st.markdown("---")
 
     if st.session_state.pagina_atual == "dashboard":
-        # --- PAINEL DE ANIVERSARIANTES DO MÊS VIGENTE (CONDICIONAL) ---
+        # --- PAINEL DE ANIVERSARIANTES DO MÊS VIGENTE ---
         mes_atual = hoje_dt.month
         aniversariantes_mes = []
         for j in st.session_state.jogadoras:
@@ -340,8 +349,8 @@ else:
                 lista_str = ", ".join(nomes_aniv)
                 st.markdown(f"""
                 <div class='card-team' style='text-align: center;'>
-                    <h3>🎈 Lembrete de Aniversariantes do Mês 🎈</h3>
-                    <p>Este mês temos atletas comemorando nova idade: <b>{lista_str}</b>. Não deixe de parabenizá-las! 🥳⚽</p>
+                    <h3>🎈 Aniversariantes do Mês 🎈</h3>
+                    <p>Atletas comemorando nova idade este mês: <b>{lista_str}</b>. Não deixe de parabenizá-las! 🥳⚽</p>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -350,7 +359,8 @@ else:
             ("📌 Lista de Presença", "lista"),
             ("🔀 Sorteio de Times", "sorteio"),
             ("📋 Elenco de Jogadoras", "elenco"),
-            ("💸 Pagamento Pix", "pagamento")
+            ("💸 Pagamento Pix", "pagamento"),
+            ("🎂 Aniversariantes do Mês", "aniversariantes")
         ]
 
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
@@ -374,7 +384,33 @@ else:
     elif st.session_state.pagina_atual == "regulamento":
         st.subheader("📜 Regulamento Interno & Boa Convivência")
         for reg in st.session_state.regulamento:
-            st.markdown(f"<div class='card-team'><h4 style='color: #000000;'>{reg['topico']}</h4><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card-team'><h4>{reg['topico']}</h4><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
+
+    elif st.session_state.pagina_atual == "aniversariantes":
+        st.subheader("🎂 Painel de Aniversariantes do Mês")
+        mes_atual = hoje_dt.month
+        aniversariantes_mes = []
+        for j in st.session_state.jogadoras:
+            nasc_str = j.get("nascimento", "")
+            if nasc_str and "/" in nasc_str:
+                try:
+                    partes = nasc_str.split("/")
+                    mes_nasc = int(partes[1])
+                    if mes_nasc == mes_atual:
+                        aniversariantes_mes.append(j)
+                except:
+                    pass
+        
+        if not aniversariantes_mes:
+            st.info("Nenhuma atleta faz aniversário neste mês.")
+        else:
+            for a in aniversariantes_mes:
+                st.markdown(f"""
+                <div class='card-team'>
+                    <h3>🎉 {a['nome']}</h3>
+                    <p>Data de Aniversário: <b>{a.get('nascimento')}</b> | Tipo: <code>{a.get('tipo', 'Avulso')}</code></p>
+                </div>
+                """, unsafe_allow_html=True)
 
     elif st.session_state.pagina_atual == "lista":
         st.subheader("📌 Lista de Presença e Confirmações")
@@ -490,22 +526,21 @@ else:
 
                     if c_ok:
                         if ja_na_lista:
-                            st.warning("⚠️ Você já está confirmada na lista! Sua posição foi mantida.")
+                            st.warning("⚠️ Você já está confirmada na lista! Sua posição e horário foram preservados.")
                         else:
-                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
                             st.session_state.presencas.append({
                                 "nome": j_nome, "hora": hoje_dt.strftime("%H:%M"),
                                 "tipo": tipo_j, "dt_confirmacao": hoje_dt.isoformat()
                             })
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                            st.success("Presença atualizada!")
+                            st.success("Presença confirmada com sucesso!")
                             st.rerun()
 
                     if c_canc:
                         if ja_na_lista:
-                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(item) != j_nome]
+                            st.session_state.presencas = [item for item in st.session_state.presencas if obter_nome_p(item) != j_nome]
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                            st.info("Presença cancelada!")
+                            st.info("Presença cancelada com sucesso!")
                             st.rerun()
                         else:
                             st.error("Seu nome não está na lista.")
@@ -650,7 +685,7 @@ else:
 
         with tab_ger1:
             st.write("### Aprovação de Novas Atletas")
-            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
+            pendentes = [j for j in st.session_state.jogadoras if j.get("status"] == "Pendente"]
             if not pendentes:
                 st.info("Nenhum cadastro pendente no momento.")
             for idx, j in enumerate(pendentes):
