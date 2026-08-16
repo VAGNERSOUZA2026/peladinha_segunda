@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (TEXTOS BRANCOS NOS CARDS E AJUSTES DE CONTRASTE)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (CORREÇÃO DE CORES, TAG CODE E UPLOADER)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -76,11 +76,20 @@ st.markdown("""
         margin-bottom: 15px;
         color: #FFFFFF !important;
     }
-    .card-team h3, .card-team h4, .card-team p, .card-team b, .card-team span, .card-team small, .card-team code {
+    .card-team h3, .card-team h4, .card-team p, .card-team b, .card-team span, .card-team small {
         color: #FFFFFF !important;
     }
+    
+    /* CORREÇÃO DO TAG CODE DENTRO DOS CARDS (CHAVE PIX) */
+    .card-team code {
+        background-color: #111827 !important;
+        color: #F3F4F6 !important;
+        padding: 4px 8px !important;
+        border-radius: 6px !important;
+        font-weight: 700 !important;
+    }
 
-    /* BOTÕES COM A MESMA COR ROSA E TEXTO BRANCO */
+    /* BOTÕES GERAIS COM A COR ROSA E TEXTO BRANCO */
     div.stButton > button:first-child {
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
@@ -104,7 +113,7 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* CORREÇÃO DO FUNDO DO UPLOADER DE ARQUIVOS */
+    /* CORREÇÃO DO FUNDO E DO BOTÃO DO UPLOADER DE ARQUIVOS */
     [data-testid="stFileUploader"] {
         background-color: #1F2937 !important;
         border: 1px dashed #4B5563 !important;
@@ -116,6 +125,15 @@ st.markdown("""
     }
     [data-testid="stFileUploader"] section div, [data-testid="stFileUploader"] span, [data-testid="stFileUploader"] small {
         color: #FFFFFF !important;
+    }
+    
+    /* FORÇAR O BOTÃO DE UPLOAD A APARECER COM ESTILO NATIVO SEM PRECISAR DE HOVER */
+    [data-testid="stFileUploader"] button {
+        background-color: #EC4899 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #DB2777 !important;
+        font-weight: 700 !important;
+        border-radius: 8px !important;
     }
     
     /* CORREÇÃO PARA BOTÕES DE SUBMIT DE FORMULÁRIOS */
@@ -581,7 +599,7 @@ else:
         st.subheader("💸 Pagamentos e Chave Pix")
         st.markdown(f"""
         <div class='card-team'>
-            📌 <b>Chave Pix Oficial:</b> <code>{st.session_state.avisos.get('pix', 'peladinhafc@email.com')}</code><br>
+            📌 <b>Chave Pix Oficial:</b> <code>{st.session_state.avisos.get('pix', 'peladinhafc@email.com')}</code><br><br>
             Vencimento: <b>{st.session_state.avisos.get('vencimento', 'Todo dia 10')}</b>
         </div>
         """, unsafe_allow_html=True)
