@@ -191,7 +191,7 @@ if "avisos" not in st.session_state:
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade de Mensalistas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda-feira têm prioridade nas 15 vagas."},
-        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após las 17:00, se sobrarem vagas, sobem automaticamente."},
+        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após as 17:00, se sobrarem vagas, sobem automaticamente."},
         {"topico": "⏰ 3. Fechamento da Lista", "regrinha": "A lista fecha rigidamente às 18:00 de toda segunda-feira."},
         {"topico": "🤝 4. Boa Convivência", "regrinha": "Respeito mútuo em campo e fora dele é obrigatório para todas as atletas."}
     ])
@@ -685,7 +685,7 @@ else:
 
         with tab_ger1:
             st.write("### Aprovação de Novas Atletas")
-            pendentes = [j for j in st.session_state.jogadoras if j.get("status"] == "Pendente"]
+            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
             if not pendentes:
                 st.info("Nenhum cadastro pendente no momento.")
             for idx, j in enumerate(pendentes):
