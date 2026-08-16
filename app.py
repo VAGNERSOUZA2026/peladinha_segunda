@@ -23,7 +23,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (CARDS ROSAS E LETRAS PRETAS)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (COR ROSA DO FLUXO DE CAIXA E LETRAS PRETAS)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -66,11 +66,11 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    /* CARDS EM ROSA COM LETRAS PRETAS */
+    /* CARDS COM A COR ROSA DO FLUXO DE CAIXA E LETRAS PRETAS */
     .card-team {
-        background: #FFC0CB !important;
-        border: 1px solid #FF69B4 !important;
-        border-top: 4px solid #FF1493 !important;
+        background: #EC4899 !important;
+        border: 1px solid #DB2777 !important;
+        border-top: 4px solid #BE185D !important;
         border-radius: 12px;
         padding: 16px;
         margin-bottom: 15px;
@@ -80,19 +80,20 @@ st.markdown("""
         color: #000000 !important;
     }
 
+    /* BOTÕES COM A MESMA COR ROSA E LETRAS PRETAS */
     div.stButton > button:first-child {
-        background-color: #FFC0CB !important;
+        background-color: #EC4899 !important;
         color: #000000 !important;
         font-weight: 700 !important;
         border-radius: 10px !important;
-        border: 1px solid #FF69B4 !important;
+        border: 1px solid #DB2777 !important;
         padding: 15px 20px !important;
         box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
         width: 100%;
     }
     div.stButton > button:first-child:hover {
-        background-color: #FF69B4 !important;
-        border-color: #FF1493 !important;
+        background-color: #DB2777 !important;
+        border-color: #BE185D !important;
         color: #000000 !important;
     }
 
@@ -294,7 +295,7 @@ else:
         st.markdown("---")
 
     if st.session_state.pagina_atual == "dashboard":
-        # --- PAINEL DE ANIVERSARIANTES DO MÊS VIGENTE ---
+        # --- PAINEL DE ANIVERSARIANTES DO MÊS VIGENTE (CONDICIONAL) ---
         mes_atual = hoje_dt.month
         aniversariantes_mes = []
         for j in st.session_state.jogadoras:
@@ -304,18 +305,32 @@ else:
                     partes = nasc_str.split("/")
                     mes_nasc = int(partes[1])
                     if mes_nasc == mes_atual:
-                        aniversariantes_mes.append(j["nome"])
+                        aniversariantes_mes.append(j)
                 except:
                     pass
 
         if aniversariantes_mes:
-            nomes_aniv = ", ".join(aniversariantes_mes)
-            st.markdown(f"""
-            <div class='card-team' style='border-top-color: #FF1493; text-align: center;'>
-                <h3>🎂🎂🎂 PARABÉNS ÀS ANIVERSARIANTES DO MÊS! 🎂🎂🎂</h3>
-                <p>Desejamos um feliz aniversário, muita saúde, felicidades e muitos gols para: <b>{nomes_aniv}</b>! 🥳⚽</p>
-            </div>
-            """, unsafe_allow_html=True)
+            nomes_aniv = [a["nome"] for a in aniversariantes_mes]
+            usuario_atual = st.session_state.usuario_logado
+            
+            # Verifica se o usuário logado é uma aniversariante do mês
+            aniversariante_logada = next((a for a in aniversariantes_mes if a["nome"] == usuario_atual), None)
+            
+            if aniversariante_logada:
+                st.markdown(f"""
+                <div class='card-team' style='text-align: center;'>
+                    <h3>🎉 PARABÉNS PELO SEU ANIVERSÁRIO! 🎂</h3>
+                    <p>Desejamos a você um feliz aniversário, muita saúde, felicidades e muitos gols! 🥳⚽</p>
+                </div>
+                """, unsafe_allow_html=True)
+            else:
+                lista_str = ", ".join(nomes_aniv)
+                st.markdown(f"""
+                <div class='card-team' style='text-align: center;'>
+                    <h3>🎈 Lembrete de Aniversariantes do Mês 🎈</h3>
+                    <p>Este mês temos atletas comemorando nova idade: <b>{lista_str}</b>. Não deixe de parabenizá-las! 🥳⚽</p>
+                </div>
+                """, unsafe_allow_html=True)
 
         cards = [
             ("📜 Regulamento", "regulamento"),
@@ -397,7 +412,7 @@ else:
                 
                 with st.form("form_add_manual"):
                     st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
                     atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastradas"])
                     if st.form_submit_button("Incluir do Elenco"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
@@ -598,7 +613,7 @@ else:
             saldo_total = total_geral_rec - total_geral_desp
 
             st.markdown(f"""
-            <div class='card-team' style='border-top-color: #10B981;'>
+            <div class='card-team'>
                 <h3>💰 Saldo Total em Caixa: R$ {saldo_total:.2f}</h3>
                 <p>🟢 Total de Receitas: R$ {total_geral_rec:.2f} | 🔴 Total de Despesas: R$ {total_geral_desp:.2f}</p>
             </div>
@@ -606,9 +621,8 @@ else:
 
             st.write("### Histórico de Movimentações")
             for idx, item in enumerate(registros_caixa):
-                cor_borda = "#10B981" if item["tipo"] == "Receita" else "#EF4444"
                 st.markdown(f"""
-                <div class='card-team' style='border-top-color: {cor_borda};'>
+                <div class='card-team'>
                     <b>Mês:</b> {item.get('mes', 'Geral')} | <b>Tipo:</b> <code>{item['tipo']}</code> | <b>Descrição:</b> {item['descricao']} | <b>Valor:</b> R$ {item['valor']:.2f}
                 </div>
                 """, unsafe_allow_html=True)
