@@ -735,16 +735,67 @@ else:
 
         with tab_ger3:
             if st.session_state.perfil_logado == "Dev":
-                st.write("### Gerenciamento de Credenciais de Administradores (Restrito ao Desenvolvedor)")
-                for idx, adm in enumerate(st.session_state.administradores):
-                    st.markdown(f"<div class='card-team'><b>Admin:</b> {adm['nome']} | <b>Login:</b> <code>{adm['login']}</code></div>", unsafe_allow_html=True)
-                    if st.button(f"Excluir Admin {adm['nome']}", key=f"del_adm_{idx}"):
-                        if len(st.session_state.administradores) > 1:
-                            st.session_state.administradores.pop(idx)
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador removido!")
+                st.write("### 🔒 Gestão Completa de Contas e Credenciais (Dev)")
+                st.info("Aqui você pode visualizar logins, redefinir senhas esquecidas e remover contas de Administradores ou Atletas.")
+
+                sub_tab_adm, sub_tab_jog = st.tabs(["👑 Administradores", "⚽ Atletas / Jogadoras"])
+
+                with sub_tab_adm:
+                    st.write("#### Gerenciar Contas de Administradores")
+                    for idx, adm in enumerate(st.session_state.administradores):
+                        st.markdown(f"""
+                        <div class='card-team'>
+                            <b>Nome:</b> {adm['nome']} | <b>Login:</b> <code>{adm['login']}</code> | <b>Senha atual:</b> <code>{adm['senha']}</code>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        with st.form(f"form_alt_senha_adm_{idx}"):
+                            nova_s_adm = st.text_input("Redefinir nova senha para este Admin", type="password", key=f"nova_s_adm_{idx}")
+                            if st.form_submit_button("Atualizar Senha do Admin"):
+                                if nova_s_adm.strip():
+                                    adm["senha"] = nova_s_adm.strip()
+                                    salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                                    st.success(f"Senha do admin {adm['nome']} alterada com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.error("Digite uma nova senha válida.")
+
+                        if st.button(f"Excluir Admin {adm['nome']}", key=f"del_adm_{idx}"):
+                            if len(st.session_state.administradores) > 1:
+                                st.session_state.administradores.pop(idx)
+                                salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                                st.success("Administrador removido!")
+                                st.rerun()
+                            else:
+                                st.error("Você não pode excluir o único administrador do sistema.")
+
+                with sub_tab_jog:
+                    st.write("#### Gerenciar Contas de Atletas / Jogadoras")
+                    if not st.session_state.jogadoras:
+                        st.info("Nenhuma atleta cadastrada.")
+                    for idx_j, jog in enumerate(st.session_state.jogadoras):
+                        st.markdown(f"""
+                        <div class='card-team'>
+                            <b>Atleta:</b> {jog['nome']} | <b>Login:</b> <code>{jog.get('login', 'N/D')}</code> | <b>Senha atual:</b> <code>{jog.get('senha', 'N/D')}</code><br>
+                            <small>Status: `{jog.get('status')}` | Tipo: `{jog.get('tipo')}`</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+
+                        with st.form(f"form_alt_senha_jog_{idx_j}"):
+                            nova_s_jog = st.text_input("Redefinir nova senha para esta atleta", type="password", key=f"nova_s_jog_{idx_j}")
+                            if st.form_submit_button("Atualizar Senha da Atleta"):
+                                if nova_s_jog.strip():
+                                    jog["senha"] = nova_s_jog.strip()
+                                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                                    st.success(f"Senha da atleta {jog['nome']} alterada com sucesso!")
+                                    st.rerun()
+                                else:
+                                    st.error("Digite uma nova senha válida.")
+
+                        if st.button(f"Excluir Conta de {jog['nome']}", key=f"del_jog_{idx_j}"):
+                            st.session_state.jogadoras.pop(idx_j)
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.warning(f"A atleta {jog['nome']} foi removida do sistema.")
                             st.rerun()
-                        else:
-                            st.error("Você não pode excluir o único administrador do sistema.")
             else:
                 st.warning("⚠️ Esta área é restrita apenas ao perfil de Desenvolvedor.")
