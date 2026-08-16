@@ -4,6 +4,7 @@ import json
 import os
 import random
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
@@ -23,7 +24,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (CORREÇÃO DE CORES, TAG CODE E UPLOADER)
+# ESTILIZAÇÃO CSS CUSTOMIZADA
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -66,7 +67,6 @@ st.markdown("""
         letter-spacing: 1px;
     }
 
-    /* CARDS COM FUNDO ROSA E TEXTOS EM BRANCO PARA DESTAQUE */
     .card-team {
         background: #EC4899 !important;
         border: 1px solid #DB2777 !important;
@@ -80,7 +80,6 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    /* CORREÇÃO DO TAG CODE DENTRO DOS CARDS (CHAVE PIX) */
     .card-team code {
         background-color: #111827 !important;
         color: #F3F4F6 !important;
@@ -89,7 +88,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* BOTÕES GERAIS COM A COR ROSA E TEXTO BRANCO */
     div.stButton > button:first-child {
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
@@ -113,7 +111,6 @@ st.markdown("""
         border-radius: 8px !important;
     }
 
-    /* CORREÇÃO DO FUNDO E DO BOTÃO DO UPLOADER DE ARQUIVOS */
     [data-testid="stFileUploader"] {
         background-color: #1F2937 !important;
         border: 1px dashed #4B5563 !important;
@@ -127,7 +124,6 @@ st.markdown("""
         color: #FFFFFF !important;
     }
     
-    /* FORÇAR O BOTÃO DE UPLOAD A APARECER COM ESTILO NATIVO SEM PRECISAR DE HOVER */
     [data-testid="stFileUploader"] button {
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
@@ -136,7 +132,6 @@ st.markdown("""
         border-radius: 8px !important;
     }
     
-    /* CORREÇÃO PARA BOTÕES DE SUBMIT DE FORMULÁRIOS */
     div.stFormSubmitButton > button:first-child {
         background-color: #EC4899 !important;
         color: #FFFFFF !important;
@@ -203,7 +198,7 @@ if "financeiro" not in st.session_state:
 if "comprovantes" not in st.session_state:
     st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
 if "administradores" not in st.session_state:
-    st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980"}])
+    st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "celular": "5531999999999"}])
 if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
         "vencimento": "Todo dia 10", 
@@ -288,7 +283,17 @@ if st.session_state.pagina_atual == "login":
                             "tipo": c_tipo, "status": "Pendente", "quitado": "Não"
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Cadastro realizado com sucesso! O Administrador recebeu sua solicitação.")
+                        st.success("Cadastro realizado com sucesso! Aguardando aprovação de um Administrador.")
+                        
+                        # SUGESTÃO WHATSAPP: Exibir botões para avisar os administradores cadastrados
+                        st.markdown("---")
+                        st.write("📱 **Aviso importante:** Para agilizar sua aprovação, clique abaixo para avisar um dos administradores via WhatsApp:")
+                        for adm in st.session_state.administradores:
+                            cel_adm = adm.get("celular", "").strip()
+                            if cel_adm:
+                                msg = f"Olá {adm['nome']}! Acabei de me cadastrar no Peladinha FC como {c_tipo} (Usuário: {c_user.strip()}). Pode aprovar meu cadastro por favor?"
+                                link_zap = f"https://wa.me/{cel_adm}?text={quote(msg)}"
+                                st.markdown(f"👉 [Avisar Admin {adm['nome']} no WhatsApp]({link_zap})", unsafe_allow_html=True)
                 else:
                     st.error("Preencha todos os campos obrigatórios!")
 
@@ -296,20 +301,21 @@ if st.session_state.pagina_atual == "login":
         st.subheader("Solicitar Conta Administradora")
         with st.form("form_cad_adm", clear_on_submit=True):
             a_nome = st.text_input("Nome do Administrador *")
+            a_cel = st.text_input("Celular / WhatsApp (Ex: 5531999999999) *")
             a_user = st.text_input("Login Admin *")
             a_pass = st.text_input("Senha Admin *", type="password")
             if st.form_submit_button("CADASTRAR ADMIN"):
-                if a_nome and a_user and a_pass:
+                if a_nome and a_user and a_pass and a_cel:
                     if any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
                         st.error("Login de admin já existe!")
                     else:
                         st.session_state.administradores.append({
-                            "nome": a_nome.strip(), "login": a_user.strip(), "senha": a_pass.strip()
+                            "nome": a_nome.strip(), "login": a_user.strip(), "senha": a_pass.strip(), "celular": a_cel.strip()
                         })
                         salvar_dados(ADMINS_FILE, st.session_state.administradores)
                         st.success("Administrador cadastrado com sucesso!")
                 else:
-                    st.error("Preencha todos os campos!")
+                    st.error("Preencha todos os campos, incluindo o celular!")
 
     with tab_dev:
         st.subheader("Acesso Restrito ao Desenvolvedor")
@@ -336,13 +342,12 @@ else:
     """, unsafe_allow_html=True)
 
     if st.session_state.pagina_atual != "dashboard":
-        if st.button("⬅️ Voltar al Menu Principal" if False else "⬅️ Voltar ao Menu Principal"):
+        if st.button("⬅️ Voltar ao Menu Principal"):
             st.session_state.pagina_atual = "dashboard"
             st.rerun()
         st.markdown("---")
 
     if st.session_state.pagina_atual == "dashboard":
-        # --- PAINEL DE ANIVERSARIANTES DO MÊS VIGENTE ---
         mes_atual = hoje_dt.month
         aniversariantes_mes = []
         for j in st.session_state.jogadoras:
@@ -359,7 +364,6 @@ else:
         if aniversariantes_mes:
             nomes_aniv = [a["nome"] for a in aniversariantes_mes]
             usuario_atual = st.session_state.usuario_logado
-            
             aniversariante_logada = next((a for a in aniversariantes_mes if a["nome"] == usuario_atual), None)
             
             if aniversariante_logada:
@@ -649,7 +653,6 @@ else:
                     if st.button(f"Validar Pagamento de {comp['nome']}", key=f"val_comp_{idx}"):
                         comp["conferido"] = True
                         
-                        # Descobrir se a atleta é mensalista para usar o valor correto no caixa
                         j_cad = next((j for j in st.session_state.jogadoras if j["nome"] == comp["nome"]), None)
                         tipo_j_cad = j_cad.get("tipo", "Avulso") if j_cad else "Avulso"
                         
@@ -660,19 +663,20 @@ else:
                                 j["quitado"] = "Sim"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         
+                        # ALIMENTAÇÃO AUTOMÁTICA DO FLUXO DE CAIXA
                         st.session_state.financeiro.append({
                             "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Pagamento ({tipo_j_cad}) - {comp['nome']}", "valor": float(v_recebido)
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                         salvar_dados(COMPROVANTES_FILE, comprovantes)
-                        st.success("Pagamento validado e adicionado como receita no fluxo de caixa!")
+                        st.success("Pagamento validado e adicionado automaticamente como receita no fluxo de caixa!")
                         st.rerun()
 
     elif st.session_state.pagina_atual == "caixa":
         st.subheader("📊 Fluxo de Caixa Completo")
         
         with st.form("form_lanca_caixa", clear_on_submit=True):
-            st.write("<b>Lançar Nova Receita ou Despesa</b>", unsafe_allow_html=True)
+            st.write("<b>Lançar Nova Receita ou Despesa Manualmente</b>", unsafe_allow_html=True)
             c_mes = st.text_input("Mês / Ano (Ex: Janeiro/2026)", value=hoje_dt.strftime("%B/%Y"))
             c_tipo_fin = st.selectbox("Tipo", ["Receita", "Despesa"])
             c_desc = st.text_input("Descrição (Ex: Compra de Coletes, Aluguel)")
@@ -705,13 +709,21 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-            st.write("### Histórico de Movimentações")
+            st.write("### Histórico de Movimentações & Exclusão")
             for idx, item in enumerate(registros_caixa):
-                st.markdown(f"""
-                <div class='card-team'>
-                    <b>Mês:</b> {item.get('mes', 'Geral')} | <b>Tipo:</b> <code>{item['tipo']}</code> | <b>Descrição:</b> {item['descricao']} | <b>Valor:</b> R$ {item['valor']:.2f}
-                </div>
-                """, unsafe_allow_html=True)
+                col_c1, col_c2 = st.columns([4, 1])
+                with col_c1:
+                    st.markdown(f"""
+                    <div class='card-team' style='margin-bottom: 5px;'>
+                        <b>Mês:</b> {item.get('mes', 'Geral')} | <b>Tipo:</b> <code>{item['tipo']}</code> | <b>Descrição:</b> {item['descricao']} | <b>Valor:</b> R$ {item['valor']:.2f}
+                    </div>
+                    """, unsafe_allow_html=True)
+                with col_c2:
+                    if st.button("🗑️ Excluir", key=f"del_fin_{idx}"):
+                        st.session_state.financeiro.pop(idx)
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        st.success("Lançamento excluído com sucesso!")
+                        st.rerun()
 
     elif st.session_state.pagina_atual == "gerenciamento":
         st.subheader("🛠️ Painel de Gerenciamento Geral & Aprovações")
@@ -761,29 +773,29 @@ else:
         with tab_ger3:
             if st.session_state.perfil_logado == "Dev":
                 st.write("### 🔒 Gestão Completa de Contas e Credenciais (Dev)")
-                st.info("Aqui você pode visualizar logins, redefinir senhas esquecidas e remover contas de Administradores ou Atletas.")
+                st.info("Aqui você pode cadastrar o número do celular dos administradores, redefinir senhas e gerenciar contas.")
 
                 sub_tab_adm, sub_tab_jog = st.tabs(["👑 Administradores", "⚽ Atletas / Jogadoras"])
 
                 with sub_tab_adm:
-                    st.write("#### Gerenciar Contas de Administradores")
+                    st.write("#### Gerenciar Contas de Administradores & Celular WhatsApp")
                     for idx, adm in enumerate(st.session_state.administradores):
                         st.markdown(f"""
                         <div class='card-team'>
-                            <b>Nome:</b> {adm['nome']} | <b>Login:</b> <code>{adm['login']}</code> | <b>Senha atual:</b> <code>{adm['senha']}</code>
+                            <b>Nome:</b> {adm['nome']} | <b>Login:</b> <code>{adm['login']}</code> | <b>Celular:</b> <code>{adm.get('celular', 'Não cadastrado')}</code>
                         </div>
                         """, unsafe_allow_html=True)
                         
-                        with st.form(f"form_alt_senha_adm_{idx}"):
-                            nova_s_adm = st.text_input("Redefinir nova senha para este Admin", type="password", key=f"nova_s_adm_{idx}")
-                            if st.form_submit_button("Atualizar Senha do Admin"):
+                        with st.form(f"form_alt_adm_{idx}"):
+                            nova_cel_adm = st.text_input("Atualizar número do Celular/WhatsApp (Ex: 5531999999999)", value=adm.get("celular", ""), key=f"cel_adm_{idx}")
+                            nova_s_adm = st.text_input("Redefinir nova senha (opcional)", type="password", key=f"nova_s_adm_{idx}")
+                            if st.form_submit_button("Salvar Dados do Admin"):
+                                adm["celular"] = nova_cel_adm.strip()
                                 if nova_s_adm.strip():
                                     adm["senha"] = nova_s_adm.strip()
-                                    salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                                    st.success(f"Senha do admin {adm['nome']} alterada com sucesso!")
-                                    st.rerun()
-                                else:
-                                    st.error("Digite uma nova senha válida.")
+                                salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                                st.success(f"Dados do admin {adm['nome']} atualizados com sucesso!")
+                                st.rerun()
 
                         if st.button(f"Excluir Admin {adm['nome']}", key=f"del_adm_{idx}"):
                             if len(st.session_state.administradores) > 1:
@@ -801,7 +813,7 @@ else:
                     for idx_j, jog in enumerate(st.session_state.jogadoras):
                         st.markdown(f"""
                         <div class='card-team'>
-                            <b>Atleta:</b> {jog['nome']} | <b>Login:</b> <code>{jog.get('login', 'N/D')}</code> | <b>Senha atual:</b> <code>{jog.get('senha', 'N/D')}</code><br>
+                            <b>Atleta:</b> {jog['nome']} | <b>Login:</b> <code>{jog.get('login', 'N/D')}</code><br>
                             <small>Status: `{jog.get('status')}` | Tipo: `{jog.get('tipo')}`</small>
                         </div>
                         """, unsafe_allow_html=True)
