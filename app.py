@@ -205,7 +205,13 @@ if "comprovantes" not in st.session_state:
 if "administradores" not in st.session_state:
     st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980"}])
 if "avisos" not in st.session_state:
-    st.session_state.avisos = carregar_dados(AVISOS_FILE, {"vencimento": "Todo dia 10", "pix": "peladinhafc@email.com", "limite_vagas": 15})
+    st.session_state.avisos = carregar_dados(AVISOS_FILE, {
+        "vencimento": "Todo dia 10", 
+        "pix": "peladinhafc@email.com", 
+        "limite_vagas": 15,
+        "valor_mensalidade": 50.00,
+        "valor_avulso": 15.00
+    })
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade de Mensalistas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda-feira têm prioridade nas 15 vagas."},
@@ -330,7 +336,7 @@ else:
     """, unsafe_allow_html=True)
 
     if st.session_state.pagina_atual != "dashboard":
-        if st.button("⬅️ Voltar ao Menu Principal"):
+        if st.button("⬅️ Voltar al Menu Principal" if False else "⬅️ Voltar ao Menu Principal"):
             st.session_state.pagina_atual = "dashboard"
             st.rerun()
         st.markdown("---")
@@ -597,10 +603,14 @@ else:
 
     elif st.session_state.pagina_atual == "pagamento":
         st.subheader("💸 Pagamentos e Chave Pix")
+        v_mensal = st.session_state.avisos.get('valor_mensalidade', 50.00)
+        v_avulso = st.session_state.avisos.get('valor_avulso', 15.00)
+        
         st.markdown(f"""
         <div class='card-team'>
             📌 <b>Chave Pix Oficial:</b> <code>{st.session_state.avisos.get('pix', 'peladinhafc@email.com')}</code><br><br>
-            Vencimento: <b>{st.session_state.avisos.get('vencimento', 'Todo dia 10')}</b>
+            📅 Vencimento: <b>{st.session_state.avisos.get('vencimento', 'Todo dia 10')}</b><br>
+            💵 <b>Valores:</b> Mensalidade: <b>R$ {v_mensal:.2f}</b> | Avulsa: <b>R$ {v_avulso:.2f}</b>
         </div>
         """, unsafe_allow_html=True)
         
@@ -638,13 +648,20 @@ else:
                         st.image(comp['arquivo'], width=300)
                     if st.button(f"Validar Pagamento de {comp['nome']}", key=f"val_comp_{idx}"):
                         comp["conferido"] = True
+                        
+                        # Descobrir se a atleta é mensalista para usar o valor correto no caixa
+                        j_cad = next((j for j in st.session_state.jogadoras if j["nome"] == comp["nome"]), None)
+                        tipo_j_cad = j_cad.get("tipo", "Avulso") if j_cad else "Avulso"
+                        
+                        v_recebido = st.session_state.avisos.get('valor_mensalidade', 50.00) if tipo_j_cad == "Mensalista" else st.session_state.avisos.get('valor_avulso', 15.00)
+                        
                         for j in st.session_state.jogadoras:
                             if j["nome"] == comp["nome"]:
                                 j["quitado"] = "Sim"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         
                         st.session_state.financeiro.append({
-                            "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Mensalidade - {comp['nome']}", "valor": 50.00
+                            "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Pagamento ({tipo_j_cad}) - {comp['nome']}", "valor": float(v_recebido)
                         })
                         salvar_dados(FINANCE_FILE, st.session_state.financeiro)
                         salvar_dados(COMPROVANTES_FILE, comprovantes)
@@ -725,13 +742,21 @@ else:
 
         with tab_ger2:
             with st.form("form_cfg_geral_painel"):
+                st.write("<b>Configurações Gerais e Valores</b>", unsafe_allow_html=True)
                 limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
                 pix_val = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
+                venc_val = st.text_input("Dia/Regra de Vencimento", value=st.session_state.avisos.get("vencimento", "Todo dia 10"))
+                val_mensal = st.number_input("Valor da Mensalidade (R$)", min_value=0.0, step=5.0, value=float(st.session_state.avisos.get("valor_mensalidade", 50.00)))
+                val_avulso = st.number_input("Valor da Diária Avulsa (R$)", min_value=0.0, step=5.0, value=float(st.session_state.avisos.get("valor_avulso", 15.00)))
+                
                 if st.form_submit_button("Salvar Ajustes"):
                     st.session_state.avisos["limite_vagas"] = limite_v
                     st.session_state.avisos["pix"] = pix_val
+                    st.session_state.avisos["vencimento"] = venc_val
+                    st.session_state.avisos["valor_mensalidade"] = val_mensal
+                    st.session_state.avisos["valor_avulso"] = val_avulso
                     salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                    st.success("Configurações atualizadas!")
+                    st.success("Configurações e valores atualizados com sucesso!")
 
         with tab_ger3:
             if st.session_state.perfil_logado == "Dev":
