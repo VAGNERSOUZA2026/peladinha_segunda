@@ -103,6 +103,20 @@ st.markdown("""
         border: 1px solid #4B5563 !important;
         border-radius: 8px !important;
     }
+
+    /* CORREÇÃO DO FUNDO DO UPLOADER DE ARQUIVOS */
+    [data-testid="stFileUploader"] {
+        background-color: #1F2937 !important;
+        border: 1px dashed #4B5563 !important;
+        border-radius: 10px !important;
+        padding: 10px !important;
+    }
+    [data-testid="stFileUploader"] section {
+        background-color: #1F2937 !important;
+    }
+    [data-testid="stFileUploader"] section div, [data-testid="stFileUploader"] span, [data-testid="stFileUploader"] small {
+        color: #FFFFFF !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -313,7 +327,6 @@ else:
             nomes_aniv = [a["nome"] for a in aniversariantes_mes]
             usuario_atual = st.session_state.usuario_logado
             
-            # Verifica se o usuário logado é uma aniversariante do mês
             aniversariante_logada = next((a for a in aniversariantes_mes if a["nome"] == usuario_atual), None)
             
             if aniversariante_logada:
@@ -476,18 +489,21 @@ else:
                     ja_na_lista = (pos_conf is not None or pos_esp is not None)
 
                     if c_ok:
-                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
-                        st.session_state.presencas.append({
-                            "nome": j_nome, "hora": hoje_dt.strftime("%H:%M"),
-                            "tipo": tipo_j, "dt_confirmacao": hoje_dt.isoformat()
-                        })
-                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                        st.success("Presença atualizada!")
-                        st.rerun()
+                        if ja_na_lista:
+                            st.warning("⚠️ Você já está confirmada na lista! Sua posição foi mantida.")
+                        else:
+                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
+                            st.session_state.presencas.append({
+                                "nome": j_nome, "hora": hoje_dt.strftime("%H:%M"),
+                                "tipo": tipo_j, "dt_confirmacao": hoje_dt.isoformat()
+                            })
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            st.success("Presença atualizada!")
+                            st.rerun()
 
                     if c_canc:
                         if ja_na_lista:
-                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
+                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(item) != j_nome]
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
                             st.info("Presença cancelada!")
                             st.rerun()
