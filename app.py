@@ -1,777 +1,643 @@
+import streamlit as st
+import pandas as pd
 import json
 import os
-import shutil
-from datetime import datetime, timezone, timedelta
-import pandas as pd
-import streamlit as st
-import urllib.parse
-from docx import Document
-import re
-import io
-import streamlit.components.v1 as components
+import random
+from datetime import datetime, timedelta, timezone
 
-try:
-    import cv2
-    import numpy as np
-    OPENCV_DISPONIVEL = True
-except ImportError:
-    OPENCV_DISPONIVEL = False
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
+# -----------------------------------------------------------------------------
+fuso_br = timezone(timedelta(hours=-3))
+hoje_dt = datetime.now(fuso_br)
+data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 
+# -----------------------------------------------------------------------------
+# CONFIGURAÇÃO DA PÁGINA (TEMA ESCURO)
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Premium Wines - Galpão",
-    page_icon="imagem premium.jpeg",
-    layout="wide",
-    initial_sidebar_state="collapsed",
+    page_title="Peladinha FC | Gestão Inteligente",
+    page_icon="⚽",
+    layout="centered",
+    initial_sidebar_state="collapsed"
 )
 
-st.markdown(
-    """
-    <style>
-    .stApp { background: linear-gradient(135deg, #F8F9FA 0%, #E9ECEF 100%); color: #1A1A1A; font-family: 'Poppins', sans-serif; overscroll-behavior-y: none; }
-    [data-testid="stSidebar"] { display: none; }
+# -----------------------------------------------------------------------------
+# ESTILIZAÇÃO CSS CUSTOMIZADA (TEXTOS E RÓTULOS NÍTIDOS)
+# -----------------------------------------------------------------------------
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
     
-    footer {visibility: hidden;}
-    #MainMenu {visibility: hidden;}
-    [data-testid="stStatusWidget"] {display: none;}
-    
-    label { color: #7A1C2E !important; font-weight: 700 !important; font-size: 0.95rem !important; }
-    .wine-card { background-color: #FFFFFF; color: #1A1A1A; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #E9ECEF; box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.03); }
-    .wine-title { color: #7A1C2E; font-size: 1.1rem; font-weight: 700; margin-bottom: 4px; }
-    .badge-pallet-grande { background-color: #7A1C2E; color: #FFFFFF; padding: 6px 14px; border-radius: 8px; font-weight: 700; font-size: 1rem; display: inline-block; }
-    .stButton button { background-color: #7A1C2E !important; color: #FFFFFF !important; border-radius: 12px !important; font-weight: 600 !important; border: none !important; padding: 10px 16px !important; width: 100%; white-space: pre-wrap; }
-    </style>
-""", unsafe_allow_html=True,
-)
+    html, body, [class*="css"] { 
+        font-family: 'Montserrat', sans-serif; 
+        color: #F3F4F6;
+    }
 
-NOME_ARQUIVO = "estoque_galpao_pro.json"
-ARQUIVO_USUARIOS = "usuarios_galpao.json"
-ARQUIVO_LOGS = "logs_auditoria.json"
-ARQUIVO_PEDIDOS = "pedidos_matriz.json"
-PASTA_BACKUP = "backups_estoque"
-PASTA_FOTOS = "fotos_vinhos"
-SENHA_DEV = "1980"
+    .stApp {
+        background-color: #111827;
+        color: #F3F4F6;
+    }
 
-if not os.path.exists(PASTA_BACKUP):
-    os.makedirs(PASTA_BACKUP)
-if not os.path.exists(PASTA_FOTOS):
-    os.makedirs(PASTA_FOTOS)
+    .stTextInput label, .stSelectbox label, .stNumberInput label, .stFileUploader label, p, span, label {
+        color: #FFFFFF !important;
+        font-weight: 600 !important;
+        font-size: 0.95rem !important;
+    }
 
-LISTA_CORREDORES = [f"Corredor {i:02d}" for i in range(1, 26)]
-LISTA_LOCAIS_TIPO = ["Pallet", "Prateleira"]
-LISTA_NUMEROS_LOCAL = [f"Item {i:02d}" for i in range(1, 26)]
-LISTA_LADOS = ["Direito", "Esquerdo", "Centro / Único"]
-OPCOES_CAIXA = ["Caixa com 12 garrafas", "Caixa com 6 garrafas", "Caixa com 3 garrafas", "Caixa com 2 garrafas", "Garrafa Avulsa (1 un)", "Outra quantidade"]
+    .app-header {
+        background: #1F2937;
+        padding: 20px;
+        border-radius: 16px;
+        margin-bottom: 20px;
+        border: 1px solid #374151;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    .app-title {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #FFFFFF;
+        margin: 0;
+    }
+    .app-subtitle {
+        font-size: 0.85rem;
+        color: #D1D5DB;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
 
-def obter_horario_brasilia():
-    fuso_brasilia = timezone(timedelta(hours=-3))
-    return datetime.now(fuso_brasilia)
+    .card-team {
+        background: #1F2937;
+        border: 1px solid #374151;
+        border-top: 4px solid #881337;
+        border-radius: 12px;
+        padding: 16px;
+        margin-bottom: 15px;
+        color: #FFFFFF;
+    }
 
-def obter_saudacao():
-    hora = obter_horario_brasilia().hour
-    if 0 <= hora < 12: return "Bom dia"
-    elif 12 <= hora < 18: return "Boa tarde"
-    else: return "Boa noite"
+    div.stButton > button:first-child {
+        background-color: #881337 !important;
+        color: #FFFFFF !important;
+        font-weight: 700 !important;
+        border-radius: 10px !important;
+        border: 1px solid #9F1239 !important;
+        padding: 15px 20px !important;
+        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        width: 100%;
+    }
+    div.stButton > button:first-child:hover {
+        background-color: #9F1239 !important;
+        border-color: #BE123C !important;
+    }
 
-def realizar_backup(nome):
-    if os.path.exists(nome):
-        ts = obter_horario_brasilia().strftime("%Y%m%d_%H%M%S")
-        shutil.copy(nome, os.path.join(PASTA_BACKUP, f"backup_{ts}_{nome}"))
+    .stTextInput input, .stSelectbox select, .stNumberInput input {
+        background-color: #374151 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #4B5563 !important;
+        border-radius: 8px !important;
+    }
+</style>
+""", unsafe_allow_html=True)
 
-def carregar_dados():
-    estoque = []
-    if os.path.exists(NOME_ARQUIVO):
+# -----------------------------------------------------------------------------
+# ARQUIVOS JSON E PERSISTÊNCIA
+# -----------------------------------------------------------------------------
+DATA_FILE = "jogadoras.json"
+PRESENCAS_FILE = "presencas.json"
+AVISOS_FILE = "avisos.json"
+FINANCE_FILE = "financeiro.json"
+ADMINS_FILE = "administradores.json"
+REGULAMENTO_FILE = "regulamento.json"
+SORTEIO_FILE = "sorteio.json"
+COMPROVANTES_FILE = "comprovantes.json"
+UPLOAD_DIR = "comprovantes_imgs"
+
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
+
+def carregar_dados(filename, default):
+    if os.path.exists(filename):
         try:
-            with open(NOME_ARQUIVO, "r", encoding="utf-8") as f: estoque = json.load(f)
-        except: pass
-    if not estoque:
-        estoque = [{"nome": "Campana Merlot", "tipo": "Tinto", "safra": "2024", "localizacao": "Corredor 01 - Pallet Item 01", "lado": "Direito", "caixa": "Caixa com 12 garrafas", "codigo_barras": "7891008116632", "foto": ""}]
-    return sorted(estoque, key=lambda x: x.get("nome", "").lower())
+            with open(filename, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return default
+    return default
 
-def salvar_dados(estoque):
-    estoque_ordenado = sorted(estoque, key=lambda x: x.get("nome", "").lower())
-    with open(NOME_ARQUIVO, "w", encoding="utf-8") as f: json.dump(estoque_ordenado, f, ensure_ascii=False, indent=4)
-    realizar_backup(NOME_ARQUIVO)
-
-def carregar_usuarios():
-    if os.path.exists(ARQUIVO_USUARIOS):
-        try:
-            with open(ARQUIVO_USUARIOS, "r", encoding="utf-8") as f: return json.load(f)
-        except: pass
-    return [{"nome": "Vagner Souza", "cargo": "Administrador", "senha": "1980"}]
-
-def salvar_usuarios(usuarios):
-    with open(ARQUIVO_USUARIOS, "w", encoding="utf-8") as f: json.dump(usuarios, f, ensure_ascii=False, indent=4)
-
-def carregar_logs():
-    if os.path.exists(ARQUIVO_LOGS):
-        try:
-            with open(ARQUIVO_LOGS, "r", encoding="utf-8") as f: return json.load(f)
-        except: pass
-    return []
-
-def registrar_log(usuario, acao, detalhes):
-    logs = carregar_logs()
-    logs.insert(0, {"data_hora": obter_horario_brasilia().strftime("%d/%m/%Y %H:%M:%S"), "usuario": usuario, "acao": acao, "detalhes": detalhes})
-    with open(ARQUIVO_LOGS, "w", encoding="utf-8") as f: json.dump(logs, f, ensure_ascii=False, indent=4)
-
-def carregar_pedidos():
-    if os.path.exists(ARQUIVO_PEDIDOS):
-        try:
-            with open(ARQUIVO_PEDIDOS, "r", encoding="utf-8") as f: return json.load(f)
-        except: pass
-    return []
-
-def salvar_pedidos(pedidos):
-    with open(ARQUIVO_PEDIDOS, "w", encoding="utf-8") as f: json.dump(pedidos, f, ensure_ascii=False, indent=4)
-
-def gerar_qr_code_api(texto):
-    return f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(texto)}"
-
-def interpretar_linha_pedido(texto_linha):
-    texto = texto_linha.strip()
-    safra = ""
-    quantidade = 1
-    
-    anos = re.findall(r'\b(20\d{2})\b', texto)
-    if anos:
-        safra = anos[0]
-        texto_limpo = texto.replace(safra, "")
-    else:
-        texto_limpo = texto
-
-    match_qtd = re.search(r'(?:/|\bcaixas?|\bqt[d]?\.?)\s*(\d+)', texto_limpo, re.IGNORECASE)
-    if match_qtd:
-        quantidade = int(match_qtd.group(1))
-        texto_limpo = texto_limpo.replace(match_qtd.group(0), "")
-    else:
-        numeros_soltos = re.findall(r'\b(\d+)\b', texto_limpo)
-        if numeros_soltos and numeros_soltos[-1] != safra:
-            quantidade = int(numeros_soltos[-1])
-            texto_limpo = texto_limpo.replace(numeros_soltos[-1], "")
-
-    texto_limpo = re.sub(r'\bcaixas?\b', '', texto_limpo, flags=re.IGNORECASE)
-    nome = re.sub(r'[/\|\-\–]+', '', texto_limpo).strip().title()
-    return {"nome": nome, "safra": safra, "quantidade": quantidade, "separado": False, "qtd_separada": 0}
-
-def extrair_pedidos_de_arquivo(arq):
-    itens = []
-    ext = arq.name.split('.')[-1].lower()
+def salvar_dados(filename, data):
     try:
-        if ext in ['xlsx', 'xls']:
-            df = pd.read_excel(arq)
-            for _, row in df.iterrows():
-                nome_bruto = str(row.get('Nome', row.iloc[0] if len(row) > 0 else '')).strip()
-                if nome_bruto and nome_bruto != 'Nan':
-                    safra_col = str(row.get('Safra', row.iloc[1] if len(row) > 1 else '')).strip()
-                    qtd_col = row.get('Quantidade', row.iloc[2] if len(row) > 2 else 1)
-                    try: qtd = int(qtd_col) if pd.notnull(qtd_col) else 1
-                    except: qtd = 1
-                    
-                    itens.append({
-                        "nome": nome_bruto.title(), 
-                        "safra": safra_col if safra_col != 'Nan' else '', 
-                        "quantidade": qtd, 
-                        "separado": False, 
-                        "qtd_separada": 0
-                    })
-        elif ext == 'txt':
-            linhas = [l.strip() for l in arq.getvalue().decode("utf-8").split("\n") if l.strip()]
-            for l in linhas:
-                itens.append(interpretar_linha_pedido(l))
-    except: pass
-    return itens
+        with open(filename, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+    except Exception:
+        pass
 
-def extrair_linhas_de_arquivo(arq):
-    linhas = []
-    ext = arq.name.split('.')[-1].lower()
-    try:
-        if ext in ['xlsx', 'xls']:
-            df = pd.read_excel(arq)
-            for c in df.columns:
-                for v in df[c].dropna():
-                    if str(v).strip(): linhas.append(str(v).strip().title())
-        elif ext == 'docx':
-            doc = Document(arq)
-            for p in doc.paragraphs:
-                if p.text.strip(): linhas.append(p.text.strip().title())
-            for t in doc.tables:
-                for row in t.rows:
-                    for cell in row.cells:
-                        if cell.text.strip(): linhas.append(cell.text.strip().title())
-        elif ext == 'txt':
-            linhas = [l.strip().title() for l in arq.getvalue().decode("utf-8").split("\n") if l.strip()]
-    except: pass
-    return linhas
+def obter_nome_p(p):
+    return p["nome"] if isinstance(p, dict) else p
 
-def extrair_numero_corredor(localizacao):
-    nums = re.findall(r'\d+', localizacao)
-    if nums:
-        return int(nums[0])
-    return 999
+def obter_hora_p(p):
+    return p.get("hora", "") if isinstance(p, dict) else ""
 
-def criar_documento_word_pedido(pedido):
-    doc = Document()
-    doc.add_heading(f"Relatório de Conferência de Pedido", level=1)
-    doc.add_paragraph(f"Identificação: {pedido['id']}")
-    doc.add_paragraph(f"Data de Criação: {pedido['data']}")
-    doc.add_paragraph(f"Status Atual: {pedido.get('status', 'Pendente')}")
-    doc.add_heading("Itens do Pedido:", level=2)
-    
-    for i, item in enumerate(pedido['itens'], 1):
-        status_txt = "SEPARADO" if item.get('separado') else "PENDENTE"
-        p_text = f"{i}. {item['nome']} (Safra: {item.get('safra', 'N/A')}) - Qtd Pedida: {item['quantidade']} | Qtd Separada: {item.get('qtd_separada', 0)} [{status_txt}]"
-        doc.add_paragraph(p_text)
-        
-    f_stream = io.BytesIO()
-    doc.save(f_stream)
-    f_stream.seek(0)
-    return f_stream
+def obter_tipo_p(p):
+    return p.get("tipo", "Avulso") if isinstance(p, dict) else "Avulso"
 
-def componente_leitor_barcode(chave_sessao):
-    html_code = f"""
-    <div style="text-align: center;">
-        <div id="reader_{chave_sessao}" style="width: 100%; max-width: 400px; margin: auto; border-radius: 12px; overflow: hidden;"></div>
-        <p id="resultado_{chave_sessao}" style="font-weight: bold; color: #7A1C2E; margin-top: 8px;"></p>
+# -----------------------------------------------------------------------------
+# INICIALIZAÇÃO DO SESSION STATE
+# -----------------------------------------------------------------------------
+if "jogadoras" not in st.session_state:
+    st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
+if "presencas" not in st.session_state:
+    st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
+if "financeiro" not in st.session_state:
+    st.session_state.financeiro = carregar_dados(FINANCE_FILE, [
+        {"mes": "Janeiro/2026", "tipo": "Receita", "descricao": "Mensalidades", "valor": 300.00},
+        {"mes": "Janeiro/2026", "tipo": "Despesa", "descricao": "Aluguel da Quadra", "valor": 200.00}
+    ])
+if "comprovantes" not in st.session_state:
+    st.session_state.comprovantes = carregar_dados(COMPROVANTES_FILE, [])
+if "administradores" not in st.session_state:
+    st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980"}])
+if "avisos" not in st.session_state:
+    st.session_state.avisos = carregar_dados(AVISOS_FILE, {"vencimento": "Todo dia 10", "pix": "peladinhafc@email.com", "limite_vagas": 15})
+if "regulamento" not in st.session_state:
+    st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
+        {"topico": "📌 1. Prioridade de Mensalistas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda-feira têm prioridade nas 15 vagas."},
+        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após as 17:00, se sobrarem vagas, sobem automaticamente."},
+        {"topico": "⏰ 3. Fechamento da Lista", "regrinha": "A lista fecha rigidamente às 18:00 de toda segunda-feira."},
+        {"topico": "🤝 4. Boa Convivência", "regrinha": "Respeito mútuo em campo e fora dele é obrigatório para todas as atletas."}
+    ])
+if "sorteio_oficial" not in st.session_state:
+    st.session_state.sorteio_oficial = carregar_dados(SORTEIO_FILE, {})
+
+if "pagina_atual" not in st.session_state:
+    st.session_state.pagina_atual = "login"
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = None
+if "perfil_logado" not in st.session_state:
+    st.session_state.perfil_logado = None
+
+SENHA_MESTRE_DEV = "1980"
+
+# -----------------------------------------------------------------------------
+# TELA DE LOGIN / CADASTRO / DEV
+# -----------------------------------------------------------------------------
+if st.session_state.pagina_atual == "login":
+    st.markdown("""
+    <div class='app-header' style='text-align: center;'>
+        <div class='app-subtitle'>peladinha fc</div>
+        <div class='app-title'>⚽ Gestão Inteligente & Resenha</div>
     </div>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script>
-      function onScanSuccess(decodedText, decodedResult) {{
-        document.getElementById("resultado_{chave_sessao}").innerText = "Lido com sucesso: " + decodedText;
-        const url = new URL(window.parent.location.href);
-        url.searchParams.set('scanned_{chave_sessao}', decodedText);
-        window.parent.history.replaceState({{}}, '', url);
-        if (window.html5QrCode_{chave_sessao}) {{
-            window.html5QrCode_{chave_sessao}.stop().catch(err => {{}});
-        }}
-      }}
-      try {{
-          const html5QrCode = new Html5Qrcode("reader_{chave_sessao}");
-          window.html5QrCode_{chave_sessao} = html5QrCode;
-          html5QrCode.start({{ facingMode: "environment" }}, {{ fps: 10, qrbox: {{ width: 250, height: 150 }} }}, onScanSuccess).catch(err => {{}});
-      }} catch (e) {{}}
-    </script>
-    """
-    components.html(html_code, height=320)
+    """, unsafe_allow_html=True)
 
-if "usuarios" not in st.session_state:
-    st.session_state.usuarios = carregar_usuarios()
+    tab_entrar, tab_cad_jogadora, tab_cad_admin, tab_dev = st.tabs(["🔑 Entrar", "📝 Criar Conta", "👑 Criar Conta Admin", "⚙️ Desenvolvedor"])
 
-st.session_state.estoque = carregar_dados()
-st.session_state.pedidos = carregar_pedidos()
-
-if "menu_atual" not in st.session_state: st.session_state.menu_atual = "🏠 Home"
-if "termo_busca" not in st.session_state: st.session_state.termo_busca = ""
-if "codigo_capturado_cadastro" not in st.session_state: st.session_state.codigo_capturado_cadastro = ""
-if "codigos_bipados_conferencia" not in st.session_state: st.session_state.codigos_bipados_conferencia = {}
-
-qp = st.query_params
-
-for key, val in list(qp.items()):
-    if key.startswith("scanned_"):
-        sess_key = key.replace("scanned_", "")
-        valor_limpo = str(val).strip()
-        
-        if sess_key == "cad_barcode":
-            st.session_state.codigo_capturado_cadastro = valor_limpo
-        elif sess_key == "scanner_geral":
-            st.session_state.termo_busca = valor_limpo
-            st.session_state.menu_atual = "Filtros"
-        else:
-            st.session_state.codigos_bipados_conferencia[sess_key] = valor_limpo
-            
-        del st.query_params[key]
-        st.rerun()
-
-user_url = qp.get("user", None)
-cargo_url = qp.get("cargo", "Operador")
-
-if "usuario_logado" not in st.session_state or st.session_state.usuario_logado is None:
-    if user_url:
-        st.session_state.usuario_logado = {"nome": user_url, "cargo": cargo_url}
-    else:
-        st.session_state.usuario_logado = None
-
-if st.session_state.usuario_logado is None:
-    st.write("")
-    _, cc, _ = st.columns([1, 1.3, 1])
-    with cc:
-        if os.path.exists("imagem premium.jpeg"):
-            _, ci, _ = st.columns([1, 1.8, 1])
-            with ci: st.image("imagem premium.jpeg", width=190)
-        st.markdown("<h1 style='text-align: center; color: #7A1C2E; font-size: 1.6rem;'>PREMIUM WINES GALPÃO</h1>", unsafe_allow_html=True)
-        
-        tab1, tab2, tab3 = st.tabs(["🔑 Entrar", "👤 Criar Conta", "⚙️ Dev"])
-        with tab1:
-            with st.form("l_form"):
-                u = st.text_input("Usuário").strip().title()
-                p = st.text_input("Senha", type="password").strip()
-                if st.form_submit_button("ENTRAR", use_container_width=True):
-                    user = next((x for x in st.session_state.usuarios if x['nome'].lower() == u.lower() and x['senha'] == p), None)
-                    if user:
-                        st.session_state.usuario_logado = user
-                        st.query_params["user"] = user['nome']
-                        st.query_params["cargo"] = user.get('cargo', 'Operador')
-                        st.rerun()
-                    else: st.error("Dados incorretos.")
-        with tab2:
-            with st.form("c_form"):
-                n = st.text_input("Nome").strip().title()
-                s = st.text_input("Senha", type="password").strip()
-                if st.form_submit_button("CADASTRAR", use_container_width=True):
-                    if n and s:
-                        novo = {"nome": n, "cargo": "Operador", "senha": s}
-                        st.session_state.usuarios.append(novo)
-                        salvar_usuarios(st.session_state.usuarios)
-                        st.session_state.usuario_logado = novo
-                        st.query_params["user"] = novo['nome']
-                        st.query_params["cargo"] = novo['cargo']
-                        st.rerun()
-                    else: st.error("Preencha tudo.")
-        with tab3:
-            with st.form("d_form"):
-                sp = st.text_input("Senha Mestra", type="password")
-                if st.form_submit_button("DEV", use_container_width=True):
-                    if sp == SENHA_DEV:
-                        dev_user = {"nome": "Dev", "cargo": "Desenvolvedor"}
-                        st.session_state.usuario_logado = dev_user
-                        st.query_params["user"] = "Dev"
-                        st.query_params["cargo"] = "Desenvolvedor"
-                        st.rerun()
-                    else: st.error("Senha incorreta.")
-    st.stop()
-
-ct1, ct2, ct3 = st.columns([3, 2, 1])
-with ct1: st.markdown(f"🍷 <b>PREMIUM WINES</b> | Usuário: {st.session_state.usuario_logado['nome']} ({st.session_state.usuario_logado.get('cargo', 'Operador')})", unsafe_allow_html=True)
-with ct2:
-    if st.session_state.menu_atual != "🏠 Home":
-        if st.button("⬅️ Voltar ao Menu", use_container_width=True): st.session_state.menu_atual = "🏠 Home"; st.rerun()
-with ct3:
-    if st.button("🚪 Sair", use_container_width=True):
-        st.session_state.usuario_logado = None
-        st.query_params.clear()
-        st.session_state.menu_atual = "🏠 Home"
-        st.rerun()
-
-st.markdown("---")
-
-if st.session_state.menu_atual == "🏠 Home":
-    st.markdown(f"<p style='text-align: center; color: #666; margin-bottom: 0px;'>{obter_saudacao()},</p>", unsafe_allow_html=True)
-    st.markdown(f"<h1 style='text-align: center; color: #7A1C2E; margin-top: 0px;'>{st.session_state.usuario_logado['nome']}! 👋</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center; color: #444; font-size: 0.95rem; margin-bottom: 25px;'>Escolha abaixo a opção desejada para gerenciar o galpão:</p>", unsafe_allow_html=True)
-    
-    c1, c2, c3 = st.columns(3)
-    with c1:
-        if st.button("📦 Lista de Pedidos (Matriz)", use_container_width=True): st.session_state.menu_atual = "PedidosMatriz"; st.rerun()
-    with c2:
-        if st.button("🔍 Buscar / Filtros", use_container_width=True): st.session_state.menu_atual = "Filtros"; st.rerun()
-    with c3:
-        if st.button("🗺️ Mapa de Separação", use_container_width=True): st.session_state.menu_atual = "MapaSeparacao"; st.rerun()
-    
-    st.write("")
-    c4, c5, c6 = st.columns(3)
-    with c4:
-        if st.button("🍷 Estoque Completo", use_container_width=True): st.session_state.menu_atual = "Estoque"; st.rerun()
-    with c5:
-        if st.button("➕ Cadastrar Vinho", use_container_width=True): st.session_state.menu_atual = "Cadastrar"; st.rerun()
-    with c6:
-        if st.button("📱 Gerar QR Code", use_container_width=True): st.session_state.menu_atual = "GerarQR"; st.rerun()
-        
-    st.write("")
-    c7, c8, c9 = st.columns(3)
-    with c7:
-        if st.button("📷 Escanear Local", use_container_width=True): st.session_state.menu_atual = "Scanner"; st.rerun()
-    with c8:
-        if st.button("✏️ Editar Vinho", use_container_width=True): st.session_state.menu_atual = "Editar"; st.rerun()
-    with c9:
-        if st.button("📋 Histórico", use_container_width=True): st.session_state.menu_atual = "Historico"; st.rerun()
-        
-    if st.session_state.usuario_logado.get('cargo') == "Desenvolvedor":
-        st.write("")
-        if st.button("⚙️ Gerenciar Contas", use_container_width=True):
-            st.session_state.menu_atual = "GerenciarUsuarios"
-            st.rerun()
-
-elif st.session_state.menu_atual == "PedidosMatriz":
-    st.subheader("📦 Gerenciamento de Pedidos e Conferência Antierros")
-    
-    aba_ped1, aba_ped2 = st.tabs(["📋 Enviar/Novo Pedido", "🔍 Roteiro e Leitor de Caixa (Antierros)"])
-    
-    with aba_ped1:
-        st.markdown("Envie a lista enviada pela matriz (Excel ou TXT) ou digite livremente.")
-        st.info("ℹ️ Os pedidos salvos ficam guardados automaticamente no arquivo **pedidos_matriz.json** na pasta do sistema no computador.")
-        
-        with st.form("form_novo_pedido"):
-            id_pedido = st.text_input("Identificação do Pedido / Loja", value=f"Pedido #{obter_horario_brasilia().strftime('%d/%m %H:%M')}")
-            arq_pedido = st.file_uploader("Arquivo de Pedido (Excel ou TXT)", type=["xlsx", "xls", "txt"])
-            texto_manual_pedido = st.text_area("Ex: Campana Merlot 2024 /05 Caixas", placeholder="Campana Merlot 2024 / 05 Caixas")
-            
-            cadastrar_clicado = st.form_submit_button("💾 Salvar Pedido no Sistema")
-            
-            if cadastrar_clicado:
-                itens_novos = []
-                if arq_pedido is not None:
-                    itens_novos = extrair_pedidos_de_arquivo(arq_pedido)
-                if texto_manual_pedido.strip():
-                    for linha in texto_manual_pedido.split("\n"):
-                        if linha.strip():
-                            itens_novos.append(interpretar_linha_pedido(linha))
-                
-                if itens_novos:
-                    novo_registro_pedido = {
-                        "id": id_pedido,
-                        "data": obter_horario_brasilia().strftime("%d/%m/%Y %H:%M"),
-                        "itens": itens_novos,
-                        "status": "Pendente"
-                    }
-                    st.session_state.pedidos.append(novo_registro_pedido)
-                    salvar_pedidos(st.session_state.pedidos)
-                    registrar_log(st.session_state.usuario_logado['nome'], "Novo Pedido Matriz", id_pedido)
-                    st.success("Pedido salvo com sucesso no computador!")
+    with tab_entrar:
+        st.subheader("Entrar no Sistema")
+        with st.form("form_login_geral"):
+            l_user = st.text_input("Usuário / Login", key="log_user")
+            l_pass = st.text_input("Senha", type="password", key="log_pass")
+            if st.form_submit_button("ENTRAR"):
+                admin_encontrado = next((adm for adm in st.session_state.administradores if adm.get("login") == l_user and adm.get("senha") == l_pass), None)
+                if admin_encontrado:
+                    st.session_state.usuario_logado = admin_encontrado["nome"]
+                    st.session_state.perfil_logado = "Admin"
+                    st.session_state.pagina_atual = "dashboard"
                     st.rerun()
                 else:
-                    st.error("Adicione itens por arquivo ou texto.")
-        
-        if st.session_state.pedidos:
-            st.markdown("---")
-            st.markdown("### 📥 Baixar Pedido no Aparelho (Celular ou Computador)")
-            st.markdown("Se você estiver abrindo pelo **celular** ou quiser uma cópia direta no seu dispositivo, baixe o arquivo JSON abaixo:")
-            
-            dados_json_str = json.dumps(st.session_state.pedidos, ensure_ascii=False, indent=4)
-            st.download_button(
-                label="📥 Baixar arquivo de pedidos (.json)",
-                data=dados_json_str,
-                file_name=f"pedidos_matriz_{obter_horario_brasilia().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json",
-                use_container_width=True
-            )
-                    
-    with aba_ped2:
-        if not st.session_state.pedidos:
-            st.info("Nenhum pedido cadastrado.")
-        else:
-            pedidos_nomes = [f"{p['id']} ({p['data']}) - Status: {p.get('status', 'Pendente')}" for p in st.session_state.pedidos]
-            escolha_ped_str = st.selectbox("Selecione o Pedido:", pedidos_nomes)
-            idx_ped = pedidos_nomes.index(escolha_ped_str)
-            pedido_atual = st.session_state.pedidos[idx_ped]
-            
-            col_info_ped, col_del_ped = st.columns([3, 1])
-            with col_info_ped:
-                st.markdown(f"### Pedido: {pedido_atual['id']}")
-            with col_del_ped:
-                if st.button("🗑️ Excluir Pedido", use_container_width=True):
-                    id_removido = pedido_atual['id']
-                    st.session_state.pedidos.pop(idx_ped)
-                    salvar_pedidos(st.session_state.pedidos)
-                    registrar_log(st.session_state.usuario_logado['nome'], "Excluir Pedido", id_removido)
-                    st.success("Pedido excluído com sucesso!")
-                    st.rerun()
-            
-            st.markdown("---")
-            docx_stream = criar_documento_word_pedido(pedido_atual)
-            st.download_button(
-                label="🖨️ Baixar Pedido em Word (.docx) para Imprimir ou Enviar",
-                data=docx_stream,
-                file_name=f"pedido_{re.sub(r'[^a-zA-Z0-9]', '_', pedido_atual['id'])}.docx",
-                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                use_container_width=True
-            )
-            
-            ordem_separacao = st.radio("Direção da Rota pelos Corredores:", ["Crescente (Corredor 01 ao 25)", "Decrescente (Corredor 25 ao 01)"], horizontal=True)
-            reversa = True if "Decrescente" in ordem_separacao else False
-            
-            itens_com_local = []
-            for item in pedido_atual['itens']:
-                nome_pedido_limpo = item['nome'].lower()
-                safra_pedido = str(item.get('safra', '')).strip()
-                
-                vinho_encontrado = None
-                for v in st.session_state.estoque:
-                    v_nome = v.get('nome', '').lower()
-                    v_safra = str(v.get('safra', '')).strip()
-                    if v_nome in nome_pedido_limpo or nome_pedido_limpo in v_nome:
-                        if safra_pedido and v_safra:
-                            if safra_pedido == v_safra:
-                                vinho_encontrado = v
-                                break
+                    user_found = next((j for j in st.session_state.jogadoras if j.get("login") == l_user and j.get("senha") == l_pass), None)
+                    if user_found:
+                        if user_found.get("status") == "Pendente":
+                            st.warning("Seu cadastro ainda aguarda aprovação de um Administrador.")
                         else:
-                            vinho_encontrado = v
-                            break
-                if not vinho_encontrado:
-                    vinho_encontrado = next((v for v in st.session_state.estoque if v.get('nome', '').lower() in nome_pedido_limpo), None)
-                
-                loc = vinho_encontrado.get('localizacao', 'Corredor 01 - Pallet Item 01') if vinho_encontrado else 'Não cadastrado'
-                corr_num = extrair_numero_corredor(loc)
-                
-                itens_com_local.append({
-                    "item_original": item,
-                    "vinho_estoque": vinho_encontrado,
-                    "localizacao": loc,
-                    "corredor_num": corr_num
-                })
-                
-            itens_ordenados = sorted(itens_com_local, key=lambda x: x['corredor_num'], reverse=reversa)
-            
-            st.markdown("---")
-            st.markdown("#### 🎯 Roteiro e Bipe de Caixas (Antierros)")
-            
-            todos_separados = True
-            for i, obj in enumerate(itens_ordenados):
-                item = obj['item_original']
-                vinho_est = obj['vinho_estoque']
-                loc = obj['localizacao']
-                
-                status_cor = "🟢" if item.get('separado') else "⏳"
-                if not item.get('separado'): todos_separados = False
-                
-                key_bip_state = f"bip_val_{idx_ped}_{i}"
-                if key_bip_state not in st.session_state.codigos_bipados_conferencia:
-                    st.session_state.codigos_bipados_conferencia[key_bip_state] = ""
-
-                with st.expander(f"{status_cor} {item['nome']} {item.get('safra', '')} | Qtd: {item['quantidade']} | 📍 {loc}"):
-                    if vinho_est:
-                        codigo_cadastrado_sistema = str(vinho_est.get('codigo_barras', '')).strip()
-                        
-                        st.markdown(f"**Galpão:** Safra: **{vinho_est.get('safra')}** | Local: **{vinho_est.get('localizacao')}**")
-                        st.markdown(f"C. Barras Oficial Cadastrado: `{codigo_cadastrado_sistema if codigo_cadastrado_sistema else 'NÃO CADASTRADO'}`")
-                        
-                        st.markdown("---")
-                        st.markdown("📷 **1º Passo: Bipe o código de barras da caixa**")
-                        bip_caixa = st.text_input("Código de barras da caixa:", value=st.session_state.codigos_bipados_conferencia[key_bip_state], key=f"bip_txt_{idx_ped}_{i}")
-                        if bip_caixa != st.session_state.codigos_bipados_conferencia[key_bip_state]:
-                            st.session_state.codigos_bipados_conferencia[key_bip_state] = bip_caixa
-
-                        componente_leitor_barcode(key_bip_state)
-
-                        st.markdown("---")
-                        st.markdown("📦 **2º Passo: Confirme a quantidade e finalize o item**")
-                        qtd_informada = st.number_input("Quantidade que está levando:", min_value=1, value=item.get('quantidade', 1), key=f"qtd_inf_{idx_ped}_{i}")
-
-                        pode_avancar = True
-                        if not codigo_cadastrado_sistema:
-                            st.warning("⚠️ Este vinho não possui código de barras cadastrado no sistema. A conferência será feita apenas por validação visual/manual.")
-                        elif bip_caixa.strip() != codigo_cadastrado_sistema:
-                            pode_avancar = False
-                            if bip_caixa.strip():
-                                st.error(f"❌ **ERRO DE CONFERÊNCIA!** O código bipado (`{bip_caixa}`) NÃO corresponde ao cadastro deste vinho (`{codigo_cadastrado_sistema}`).")
-
-                        if st.button(f"✅ Confirmar Item #{i+1}", key=f"btn_sep_{idx_ped}_{i}"):
-                            if not pode_avancar:
-                                st.error("❌ Impossível confirmar: O código de barras bipado está incorreto!")
-                            else:
-                                item['separado'] = True
-                                item['qtd_separada'] = qtd_informada
-                                salvar_pedidos(st.session_state.pedidos)
-                                registrar_log(st.session_state.usuario_logado['nome'], "Separar Item Pedido", f"{item['nome']}")
-                                st.success("Item confirmado com sucesso!")
-                                st.rerun()
+                            st.session_state.usuario_logado = user_found["nome"]
+                            st.session_state.perfil_logado = "Jogadora"
+                            st.session_state.pagina_atual = "dashboard"
+                            st.rerun()
                     else:
-                        st.error("❌ Vinho não encontrado no estoque.")
+                        st.error("Usuário ou senha incorretos!")
 
-            st.markdown("---")
-            if todos_separados:
-                st.success("🎉 Pedido 100% separado e conferido!")
-                
-                if st.button("💾 Finalizar e Arquivar Pedido", use_container_width=True, key="btn_finalizar_pedido_ok"):
-                    pedido_atual['status'] = "Concluído"
-                    salvar_pedidos(st.session_state.pedidos)
-                    registrar_log(st.session_state.usuario_logado['nome'], "Concluir Pedido", pedido_atual['id'])
-                    st.success("Pedido finalizado e salvo com sucesso!")
+    with tab_cad_jogadora:
+        st.subheader("Cadastro de Nova Atleta")
+        with st.form("form_cad_jog", clear_on_submit=True):
+            c_nome = st.text_input("Seu Nome Completo *")
+            c_nasc = st.text_input("Nascimento (DD/MM) *", placeholder="Ex: 15/05")
+            c_tipo = st.selectbox("Tipo:", ["Avulso", "Mensalista"])
+            c_user = st.text_input("Login *")
+            c_pass = st.text_input("Senha *", type="password")
+            if st.form_submit_button("CADASTRAR ATLETA"):
+                if c_nome and c_user and c_pass:
+                    if any(j.get("login") == c_user.strip() for j in st.session_state.jogadoras):
+                        st.error("Este login já está em uso!")
+                    else:
+                        st.session_state.jogadoras.append({
+                            "nome": c_nome.strip(), "nascimento": c_nasc.strip(),
+                            "login": c_user.strip(), "senha": c_pass.strip(),
+                            "tipo": c_tipo, "status": "Pendente", "quitado": "Não"
+                        })
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success("Cadastro realizado com sucesso! O Administrador recebeu sua solicitação.")
+                else:
+                    st.error("Preencha todos os campos obrigatórios!")
+
+    with tab_cad_admin:
+        st.subheader("Solicitar Conta Administradora")
+        with st.form("form_cad_adm", clear_on_submit=True):
+            a_nome = st.text_input("Nome do Administrador *")
+            a_user = st.text_input("Login Admin *")
+            a_pass = st.text_input("Senha Admin *", type="password")
+            if st.form_submit_button("CADASTRAR ADMIN"):
+                if a_nome and a_user and a_pass:
+                    if any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
+                        st.error("Login de admin já existe!")
+                    else:
+                        st.session_state.administradores.append({
+                            "nome": a_nome.strip(), "login": a_user.strip(), "senha": a_pass.strip()
+                        })
+                        salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                        st.success("Administrador cadastrado com sucesso!")
+                else:
+                    st.error("Preencha todos os campos!")
+
+    with tab_dev:
+        st.subheader("Acesso Restrito ao Desenvolvedor")
+        with st.form("form_dev_login"):
+            d_pass = st.text_input("Senha Mestre do Desenvolvedor", type="password")
+            if st.form_submit_button("ENTRAR COMO DEV"):
+                if d_pass == SENHA_MESTRE_DEV:
+                    st.session_state.usuario_logado = "Desenvolvedor"
+                    st.session_state.perfil_logado = "Dev"
+                    st.session_state.pagina_atual = "dashboard"
+                    st.rerun()
+                else:
+                    st.error("Senha mestre incorreta!")
+
+# -----------------------------------------------------------------------------
+# PAINEL PRINCIPAL (DASHBOARD E TELAS)
+# -----------------------------------------------------------------------------
+else:
+    st.markdown(f"""
+    <div class='app-header'>
+        <div class='app-subtitle'>peladinha fc — Olá, <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</div>
+        <div class='app-title'>Painel de Gestão</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if st.session_state.pagina_atual != "dashboard":
+        if st.button("⬅️ Voltar ao Menu Principal"):
+            st.session_state.pagina_atual = "dashboard"
+            st.rerun()
+        st.markdown("---")
+
+    if st.session_state.pagina_atual == "dashboard":
+        cards = [
+            ("📜 Regulamento", "regulamento"),
+            ("📌 Lista de Presença", "lista"),
+            ("🔀 Sorteio de Times", "sorteio"),
+            ("📋 Elenco de Jogadoras", "elenco"),
+            ("💸 Pagamento Pix", "pagamento")
+        ]
+
+        if st.session_state.perfil_logado in ["Admin", "Dev"]:
+            cards.append(("📊 Fluxo de Caixa", "caixa"))
+            cards.append(("🛠️ Gerenciamento Geral", "gerenciamento"))
+
+        cols = st.columns(2)
+        for i, (titulo, rota) in enumerate(cards):
+            with cols[i % 2]:
+                if st.button(titulo, use_container_width=True):
+                    st.session_state.pagina_atual = rota
                     st.rerun()
 
-elif st.session_state.menu_atual == "Filtros":
-    st.subheader("🔍 Busca por Local ou Nome")
-    termo_digitado = st.text_input("Filtrar por nome ou corredor/pallet:", value=st.session_state.termo_busca)
-    tp = termo_digitado.strip().lower()
-    if tp:
-        res = [v for v in st.session_state.estoque if tp in v.get("nome", "").lower() or tp in v.get("localizacao", "").lower() or tp in str(v.get("codigo_barras", "")).lower()]
-        if res:
-            for v in sorted(res, key=lambda x: x.get("nome", "").lower()):
-                st.markdown(f"<div class='wine-card'><div class='wine-title'>🍷 {v.get('nome')} ({v.get('safra')})</div><p>Tipo: <b>{v.get('tipo', 'N/A')}</b><br>C. Barras: <code>{v.get('codigo_barras', 'S/N')}</code><br><span class='badge-pallet-grande'>📍 {v.get('localizacao')}</span></p></div>", unsafe_allow_html=True)
+        st.markdown("---")
+        if st.button("🚪 Sair da Conta", use_container_width=True):
+            st.session_state.usuario_logado = None
+            st.session_state.perfil_logado = None
+            st.session_state.pagina_atual = "login"
+            st.rerun()
+
+    elif st.session_state.pagina_atual == "regulamento":
+        st.subheader("📜 Regulamento Interno & Boa Convivência")
+        for reg in st.session_state.regulamento:
+            st.markdown(f"<div class='card-team'><h4 style='color: #F43F5E;'>{reg['topico']}</h4><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
+
+    elif st.session_state.pagina_atual == "lista":
+        st.subheader("📌 Lista de Presença e Confirmações")
+        limite = st.session_state.avisos.get("limite_vagas", 15)
+        
+        lista_atual = sorted(st.session_state.presencas, key=lambda x: x.get("dt_confirmacao", x.get("hora", "")))
+        
+        mensalistas = []
+        avulsas = []
+        
+        for p in lista_atual:
+            tipo = obter_tipo_p(p)
+            dt_conf_str = p.get("dt_confirmacao", "")
+            atrasada_mensalista = False
+            if dt_conf_str:
+                try:
+                    dt_obj = datetime.fromisoformat(dt_conf_str)
+                    if dt_obj.weekday() == 0 and dt_obj.hour >= 17:
+                        atrasada_mensalista = True
+                except:
+                    pass
+                    
+            if tipo == "Mensalista" and not atrasada_mensalista:
+                mensalistas.append(p)
+            else:
+                avulsas.append(p)
+            
+        confirmadas = mensalistas[:limite]
+        espera = mensalistas[limite:] + avulsas
+
+        col_l1, col_l2 = st.columns(2)
+        with col_l1:
+            st.write(f"### 🟢 Confirmadas ({len(confirmadas)}/{limite})")
+            if not confirmadas:
+                st.info("Nenhuma atleta confirmada.")
+            for i, p in enumerate(confirmadas, 1):
+                st.markdown(f"<div class='card-team'><b>{i}.</b> {obter_nome_p(p)} `[{obter_tipo_p(p)}]` — <i>{obter_hora_p(p)}</i></div>", unsafe_allow_html=True)
+
+            st.write(f"### ⏳ Fila de Espera ({len(espera)})")
+            if not espera:
+                st.info("Fila de espera vazia.")
+            for i, p in enumerate(espera, 1):
+                st.markdown(f"<div class='card-team'><b>{i}º:</b> {obter_nome_p(p)} `[{obter_tipo_p(p)}]`</div>", unsafe_allow_html=True)
+
+        with col_l2:
+            if st.session_state.perfil_logado in ["Admin", "Dev"]:
+                st.write("### 👑 Ações do Administrador")
+                
+                # Inclusão de Jogadora Cadastrada
+                with st.form("form_add_manual"):
+                    st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+                    atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastradas"])
+                    if st.form_submit_button("Incluir do Elenco"):
+                        if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
+                            dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == atleta_escolhida), None)
+                            st.session_state.presencas.append({
+                                "nome": atleta_escolhida, "hora": hoje_dt.strftime("%H:%M"),
+                                "tipo": dados_j.get("tipo", "Avulso") if dados_j else "Avulso",
+                                "dt_confirmacao": hoje_dt.isoformat()
+                            })
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            st.success(f"{atleta_escolhida} incluída com sucesso!")
+                            st.rerun()
+
+                # Inclusão de Atleta Externa / Sem Cadastro
+                with st.form("form_add_externa"):
+                    st.write("<b>Adicionar Convidada / Avulsa (Sem Cadastro)</b>", unsafe_allow_html=True)
+                    nome_externa = st.text_input("Nome da Convidada")
+                    tipo_externa = st.selectbox("Tipo da Convidada", ["Avulso", "Mensalista"], key="tipo_ext")
+                    if st.form_submit_button("Incluir Convidada"):
+                        if nome_externa.strip():
+                            if not any(obter_nome_p(p) == nome_externa.strip() for p in st.session_state.presencas):
+                                st.session_state.presencas.append({
+                                    "nome": nome_externa.strip(), "hora": hoje_dt.strftime("%H:%M"),
+                                    "tipo": tipo_externa, "dt_confirmacao": hoje_dt.isoformat()
+                                })
+                                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                                st.success(f"Convidada {nome_externa.strip()} incluída!")
+                                st.rerun()
+                            else:
+                                st.error("Esta atleta já está na lista.")
+                        else:
+                            st.error("Informe o nome da convidada.")
+
+                st.write("### Remover da Lista:")
+                for p in st.session_state.presencas:
+                    c_nome = obter_nome_p(p)
+                    if st.button(f"Remover {c_nome}", key=f"rem_l_{c_nome}"):
+                        st.session_state.presencas = [item for item in st.session_state.presencas if obter_nome_p(item) != c_nome]
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.rerun()
+            else:
+                st.write("### ✍️ Gerenciar Minha Presença")
+                if st.session_state.perfil_logado == "Jogadora":
+                    j_nome = st.session_state.usuario_logado
+                    dados_j = next((j for j in st.session_state.jogadoras if j["nome"] == j_nome), None)
+                    tipo_j = dados_j.get("tipo", "Avulso") if dados_j else "Avulso"
+                    
+                    pos_conf = next((idx + 1 for idx, p in enumerate(confirmadas) if obter_nome_p(p) == j_nome), None)
+                    pos_esp = next((idx + 1 for idx, p in enumerate(espera) if obter_nome_p(p) == j_nome), None)
+                    
+                    if pos_conf:
+                        st.success(f"🎉 Você está na **Lista Principal** na posição **{pos_conf}**!")
+                    elif pos_esp:
+                        st.warning(f"⏳ Você está na **Fila de Espera** na posição **{pos_esp}º**.")
+                    else:
+                        st.info("ℹ️ Você não está confirmada.")
+
+                    with st.form("form_pres"):
+                        c_ok = st.form_submit_button("👍 Confirmar Presença", use_container_width=True)
+                        c_canc = st.form_submit_button("❌ Cancelar Presença", use_container_width=True)
+
+                    ja_na_lista = (pos_conf is not None or pos_esp is not None)
+
+                    if c_ok:
+                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
+                        st.session_state.presencas.append({
+                            "nome": j_nome, "hora": hoje_dt.strftime("%H:%M"),
+                            "tipo": tipo_j, "dt_confirmacao": hoje_dt.isoformat()
+                        })
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.success("Presença atualizada!")
+                        st.rerun()
+
+                    if c_canc:
+                        if ja_na_lista:
+                            st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_nome]
+                            salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            st.info("Presença cancelada!")
+                            st.rerun()
+                        else:
+                            st.error("Seu nome não está na lista.")
+
+    elif st.session_state.pagina_atual == "sorteio":
+        st.subheader("🔀 Sorteio de Times (Oficial & Paralelo)")
+        sorteio_salvo = st.session_state.sorteio_oficial
+        
+        if sorteio_salvo and "times" in sorteio_salvo:
+            st.write("#### 🏆 Sorteio Oficial")
+            for nome_time, membros in sorteio_salvo["times"].items():
+                st.markdown(f"<div class='card-team'><h3>⚽ {nome_time}</h3>", unsafe_allow_html=True)
+                for item in membros:
+                    st.markdown(f"• **{item}**")
+                st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.warning("Nenhum vinho encontrado.")
+            st.info("Nenhum sorteio oficial gerado ainda.")
 
-elif st.session_state.menu_atual == "MapaSeparacao":
-    st.subheader("🗺️ Mapa de Separação")
-    arq = st.file_uploader("Envie arquivo", type=["xlsx", "xls", "txt"])
-    txt_man_input = st.text_area("Ou cole a lista manualmente:")
-    if st.button("Gerar Rota"):
-        linhas = extrair_linhas_de_arquivo(arq) if arq else []
-        if txt_man_input.strip():
-            linhas.extend([l.strip().title() for l in txt_man_input.split("\n") if l.strip()])
-        if linhas:
-            encontrados = [v for v in st.session_state.estoque if any(l.lower() in v.get("nome", "").lower() for l in linhas)]
-            for v in encontrados:
-                st.markdown(f"<div class='wine-card'><div class='wine-title'>🍷 {v.get('nome')} ({v.get('safra')})</div><span class='badge-pallet-grande'>📍 {v.get('localizacao')}</span></div>", unsafe_allow_html=True)
-
-elif st.session_state.menu_atual == "Scanner":
-    st.subheader("📷 Escanear Código de Barras ou QR Code")
-    
-    aba_scan1, aba_scan2 = st.tabs(["📱 Leitor com Câmera", "🖼️ Enviar Foto com QR Code"])
-    
-    with aba_scan1:
-        st.markdown("Aponte a câmera para o código de barras da caixa ou QR Code do local:")
-        componente_leitor_barcode("scanner_geral")
-        
-        if st.session_state.get("termo_busca"):
-            termo = st.session_state.termo_busca
-            st.info(f"🔍 Resultado da leitura: **{termo}**")
-            
-            resultados = [
-                v for v in st.session_state.estoque 
-                if termo.lower() in str(v.get("codigo_barras", "")).lower() 
-                or termo.lower() in str(v.get("localizacao", "")).lower()
-                or termo.lower() in str(v.get("nome", "")).lower()
-            ]
-            
-            if resultados:
-                st.success(f"Encontrado(s) {len(resultados)} registro(s)!")
-                for v in resultados:
-                    st.markdown(
-                        f"<div class='wine-card'>"
-                        f"<div class='wine-title'>🍷 {v.get('nome')} ({v.get('safra')})</div>"
-                        f"<p>Tipo: <b>{v.get('tipo', 'N/A')}</b><br>"
-                        f"C. Barras: <code>{v.get('codigo_barras', 'Não cadastrado')}</code><br>"
-                        f"<span class='badge-pallet-grande'>📍 {v.get('localizacao')}</span></p>"
-                        f"</div>", 
-                        unsafe_allow_html=True
-                    )
+        st.markdown("#### ⚡ Sorteio Paralelo (Baseado em Presença no Local)")
+        if st.button("Gerar Sorteio Paralelo Agora", use_container_width=True):
+            confirmadas_nomes = [obter_nome_p(p) for p in st.session_state.presencas]
+            if len(confirmadas_nomes) >= 2:
+                random.shuffle(confirmadas_nomes)
+                res_paralelo = {"Time A": confirmadas_nomes[::2], "Time B": confirmadas_nomes[1::2]}
+                st.success("Sorteio Paralelo Gerado com Sucesso!")
+                for nome_t, membros_t in res_paralelo.items():
+                    st.markdown(f"<div class='card-team'><b>{nome_t}:</b> {', '.join(membros_t)}</div>", unsafe_allow_html=True)
             else:
-                st.warning("⚠️ Nenhum vinho ou local encontrado com este código exato.")
-                
-            if st.button("Limpar Busca"):
-                st.session_state.termo_busca = ""
-                st.rerun()
+                st.error("Atletas insuficientes para gerar o sorteio paralelo.")
 
-    with aba_scan2:
-        foto = st.camera_input("Tirar foto de um QR Code impresso")
-        if foto and OPENCV_DISPONIVEL:
-            img = cv2.imdecode(np.frombuffer(foto.getvalue(), np.uint8), cv2.IMREAD_COLOR)
-            detector = cv2.QRCodeDetector()
-            val, _, _ = detector.detectAndDecode(img)
-            if val:
-                st.success(f"QR Code Lido: **{val}**")
-                st.session_state.termo_busca = val
-                st.session_state.menu_atual = "Filtros"
-                st.rerun()
+    elif st.session_state.pagina_atual == "elenco":
+        st.subheader("📋 Elenco de Atletas Cadastradas")
+        for j in st.session_state.jogadoras:
+            if j.get("status") == "Ativo":
+                st.markdown(f"<div class='card-team'><b>⚽ {j['nome']}</b><br><small>Tipo: `{j.get('tipo', 'Avulso')}` | Quitado: `{j.get('quitado', 'Não')}` | Nasc: {j.get('nascimento')}</small></div>", unsafe_allow_html=True)
+
+    elif st.session_state.pagina_atual == "pagamento":
+        st.subheader("💸 Pagamentos e Chave Pix")
+        st.markdown(f"""
+        <div class='card-team'>
+            📌 <b>Chave Pix Oficial:</b> <code>{st.session_state.avisos.get('pix', 'peladinhafc@email.com')}</code><br>
+            Vencimento: <b>{st.session_state.avisos.get('vencimento', 'Todo dia 10')}</b>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.session_state.perfil_logado == "Jogadora":
+            st.write("### Enviar Comprovante de Pagamento")
+            with st.form("form_comprovante_envio", clear_on_submit=True):
+                arquivo_submetido = st.file_uploader("Selecione a imagem do comprovante", type=["png", "jpg", "jpeg"])
+                if st.form_submit_button("Enviar Comprovante"):
+                    if arquivo_submetido:
+                        caminho_arquivo = os.path.join(UPLOAD_DIR, f"{st.session_state.usuario_logado}_{int(datetime.now().timestamp())}.png")
+                        with open(caminho_arquivo, "wb") as f:
+                            f.write(arquivo_submetido.getbuffer())
+                        
+                        st.session_state.comprovantes.append({
+                            "nome": st.session_state.usuario_logado,
+                            "arquivo": caminho_arquivo,
+                            "data": hoje_dt.strftime("%d/%m/%Y"),
+                            "conferido": False
+                        })
+                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                        st.success("Comprovante enviado com sucesso para validação do Administrador!")
+                    else:
+                        st.error("Selecione um arquivo de imagem.")
+
+        if st.session_state.perfil_logado in ["Admin", "Dev"]:
+            st.write("### 👑 Conferência de Comprovantes Pendentes")
+            comprovantes = st.session_state.comprovantes
+            pendentes_comp = [c for c in comprovantes if not c.get("conferido", False)]
+            if not pendentes_comp:
+                st.info("Nenhum comprovante pendente para conferência.")
+            for idx, comp in enumerate(comprovantes):
+                if not comp.get("conferido", False):
+                    st.markdown(f"<div class='card-team'><b>Atleta:</b> {comp['nome']} | <b>Data:</b> {comp['data']}</div>", unsafe_allow_html=True)
+                    if os.path.exists(comp['arquivo']):
+                        st.image(comp['arquivo'], width=300)
+                    if st.button(f"Validar Pagamento de {comp['nome']}", key=f"val_comp_{idx}"):
+                        comp["conferido"] = True
+                        for j in st.session_state.jogadoras:
+                            if j["nome"] == comp["nome"]:
+                                j["quitado"] = "Sim"
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        
+                        st.session_state.financeiro.append({
+                            "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Mensalidade - {comp['nome']}", "valor": 50.00
+                        })
+                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                        salvar_dados(COMPROVANTES_FILE, comprovantes)
+                        st.success("Pagamento validado e adicionado como receita no fluxo de caixa!")
+                        st.rerun()
+
+    elif st.session_state.pagina_atual == "caixa":
+        st.subheader("📊 Fluxo de Caixa Completo")
+        
+        # Formulário para Admin/Dev lançar nova Receita ou Despesa
+        with st.form("form_lanca_caixa", clear_on_submit=True):
+            st.write("<b>Lançar Nova Receita ou Despesa</b>", unsafe_allow_html=True)
+            c_mes = st.text_input("Mês / Ano (Ex: Janeiro/2026)", value=hoje_dt.strftime("%B/%Y"))
+            c_tipo_fin = st.selectbox("Tipo", ["Receita", "Despesa"])
+            c_desc = st.text_input("Descrição (Ex: Compra de Coletes, Aluguel)")
+            c_valor = st.number_input("Valor (R$)", min_value=0.0, step=10.0)
+            if st.form_submit_button("Adicionar Lançamento"):
+                if c_desc.strip() and c_valor > 0:
+                    st.session_state.financeiro.append({
+                        "mes": c_mes.strip(), "tipo": c_tipo_fin, "descricao": c_desc.strip(), "valor": float(c_valor)
+                    })
+                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                    st.success("Lançamento adicionado com sucesso!")
+                    st.rerun()
+                else:
+                    st.error("Preencha a descrição e informe um valor válido.")
+
+        st.markdown("---")
+        
+        # Exibição de Receitas, Despesas e Totais
+        registros_caixa = st.session_state.financeiro
+        if not registros_caixa:
+            st.info("Nenhum registro financeiro encontrado.")
+        else:
+            total_geral_rec = sum(item["valor"] for item in registros_caixa if item["tipo"] == "Receita")
+            total_geral_desp = sum(item["valor"] for item in registros_caixa if item["tipo"] == "Despesa")
+            saldo_total = total_geral_rec - total_geral_desp
+
+            st.markdown(f"""
+            <div class='card-team' style='border-top-color: #10B981;'>
+                <h3>💰 Saldo Total em Caixa: R$ {saldo_total:.2f}</h3>
+                <p>🟢 Total de Receitas: R$ {total_geral_rec:.2f} | 🔴 Total de Despesas: R$ {total_geral_desp:.2f}</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.write("### Histórico de Movimentações")
+            for idx, item in enumerate(registros_caixa):
+                cor_borda = "#10B981" if item["tipo"] == "Receita" else "#EF4444"
+                st.markdown(f"""
+                <div class='card-team' style='border-top-color: {cor_borda};'>
+                    <b>Mês:</b> {item.get('mes', 'Geral')} | <b>Tipo:</b> <code>{item['tipo']}</code> | <b>Descrição:</b> {item['descricao']} | <b>Valor:</b> R$ {item['valor']:.2f}
+                </div>
+                """, unsafe_allow_html=True)
+
+    elif st.session_state.pagina_atual == "gerenciamento":
+        st.subheader("🛠️ Painel de Gerenciamento Geral & Aprovações")
+        
+        tab_ger1, tab_ger2, tab_ger3 = st.tabs(["📝 Aprovar Cadastros", "⚙️ Configurações Gerais", "🔒 Gestão de Contas (Dev)"])
+
+        with tab_ger1:
+            st.write("### Aprovação de Novas Atletas")
+            pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
+            if not pendentes:
+                st.info("Nenhum cadastro pendente no momento.")
+            for idx, j in enumerate(pendentes):
+                col_p1, col_p2, col_p3 = st.columns([2, 1, 1])
+                with col_p1:
+                    st.write(f"**{j['nome']}** (`{j.get('tipo', 'Avulso')}`) - Nasc: {j.get('nascimento')}")
+                with col_p2:
+                    if st.button("✅ Aprovar", key=f"aprov_{idx}"):
+                        j["status"] = "Ativo"
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success(f"✔️ Confirmação: A atleta {j['nome']} foi aprovada e ativada com sucesso!")
+                        st.rerun()
+                with col_p3:
+                    if st.button("❌ Recusar", key=f"rec_{idx}"):
+                        st.session_state.jogadoras.remove(j)
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.warning(f"⚠️ O cadastro de {j['nome']} foi recusado/removido.")
+                        st.rerun()
+
+        with tab_ger2:
+            with st.form("form_cfg_geral_painel"):
+                limite_v = st.number_input("Limite de Vagas", value=int(st.session_state.avisos.get("limite_vagas", 15)))
+                pix_val = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
+                if st.form_submit_button("Salvar Ajustes"):
+                    st.session_state.avisos["limite_vagas"] = limite_v
+                    st.session_state.avisos["pix"] = pix_val
+                    salvar_dados(AVISOS_FILE, st.session_state.avisos)
+                    st.success("Configurações atualizadas!")
+
+        with tab_ger3:
+            if st.session_state.perfil_logado == "Dev":
+                st.write("### Gerenciamento de Credenciais de Administradores (Restrito ao Desenvolvedor)")
+                for idx, adm in enumerate(st.session_state.administradores):
+                    st.markdown(f"<div class='card-team'><b>Admin:</b> {adm['nome']} | <b>Login:</b> <code>{adm['login']}</code></div>", unsafe_allow_html=True)
+                    if st.button(f"Excluir Admin {adm['nome']}", key=f"del_adm_{idx}"):
+                        if len(st.session_state.administradores) > 1:
+                            st.session_state.administradores.pop(idx)
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.success("Administrador removido!")
+                            st.rerun()
+                        else:
+                            st.error("Não é permitido excluir o último administrador.")
             else:
-                st.warning("Nenhum QR Code detectado na imagem. Tente novamente.")
-        elif foto and not OPENCV_DISPONIVEL:
-            st.error("A biblioteca OpenCV não está disponível neste ambiente para decodificar a foto.")
-
-elif st.session_state.menu_atual == "Estoque":
-    st.subheader("🍷 Estoque Completo do Galpão")
-    if st.session_state.estoque:
-        for v in st.session_state.estoque:
-            st.markdown(
-                f"<div class='wine-card'>"
-                f"<div class='wine-title'>🍷 {v.get('nome')} ({v.get('safra')})</div>"
-                f"<p>Tipo: <b>{v.get('tipo', 'N/A')}</b><br>"
-                f"C. Barras: <code>{v.get('codigo_barras', 'S/N')}</code><br>"
-                f"<span class='badge-pallet-grande'>📍 {v.get('localizacao')}</span></p>"
-                f"</div>",
-                unsafe_allow_html=True
-            )
-    else:
-        st.info("O estoque está vazio.")
-
-elif st.session_state.menu_atual == "Cadastrar":
-    st.subheader("➕ Cadastrar Novo Vinho")
-    with st.form("form_cadastrar_vinho"):
-        nome_cad = st.text_input("Nome do Vinho").strip().title()
-        tipo_cad = st.selectbox("Tipo", ["Tinto", "Branco", "Rosé", "Espumante", "Fortificado"])
-        safra_cad = st.text_input("Safra").strip()
-        
-        col_loc1, col_loc2, col_loc3, col_loc4 = st.columns(4)
-        with col_loc1: cor = st.selectbox("Corredor", LISTA_CORREDORES)
-        with col_loc2: tipo_l = st.selectbox("Tipo Local", LISTA_LOCAIS_TIPO)
-        with col_loc3: num_l = st.selectbox("Número", LISTA_NUMEROS_LOCAL)
-        with col_loc4: lado = st.selectbox("Lado", LISTA_LADOS)
-        
-        localizacao_completa = f"{cor} - {tipo_l} {num_l} ({lado})"
-        
-        caixa_cad = st.selectbox("Tipo de Caixa", OPCOES_CAIXA)
-        codigo_cad = st.text_input("Código de Barras", value=st.session_state.codigo_capturado_cadastro).strip()
-        
-        if st.form_submit_button("Salvar Vinho"):
-            if nome_cad:
-                novo_vinho = {
-                    "nome": nome_cad,
-                    "tipo": tipo_cad,
-                    "safra": safra_cad,
-                    "localizacao": localizacao_completa,
-                    "lado": lado,
-                    "caixa": caixa_cad,
-                    "codigo_barras": codigo_cad,
-                    "foto": ""
-                }
-                st.session_state.estoque.append(novo_vinho)
-                salvar_dados(st.session_state.estoque)
-                registrar_log(st.session_state.usuario_logado['nome'], "Cadastrar Vinho", nome_cad)
-                st.session_state.codigo_capturado_cadastro = ""
-                st.success("Vinho cadastrado com sucesso!")
-                st.rerun()
-            else:
-                st.error("O nome do vinho é obrigatório.")
-
-elif st.session_state.menu_atual == "GerarQR":
-    st.subheader("📱 Gerar QR Code de Localização")
-    loc_qr = st.selectbox("Selecione o Corredor/Local:", [f"{c} - {t} {n}" for c in LISTA_CORREDORES for t in LISTA_LOCAIS_TIPO for n in LISTA_NUMEROS_LOCAL])
-    url_qr = gerar_qr_code_api(loc_qr)
-    st.image(url_qr, width=250, caption=f"QR Code: {loc_qr}")
-    st.markdown(f"Link direto para impressão: [Abrir QR Code]({url_qr})", unsafe_allow_html=True)
-
-elif st.session_state.menu_atual == "Editar":
-    st.subheader("✏️ Editar ou Excluir Vinho")
-    if not st.session_state.estoque:
-        st.info("Nenhum vinho cadastrado para editar.")
-    else:
-        nomes_vinhos = [f"{v['nome']} ({v.get('safra', 'S/Safra')}) - {v.get('localizacao', '')}" for v in st.session_state.estoque]
-        escolha_ed = st.selectbox("Selecione o Vinho:", nomes_vinhos)
-        idx_vinho = nomes_vinhos.index(escolha_ed)
-        v_atual = st.session_state.estoque[idx_vinho]
-        
-        with st.form("form_editar_vinho"):
-            n_nome = st.text_input("Nome", value=v_atual.get('nome', '')).strip().title()
-            n_safra = st.text_input("Safra", value=v_atual.get('safra', '')).strip()
-            n_loc = st.text_input("Localização", value=v_atual.get('localizacao', '')).strip()
-            n_barras = st.text_input("Código de Barras", value=v_atual.get('codigo_barras', '')).strip()
-            
-            col_b1, col_b2 = st.columns(2)
-            with col_b1:
-                btn_salvar = st.form_submit_button("💾 Salvar Alterações")
-            with col_b2:
-                btn_excluir = st.form_submit_button("🗑️ Excluir Vinho")
-                
-            if btn_salvar:
-                v_atual['nome'] = n_nome
-                v_atual['safra'] = n_safra
-                v_atual['localizacao'] = n_loc
-                v_atual['codigo_barras'] = n_barras
-                salvar_dados(st.session_state.estoque)
-                registrar_log(st.session_state.usuario_logado['nome'], "Editar Vinho", n_nome)
-                st.success("Alterações salvas com sucesso!")
-                st.rerun()
-            elif btn_excluir:
-                removido = st.session_state.estoque.pop(idx_vinho)
-                salvar_dados(st.session_state.estoque)
-                registrar_log(st.session_state.usuario_logado['nome'], "Excluir Vinho", removido.get('nome'))
-                st.success("Vinho excluído com sucesso!")
-                st.rerun()
-
-elif st.session_state.menu_atual == "Historico":
-    st.subheader("📋 Histórico de Auditoria do Galpão")
-    logs = carregar_logs()
-    if logs:
-        for l in logs:
-            st.markdown(f"**[{l['data_hora']}] {l['usuario']}** - *{l['acao']}*: {l['detalhes']}")
-    else:
-        st.info("Nenhum registro de log encontrado.")
-
-elif st.session_state.menu_atual == "GerenciarUsuarios":
-    st.subheader("⚙️ Gerenciamento de Contas e Usuários")
-    if st.session_state.usuario_logado.get('cargo') != "Desenvolvedor":
-        st.error("Acesso negado. Apenas desenvolvedores.")
-    else:
-        usuarios = st.session_state.usuarios
-        for i, usr in enumerate(usuarios):
-            st.markdown(f"**Usuário:** {usr['nome']} | **Cargo:** {usr.get('cargo', 'Operador')}")
+                st.warning("Esta seção de gerenciamento de credenciais mestre é restrita ao Desenvolvedor.")
