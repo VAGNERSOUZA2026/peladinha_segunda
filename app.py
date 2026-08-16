@@ -50,7 +50,7 @@ def exibir_aniversariantes(atletas):
     
     if aniversariantes:
         for a in aniversariantes:
-            st.markdown(f'<div class="card-rosa">🎈 Parabéns, {a["nome"]}! Hoje é dia de celebrar!</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="card-rosa">🎈 Parabéns, {a["nome"]}! Desejamos um feliz aniversário e muitas felicidades!</div>', unsafe_allow_html=True)
     else:
         st.info("Nenhuma aniversariante neste mês.")
 
@@ -64,13 +64,16 @@ if menu == "Dashboard":
     exibir_aniversariantes(st.session_state.atletas)
     
     st.subheader("Elenco")
-    for atleta in st.session_state.atletas:
-        st.markdown(f'''
-            <div class="card-rosa">
-                Nome: {atleta['nome']} <br>
-                Data Nasc: {atleta['nasc']}
-            </div>
-        ''', unsafe_allow_html=True)
+    if not st.session_state.atletas:
+        st.info("Nenhuma atleta cadastrada ainda.")
+    else:
+        for atleta in st.session_state.atletas:
+            st.markdown(f'''
+                <div class="card-rosa">
+                    Nome: {atleta['nome']} <br>
+                    Data Nasc: {atleta['nasc']}
+                </div>
+            ''', unsafe_allow_html=True)
 
 elif menu == "Cadastrar Atleta":
     st.subheader("Adicionar Nova Jogadora")
@@ -80,14 +83,17 @@ elif menu == "Cadastrar Atleta":
         btn_salvar = st.form_submit_button("Salvar")
         
         if btn_salvar:
-            nova_atleta = {
-                "nome": nome,
-                "nasc": data_nasc.strftime("%d/%m/%Y")
-            }
-            st.session_state.atletas.append(nova_atleta)
-            salvar_dados(st.session_state.atletas)
-            st.success("Atleta cadastrada!")
-            st.rerun()
+            if nome.strip() == "":
+                st.error("Por favor, digite o nome da jogadora.")
+            else:
+                nova_atleta = {
+                    "nome": nome,
+                    "nasc": data_nasc.strftime("%d/%m/%Y")
+                }
+                st.session_state.atletas.append(nova_atleta)
+                salvar_dados(st.session_state.atletas)
+                st.success("Atleta cadastrada com sucesso!")
+                st.rerun()
 
 # --- RODAPÉ ---
 st.sidebar.markdown("---")
