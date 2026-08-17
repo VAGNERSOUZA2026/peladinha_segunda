@@ -5,6 +5,7 @@ import os
 import random
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
+from PIL import Image
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
@@ -24,7 +25,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (INSPIRADA NA IDENTIDADE VISUAL DA ARTE)
+# ESTILIZAÇÃO CSS CUSTOMIZADA
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -44,42 +45,6 @@ st.markdown("""
         color: #FFFFFF !important;
         font-weight: 600 !important;
         font-size: 0.95rem !important;
-    }
-
-    /* Estilo do Header Principal */
-    .app-header {
-        background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
-        padding: 24px;
-        border-radius: 20px;
-        margin-bottom: 24px;
-        border: 2px solid #EC4899;
-        box-shadow: 0px 8px 24px rgba(236, 72, 153, 0.25);
-        text-align: center;
-    }
-    .app-brand {
-        font-size: 2.2rem;
-        font-weight: 900;
-        color: #FFFFFF;
-        letter-spacing: 1px;
-        margin: 0;
-        text-transform: uppercase;
-    }
-    .app-brand span {
-        color: #EC4899;
-    }
-    .app-slogan {
-        font-size: 0.95rem;
-        color: #F472B6;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 1.5px;
-        margin-top: 6px;
-        margin-bottom: 4px;
-    }
-    .app-subdesc {
-        font-size: 0.8rem;
-        color: #9CA3AF;
-        margin: 0;
     }
 
     /* Cartões de Conteúdo */
@@ -172,6 +137,7 @@ REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
 COMPROVANTES_FILE = "comprovantes.json"
 UPLOAD_DIR = "comprovantes_imgs"
+LOGO_FILE = "logo_peladinha.png"
 
 if not os.path.exists(UPLOAD_DIR):
     os.makedirs(UPLOAD_DIR)
@@ -245,16 +211,29 @@ if "perfil_logado" not in st.session_state:
 SENHA_MESTRE_DEV = "1980"
 
 # -----------------------------------------------------------------------------
+# FUNÇÃO PARA EXIBIR A LOGO NO TOPO
+# -----------------------------------------------------------------------------
+def exibir_topo_logo():
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if os.path.exists(LOGO_FILE):
+            st.image(LOGO_FILE, use_container_width=True)
+        else:
+            # Caso ainda não tenha subido o arquivo de imagem, exibe uma opção rápida para carregar
+            st.markdown("<h2 style='text-align: center; color: #EC4899;'>PELADINHA FC</h2>", unsafe_allow_html=True)
+            upl_logo = st.file_uploader("Envie a imagem da sua Logo (.png ou .jpg)", type=["png", "jpg", "jpeg"], key="up_logo_topo")
+            if upl_logo:
+                with open(LOGO_FILE, "wb") as f:
+                    f.write(upl_logo.getbuffer())
+                st.success("Logo salva com sucesso! Recarregando...")
+                st.rerun()
+
+# -----------------------------------------------------------------------------
 # TELA DE LOGIN / CADASTRO / DEV
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
-    st.markdown("""
-    <div class='app-header'>
-        <div class='app-brand'>PELADINHA <span>FC</span></div>
-        <div class='app-slogan'>Mais que Futebol, Uma Conexão!</div>
-        <div class='app-subdesc'>Foco, Força e Sororidade</div>
-    </div>
-    """, unsafe_allow_html=True)
+    exibir_topo_logo()
+    st.markdown("<p style='text-align: center; color: #9CA3AF; margin-bottom: 20px;'>Mais que Futebol, Uma Conexão!</p>", unsafe_allow_html=True)
 
     tab_entrar, tab_cad_jogadora, tab_cad_admin, tab_dev = st.tabs(["🔑 Entrar", "📝 Criar Conta", "👑 Criar Conta Admin", "⚙️ Desenvolvedor"])
 
@@ -352,13 +331,9 @@ if st.session_state.pagina_atual == "login":
 # PAINEL PRINCIPAL (DASHBOARD E TELAS)
 # -----------------------------------------------------------------------------
 else:
-    st.markdown(f"""
-    <div class='app-header'>
-        <div class='app-brand'>PELADINHA <span>FC</span></div>
-        <div class='app-slogan'>Painel de Gestão</div>
-        <div class='app-subdesc'>Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</div>
-    </div>
-    """, unsafe_allow_html=True)
+    exibir_topo_logo()
+    st.markdown(f"<p style='text-align: center; color: #9CA3AF; font-size: 0.9rem;'>Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</p>", unsafe_allow_html=True)
+    st.markdown("---")
 
     if st.session_state.pagina_atual != "dashboard":
         if st.button("⬅️ Voltar ao Menu Principal"):
