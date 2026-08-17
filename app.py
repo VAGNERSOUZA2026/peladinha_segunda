@@ -524,7 +524,7 @@ else:
                 
                 with st.form("form_add_manual"):
                     st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
                     atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastradas"])
                     if st.form_submit_button("Incluir do Elenco"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
