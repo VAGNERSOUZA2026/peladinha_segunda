@@ -24,7 +24,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA
+# ESTILIZAÇÃO CSS CUSTOMIZADA (Corrigido o contraste dos Inputs de Texto)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -42,6 +42,14 @@ st.markdown("""
         margin-bottom: 16px;
         color: #FFFFFF !important;
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Correção do fundo e cor dos campos de texto (Text Area / Text Input) para evitar tarja em branco */
+    div.stTextArea textarea, div.stTextInput input {
+        background-color: #0F172A !important;
+        color: #FFFFFF !important;
+        border: 1px solid #374151 !important;
+        border-radius: 8px !important;
     }
     
     div.stButton > button:first-child {
@@ -72,7 +80,7 @@ AVISOS_FILE, COMPROVANTES_FILE = "avisos.json", "comprovantes.json"
 SORTEIO_FILE, CONTEUDOS_FILE = "sorteio.json", "conteudos.json"
 UPLOAD_DIR, LOGO_FILE = "comprovantes_imgs", "logo_peladinha.png"
 
-# CHAVE SECRETA DE SEGURANÇA PARA CRIAR ADMINS (Altere para a senha mestre que desejar)
+# CHAVE SECRETA DE SEGURANÇA PARA CRIAR ADMINS
 CHAVE_MESTRE_ADMIN = "PeladinhaMaster2026@"
 
 if not os.path.exists(UPLOAD_DIR): 
@@ -160,7 +168,6 @@ if st.session_state.pagina_atual == "login":
                 btn_sub = st.form_submit_button("ACESSAR")
                 
                 if btn_sub:
-                    # Verifica Admin cadastrados ou padrão
                     admin_encontrado = next((a for a in st.session_state.administradores if a["login"].lower() == u_input.lower() and a["senha"] == p_input), None)
                     if admin_encontrado or (u_input.lower() == "admin" and p_input == "1980"):
                         st.session_state.usuario_logado = admin_encontrado["nome"] if admin_encontrado else "Administrador"
@@ -168,7 +175,6 @@ if st.session_state.pagina_atual == "login":
                         st.session_state.pagina_atual = "dashboard"
                         st.rerun()
                     else:
-                        # Verifica Atleta cadastrada
                         atleta_encontrada = next((j for j in st.session_state.jogadoras if j["nome"].lower() == u_input.lower()), None)
                         if atleta_encontrada:
                             st.session_state.usuario_logado = atleta_encontrada["nome"]
@@ -238,7 +244,6 @@ if st.session_state.pagina_atual == "login":
 else:
     exibir_topo_logo()
     
-    # Coluna Mestra responsável por manter o alinhamento centralizado com a logo
     _, col_master, _ = st.columns([0.5, 9, 0.5])
     
     with col_master:
@@ -254,7 +259,6 @@ else:
 
         # --- MENU / DASHBOARD ---
         if st.session_state.pagina_atual == "dashboard":
-            # Card editável do Dashboard (Boas-vindas)
             if st.session_state.perfil_logado in ["Admin", "Dev"]:
                 if st.session_state.editando_card == "dashboard_info":
                     with st.form("form_edit_dash"):
@@ -308,7 +312,7 @@ else:
             else:
                 st.warning("Nenhuma atleta cadastrada ou ativa no momento.")
 
-        # --- REGULAMENTO (Com Edição Direta no Card) ---
+        # --- REGULAMENTO ---
         elif st.session_state.pagina_atual == "regulamento":
             st.subheader("📜 Regulamento")
             
@@ -331,7 +335,7 @@ else:
                         st.session_state.editando_card = "regulamento"
                         st.rerun()
 
-        # --- ANIVERSARIANTES (Com Edição Direta no Card) ---
+        # --- ANIVERSARIANTES ---
         elif st.session_state.pagina_atual == "aniversariantes":
             st.subheader("🎂 Aniversariantes do Mês")
             
