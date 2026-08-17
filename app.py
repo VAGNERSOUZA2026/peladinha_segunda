@@ -47,7 +47,7 @@ st.markdown("""
         font-size: 0.95rem !important;
     }
 
-    /* Cartões de Conteúdo */
+    /* Cartões de Conteúdo e Menu Mobile Style */
     .card-team {
         background: #161E2E !important;
         border: 1px solid #374151 !important;
@@ -76,7 +76,7 @@ st.markdown("""
         font-weight: 800 !important;
         border-radius: 12px !important;
         border: none !important;
-        padding: 16px 20px !important;
+        padding: 14px 20px !important;
         box-shadow: 0px 6px 15px rgba(236, 72, 153, 0.4);
         width: 100%;
         transition: all 0.3s ease;
@@ -203,6 +203,8 @@ if "sorteio_oficial" not in st.session_state:
 
 if "pagina_atual" not in st.session_state:
     st.session_state.pagina_atual = "login"
+if "sub_tela_login" not in st.session_state:
+    st.session_state.sub_tela_login = "menu"
 if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "perfil_logado" not in st.session_state:
@@ -211,35 +213,95 @@ if "perfil_logado" not in st.session_state:
 SENHA_MESTRE_DEV = "1980"
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO PARA EXIBIR A LOGO NO TOPO (COM OPÇÃO DE UPLOAD)
+# FUNÇÃO PARA EXIBIR A LOGO NO TOPO (COM EFEITO TRANSLÚCIDO)
 # -----------------------------------------------------------------------------
 def exibir_topo_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if os.path.exists(LOGO_FILE):
-            st.image(LOGO_FILE, use_container_width=True)
+            st.markdown(
+                f"""
+                <div style="text-align: center; margin-bottom: 10px;">
+                    <img src="data:image/png;base64,{file_to_base64(LOGO_FILE)}" 
+                         style="width: 100%; max-width: 220px; opacity: 0.45; border-radius: 12px; display: block; margin: 0 auto;" />
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
         else:
-            st.markdown("<h2 style='text-align: center; color: #EC4899;'>PELADINHA FC</h2>", unsafe_allow_html=True)
+            st.markdown("<h2 style='text-align: center; color: #EC4899; opacity: 0.5;'>PELADINHA FC</h2>", unsafe_allow_html=True)
         
-        # Opção rápida para enviar ou substituir a logo direto pelo app
-        with st.expander("⚙️ Alterar/Enviar Logo"):
-            upl_logo = st.file_uploader("Envie a nova imagem da Logo (.png ou .jpg)", type=["png", "jpg", "jpeg"], key="up_logo_topo")
-            if upl_logo:
-                with open(LOGO_FILE, "wb") as f:
-                    f.write(upl_logo.getbuffer())
-                st.success("Logo atualizada com sucesso! Recarregando...")
-                st.rerun()
+        # Opção de alterar/enviar logo visível EXCLUSIVAMENTE para o Desenvolvedor
+        if st.session_state.perfil_logado == "Dev":
+            with st.expander("⚙️ [DEV] Alterar/Enviar Logo"):
+                upl_logo = st.file_uploader("Envie a nova imagem da Logo (.png ou .jpg)", type=["png", "jpg", "jpeg"], key="up_logo_topo")
+                if upl_logo:
+                    with open(LOGO_FILE, "wb") as f:
+                        f.write(upl_logo.getbuffer())
+                    st.success("Logo atualizada com sucesso! Recarregando...")
+                    st.rerun()
+
+def file_to_base64(file_path):
+    import base64
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
 
 # -----------------------------------------------------------------------------
-# TELA DE LOGIN / CADASTRO / DEV
+# TELA DE LOGIN / CARDS ESTILO APP MOBILE
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
     exibir_topo_logo()
-    st.markdown("<p style='text-align: center; color: #9CA3AF; margin-bottom: 20px;'>Mais que Futebol, Uma Conexão!</p>", unsafe_allow_html=True)
+    st.markdown("<p style='text-align: center; color: #9CA3AF; margin-bottom: 25px;'>Mais que Futebol, Uma Conexão!</p>", unsafe_allow_html=True)
 
-    tab_entrar, tab_cad_jogadora, tab_cad_admin, tab_dev = st.tabs(["🔑 Entrar", "📝 Criar Conta", "👑 Criar Conta Admin", "⚙️ Desenvolvedor"])
+    if st.session_state.sub_tela_login != "menu":
+        if st.button("⬅️ Voltar ao Menu Inicial"):
+            st.session_state.sub_tela_login = "menu"
+            st.rerun()
+        st.markdown("---")
 
-    with tab_entrar:
+    if st.session_state.sub_tela_login == "menu":
+        # Cards Estilo App Mobile Empilhados
+        st.markdown("""
+        <div class='card-team'>
+            <h3>🔑 Entrar no Sistema</h3>
+            <p>Já possui seu cadastro? Faça login para acessar o painel da pelada.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👉 ACESSAR LOGIN", key="btn_card_entrar"):
+            st.session_state.sub_tela_login = "entrar"
+            st.rerun()
+
+        st.markdown("""
+        <div class='card-team'>
+            <h3>📝 Criar Conta (Atleta)</h3>
+            <p>Quer fazer parte do nosso elenco? Cadastre-se como jogadora ou avulsa.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👉 CADASTRAR COMO ATLETA", key="btn_card_atleta"):
+            st.session_state.sub_tela_login = "cad_atleta"
+            st.rerun()
+
+        st.markdown("""
+        <div class='card-team'>
+            <h3>👑 Criar Conta Admin</h3>
+            <p>Acesso exclusivo para as organizadoras e gestoras do grupo.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👉 CADASTRAR COMO ADMIN", key="btn_card_admin"):
+            st.session_state.sub_tela_login = "cad_admin"
+            st.rerun()
+
+        st.markdown("""
+        <div class='card-team'>
+            <h3>⚙️ Área do Desenvolvedor</h3>
+            <p>Acesso restrito utilizando a senha mestre de gerenciamento técnico.</p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("👉 ACESSAR COMO DEV", key="btn_card_dev"):
+            st.session_state.sub_tela_login = "dev"
+            st.rerun()
+
+    elif st.session_state.sub_tela_login == "entrar":
         st.subheader("Entrar no Sistema")
         with st.form("form_login_geral"):
             l_user = st.text_input("Usuário / Login", key="log_user")
@@ -264,7 +326,7 @@ if st.session_state.pagina_atual == "login":
                     else:
                         st.error("Usuário ou senha incorretos!")
 
-    with tab_cad_jogadora:
+    elif st.session_state.sub_tela_login == "cad_atleta":
         st.subheader("Cadastro de Nova Atleta")
         with st.form("form_cad_jog", clear_on_submit=True):
             c_nome = st.text_input("Seu Nome Completo *")
@@ -296,7 +358,7 @@ if st.session_state.pagina_atual == "login":
                 else:
                     st.error("Preencha todos os campos obrigatórios!")
 
-    with tab_cad_admin:
+    elif st.session_state.sub_tela_login == "cad_admin":
         st.subheader("Solicitar Conta Administradora")
         with st.form("form_cad_adm", clear_on_submit=True):
             a_nome = st.text_input("Nome do Administrador *")
@@ -316,7 +378,7 @@ if st.session_state.pagina_atual == "login":
                 else:
                     st.error("Preencha todos os campos, incluindo o celular!")
 
-    with tab_dev:
+    elif st.session_state.sub_tela_login == "dev":
         st.subheader("Acesso Restrito ao Desenvolvedor")
         with st.form("form_dev_login"):
             d_pass = st.text_input("Senha Mestre do Desenvolvedor", type="password")
@@ -402,6 +464,7 @@ else:
         if st.button("🚪 Sair da Conta", use_container_width=True):
             st.session_state.usuario_logado = None
             st.session_state.perfil_logado = None
+            st.session_state.sub_tela_login = "menu"
             st.session_state.pagina_atual = "login"
             st.rerun()
 
