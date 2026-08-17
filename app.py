@@ -17,18 +17,18 @@ data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 # CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Peladinha FC | Gestão Inteligente",
+    page_title="Peladinha FC | Mais que Futebol, Uma Conexão",
     page_icon="⚽",
     layout="centered",
     initial_sidebar_state="collapsed"
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA
+# ESTILIZAÇÃO CSS CUSTOMIZADA (INSPIRADA NA IDENTIDADE VISUAL DA ARTE)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
     
     html, body, [class*="css"] { 
         font-family: 'Montserrat', sans-serif; 
@@ -36,7 +36,7 @@ st.markdown("""
     }
 
     .stApp {
-        background-color: #111827;
+        background-color: #0B0F19;
         color: #F3F4F6;
     }
 
@@ -46,76 +46,95 @@ st.markdown("""
         font-size: 0.95rem !important;
     }
 
+    /* Estilo do Header Principal */
     .app-header {
-        background: #1F2937;
-        padding: 20px;
-        border-radius: 16px;
-        margin-bottom: 20px;
-        border: 1px solid #374151;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.3);
+        background: linear-gradient(135deg, #1F2937 0%, #111827 100%);
+        padding: 24px;
+        border-radius: 20px;
+        margin-bottom: 24px;
+        border: 2px solid #EC4899;
+        box-shadow: 0px 8px 24px rgba(236, 72, 153, 0.25);
+        text-align: center;
     }
-    .app-title {
-        font-size: 1.8rem;
-        font-weight: 700;
+    .app-brand {
+        font-size: 2.2rem;
+        font-weight: 900;
         color: #FFFFFF;
+        letter-spacing: 1px;
+        margin: 0;
+        text-transform: uppercase;
+    }
+    .app-brand span {
+        color: #EC4899;
+    }
+    .app-slogan {
+        font-size: 0.95rem;
+        color: #F472B6;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        margin-top: 6px;
+        margin-bottom: 4px;
+    }
+    .app-subdesc {
+        font-size: 0.8rem;
+        color: #9CA3AF;
         margin: 0;
     }
-    .app-subtitle {
-        font-size: 0.85rem;
-        color: #D1D5DB;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-    }
 
+    /* Cartões de Conteúdo */
     .card-team {
-        background: #EC4899 !important;
-        border: 1px solid #DB2777 !important;
-        border-top: 4px solid #BE185D !important;
-        border-radius: 12px;
-        padding: 16px;
-        margin-bottom: 15px;
+        background: #161E2E !important;
+        border: 1px solid #374151 !important;
+        border-left: 5px solid #EC4899 !important;
+        border-radius: 14px;
+        padding: 18px;
+        margin-bottom: 16px;
         color: #FFFFFF !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
     }
     .card-team h3, .card-team h4, .card-team p, .card-team b, .card-team span, .card-team small {
         color: #FFFFFF !important;
     }
-    
     .card-team code {
-        background-color: #111827 !important;
-        color: #F3F4F6 !important;
+        background-color: #0B0F19 !important;
+        color: #F472B6 !important;
         padding: 4px 8px !important;
         border-radius: 6px !important;
         font-weight: 700 !important;
     }
 
+    /* Botões Principais Rosa Pink */
     div.stButton > button:first-child {
-        background-color: #EC4899 !important;
+        background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%) !important;
         color: #FFFFFF !important;
-        font-weight: 700 !important;
-        border-radius: 10px !important;
-        border: 1px solid #DB2777 !important;
-        padding: 15px 20px !important;
-        box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.2);
+        font-weight: 800 !important;
+        border-radius: 12px !important;
+        border: none !important;
+        padding: 16px 20px !important;
+        box-shadow: 0px 6px 15px rgba(236, 72, 153, 0.4);
         width: 100%;
+        transition: all 0.3s ease;
     }
     div.stButton > button:first-child:hover {
-        background-color: #DB2777 !important;
-        border-color: #BE185D !important;
-        color: #FFFFFF !important;
+        background: linear-gradient(135deg, #DB2777 0%, #BE185D 100%) !important;
+        box-shadow: 0px 8px 20px rgba(236, 72, 153, 0.6);
+        transform: translateY(-2px);
     }
 
+    /* Inputs e Formulários */
     .stTextInput input, .stSelectbox select, .stNumberInput input {
-        background-color: #374151 !important;
+        background-color: #1F2937 !important;
         color: #FFFFFF !important;
         border: 1px solid #4B5563 !important;
-        border-radius: 8px !important;
+        border-radius: 10px !important;
     }
 
     [data-testid="stFileUploader"] {
         background-color: #1F2937 !important;
-        border: 1px dashed #4B5563 !important;
-        border-radius: 10px !important;
-        padding: 10px !important;
+        border: 2px dashed #4B5563 !important;
+        border-radius: 12px !important;
+        padding: 15px !important;
     }
     [data-testid="stFileUploader"] section {
         background-color: #1F2937 !important;
@@ -123,21 +142,20 @@ st.markdown("""
     [data-testid="stFileUploader"] section div, [data-testid="stFileUploader"] span, [data-testid="stFileUploader"] small {
         color: #FFFFFF !important;
     }
-    
     [data-testid="stFileUploader"] button {
-        background-color: #EC4899 !important;
+        background: #EC4899 !important;
         color: #FFFFFF !important;
-        border: 1px solid #DB2777 !important;
+        border: none !important;
         font-weight: 700 !important;
         border-radius: 8px !important;
     }
     
     div.stFormSubmitButton > button:first-child {
-        background-color: #EC4899 !important;
+        background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%) !important;
         color: #FFFFFF !important;
-        font-weight: 700 !important;
-        border-radius: 10px !important;
-        border: 1px solid #DB2777 !important;
+        font-weight: 800 !important;
+        border-radius: 12px !important;
+        border: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -231,9 +249,10 @@ SENHA_MESTRE_DEV = "1980"
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
     st.markdown("""
-    <div class='app-header' style='text-align: center;'>
-        <div class='app-subtitle'>peladinha fc</div>
-        <div class='app-title'>⚽ Gestão Inteligente & Resenha</div>
+    <div class='app-header'>
+        <div class='app-brand'>PELADINHA <span>FC</span></div>
+        <div class='app-slogan'>Mais que Futebol, Uma Conexão!</div>
+        <div class='app-subdesc'>Foco, Força e Sororidade</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -285,7 +304,6 @@ if st.session_state.pagina_atual == "login":
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success("Cadastro realizado com sucesso! Aguardando aprovação de um Administrador.")
                         
-                        # SUGESTÃO WHATSAPP: Exibir botões para avisar os administradores cadastrados
                         st.markdown("---")
                         st.write("📱 **Aviso importante:** Para agilizar sua aprovação, clique abaixo para avisar um dos administradores via WhatsApp:")
                         for adm in st.session_state.administradores:
@@ -336,8 +354,9 @@ if st.session_state.pagina_atual == "login":
 else:
     st.markdown(f"""
     <div class='app-header'>
-        <div class='app-subtitle'>peladinha fc — Olá, <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</div>
-        <div class='app-title'>Painel de Gestão</div>
+        <div class='app-brand'>PELADINHA <span>FC</span></div>
+        <div class='app-slogan'>Painel de Gestão</div>
+        <div class='app-subdesc'>Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -663,7 +682,6 @@ else:
                                 j["quitado"] = "Sim"
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         
-                        # ALIMENTAÇÃO AUTOMÁTICA DO FLUXO DE CAIXA
                         st.session_state.financeiro.append({
                             "mes": hoje_dt.strftime("%B/%Y"), "tipo": "Receita", "descricao": f"Pagamento ({tipo_j_cad}) - {comp['nome']}", "valor": float(v_recebido)
                         })
