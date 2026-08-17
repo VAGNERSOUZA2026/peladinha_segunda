@@ -211,7 +211,7 @@ if "perfil_logado" not in st.session_state:
 SENHA_MESTRE_DEV = "1980"
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO PARA EXIBIR A LOGO NO TOPO
+# FUNÇÃO PARA EXIBIR A LOGO NO TOPO (COM OPÇÃO DE UPLOAD)
 # -----------------------------------------------------------------------------
 def exibir_topo_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -219,13 +219,15 @@ def exibir_topo_logo():
         if os.path.exists(LOGO_FILE):
             st.image(LOGO_FILE, use_container_width=True)
         else:
-            # Caso ainda não tenha subido o arquivo de imagem, exibe uma opção rápida para carregar
             st.markdown("<h2 style='text-align: center; color: #EC4899;'>PELADINHA FC</h2>", unsafe_allow_html=True)
-            upl_logo = st.file_uploader("Envie a imagem da sua Logo (.png ou .jpg)", type=["png", "jpg", "jpeg"], key="up_logo_topo")
+        
+        # Opção rápida para enviar ou substituir a logo direto pelo app
+        with st.expander("⚙️ Alterar/Enviar Logo"):
+            upl_logo = st.file_uploader("Envie a nova imagem da Logo (.png ou .jpg)", type=["png", "jpg", "jpeg"], key="up_logo_topo")
             if upl_logo:
                 with open(LOGO_FILE, "wb") as f:
                     f.write(upl_logo.getbuffer())
-                st.success("Logo salva com sucesso! Recarregando...")
+                st.success("Logo atualizada com sucesso! Recarregando...")
                 st.rerun()
 
 # -----------------------------------------------------------------------------
