@@ -260,44 +260,20 @@ if st.session_state.pagina_atual == "login":
         st.markdown("---")
 
     if st.session_state.sub_tela_login == "menu":
-        # Cards Estilo App Mobile Empilhados
-        st.markdown("""
-        <div class='card-team'>
-            <h3>🔑 Entrar no Sistema</h3>
-            <p>Já possui seu cadastro? Faça login para acessar o painel da pelada.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("👉 ACESSAR LOGIN", key="btn_card_entrar"):
+        # Apenas os botões-card diretos, sem texto redundante separado
+        if st.button("🔑 ENTRAR NO SISTEMA", key="btn_card_entrar"):
             st.session_state.sub_tela_login = "entrar"
             st.rerun()
 
-        st.markdown("""
-        <div class='card-team'>
-            <h3>📝 Criar Conta (Atleta)</h3>
-            <p>Quer fazer parte do nosso elenco? Cadastre-se como jogadora ou avulsa.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("👉 CADASTRAR COMO ATLETA", key="btn_card_atleta"):
+        if st.button("📝 CADASTRAR COMO ATLETA", key="btn_card_atleta"):
             st.session_state.sub_tela_login = "cad_atleta"
             st.rerun()
 
-        st.markdown("""
-        <div class='card-team'>
-            <h3>👑 Criar Conta Admin</h3>
-            <p>Acesso exclusivo para as organizadoras e gestoras do grupo.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("👉 CADASTRAR COMO ADMIN", key="btn_card_admin"):
+        if st.button("👑 CADASTRAR COMO ADMIN", key="btn_card_admin"):
             st.session_state.sub_tela_login = "cad_admin"
             st.rerun()
 
-        st.markdown("""
-        <div class='card-team'>
-            <h3>⚙️ Área do Desenvolvedor</h3>
-            <p>Acesso restrito utilizando a senha mestre de gerenciamento técnico.</p>
-        </div>
-        """, unsafe_allow_html=True)
-        if st.button("👉 ACESSAR COMO DEV", key="btn_card_dev"):
+        if st.button("⚙️ ÁREA DO DESENVOLVEDOR", key="btn_card_dev"):
             st.session_state.sub_tela_login = "dev"
             st.rerun()
 
@@ -548,7 +524,7 @@ else:
                 
                 with st.form("form_add_manual"):
                     st.write("<b>Adicionar Atleta do Elenco</b>", unsafe_allow_html=True)
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
                     atleta_escolhida = st.selectbox("Selecione a Atleta", atativas_nomes if atativas_nomes else ["Nenhuma cadastradas"])
                     if st.form_submit_button("Incluir do Elenco"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
