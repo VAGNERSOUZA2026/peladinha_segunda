@@ -213,9 +213,8 @@ if "usuario_logado" not in st.session_state:
 if "perfil_logado" not in st.session_state:
     st.session_state.perfil_logado = None
 
-# SENHA MESTRE DO DESENVOLVEDOR DEFINIDA COMO 1980
 SENHA_MESTRE_DEV = "1980"
-SENHA_AUTORIZACAO_ADMIN = "1980" # Senha necessária para cadastrar novos admins com segurança
+SENHA_AUTORIZACAO_ADMIN = "1980"
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA EXIBIR A LOGO NO TOPO
@@ -224,17 +223,16 @@ def exibir_topo_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         if os.path.exists(LOGO_FILE):
-            st.markdown(
-                f"""
-                <div style="text-align: center; margin-bottom: 10px;">
-                    <img src="data:image/png;base64,{file_to_base64(LOGO_FILE)}" 
-                         style="width: 100%; max-width: 220px; opacity: 0.45; border-radius: 12px; display: block; margin: 0 auto;" />
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+            try:
+                b64_img = file_to_base64(LOGO_FILE)
+                st.markdown(
+                    f'<div style="text-align: center; margin-bottom: 10px;"><img src="data:image/png;base64,{b64_img}" style="width: 100%; max-width: 220px; opacity: 0.45; border-radius: 12px; display: block; margin: 0 auto;" /></div>',
+                    unsafe_allow_html=True
+                )
+            except:
+                st.markdown('<h2 style="text-align: center; color: #EC4899; opacity: 0.5;">PELADINHA FC</h2>', unsafe_allow_html=True)
         else:
-            st.markdown("<h2 style='text-align: center; color: #EC4899; opacity: 0.5;'>PELADINHA FC</h2>", unsafe_allow_html=True)
+            st.markdown('<h2 style="text-align: center; color: #EC4899; opacity: 0.5;">PELADINHA FC</h2>', unsafe_allow_html=True)
         
         if st.session_state.perfil_logado == "Dev":
             with st.expander("⚙️ [DEV] Alterar/Enviar Logo"):
@@ -250,7 +248,7 @@ def exibir_topo_logo():
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
     exibir_topo_logo()
-    st.markdown("<p style='text-align: center; color: #9CA3AF; margin-bottom: 25px;'>Mais que Futebol, Uma Conexão!</p>", unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #9CA3AF; margin-bottom: 25px;">Mais que Futebol, Uma Conexão!</p>', unsafe_allow_html=True)
 
     if st.session_state.sub_tela_login != "menu":
         if st.button("⬅️ Voltar ao Menu Inicial"):
@@ -325,13 +323,13 @@ if st.session_state.pagina_atual == "login":
 
     elif st.session_state.sub_tela_login == "cad_admin":
         st.subheader("Cadastro de Novo Administrador")
-        st.info("⚠️ Para criar uma conta de administrador, é necessário informar o código/senha de autorização.")
+        st.info("⚠️ Para criar uma conta de administrador, informe os dados e a senha de autorização.")
         with st.form("form_cad_admin_novo", clear_on_submit=True):
             a_nome = st.text_input("Nome do Administrador *")
             a_cel = st.text_input("Celular (WhatsApp) *", placeholder="Ex: 5531999999999")
             a_user = st.text_input("Login de Admin *")
             a_pass = st.text_input("Senha de Acesso *", type="password")
-            a_aut = st.text_input("Senha de Autorização *", type="password", help="Senha padrão de segurança fornecida aos criadores do app.")
+            a_aut = st.text_input("Senha de Autorização *", type="password", help="Senha padrão de segurança: 1980")
             
             if st.form_submit_button("CADASTRAR ADMINISTRADOR"):
                 if a_aut == SENHA_AUTORIZACAO_ADMIN:
@@ -370,7 +368,7 @@ if st.session_state.pagina_atual == "login":
 # -----------------------------------------------------------------------------
 else:
     exibir_topo_logo()
-    st.markdown(f"<p style='text-align: center; color: #9CA3AF; font-size: 0.9rem;'>Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</p>", unsafe_allow_html=True)
+    st.markdown(f'<p style="text-align: center; color: #9CA3AF; font-size: 0.9rem;">Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})</p>', unsafe_allow_html=True)
     st.markdown("---")
 
     if st.session_state.pagina_atual != "dashboard":
@@ -399,20 +397,16 @@ else:
             aniversariante_logada = next((a for a in aniversariantes_mes if a["nome"] == usuario_atual), None)
             
             if aniversariante_logada:
-                st.markdown(f"""
-                <div class='card-team' style='text-align: center;'>
-                    <h3>🎉 PARABÉNS PELO SEU ANIVERSÁRIO! 🎂</h3>
-                    <p>Desejamos a você um feliz aniversário, muita saúde, felicidades e muitos gols! 🥳⚽</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(
+                    '<div class="card-team" style="text-align: center;"><h3>🎉 PARABÉNS PELO SEU ANIVERSÁRIO! 🎂</h3><p>Desejamos a você um feliz aniversário, muita saúde, felicidades e muitos gols! 🥳⚽</p></div>',
+                    unsafe_allow_html=True
+                )
             else:
                 lista_str = ", ".join(nomes_aniv)
-                st.markdown(f"""
-                <div class='card-team' style='text-align: center;'>
-                    <h3>🎈 Aniversariantes do Mês 🎈</h3>
-                    <p>Atletas comemorando nova idade este mês: <b>{lista_str}</b>. Não deixe de parabenizá-las! 🥳⚽</p>
-                </div>
-                """, unsafe_allow_html=True)
+                st.markdown(
+                    f'<div class="card-team" style="text-align: center;"><h3>🎈 Aniversariantes do Mês 🎈</h3><p>Atletas comemorando nova idade este mês: <b>{lista_str}</b>. Não deixe de parabenizá-las! 🥳⚽</p></div>',
+                    unsafe_allow_html=True
+                )
 
         cards = [
             ("📄 Regulamento", "regulamento"),
@@ -445,4 +439,6 @@ else:
     elif st.session_state.pagina_atual == "regulamento":
         st.subheader("📄 Regulamento Interno & Boa Convivência")
         for reg in st.session_state.regulamento:
-            st.markdown(f"<div class='card-team'><
+            st.markdown(
+                f'<div class="card-team"><h4>{reg["topico"]}</h4><p>{reg["regrinha"]}</p></div>',
+                unsafe_allow_html=
