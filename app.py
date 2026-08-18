@@ -72,9 +72,6 @@ AVISOS_FILE, COMPROVANTES_FILE = "avisos.json", "comprovantes.json"
 SORTEIO_FILE, CONTEUDOS_FILE = "sorteio.json", "conteudos.json"
 UPLOAD_DIR, LOGO_FILE = "comprovantes_imgs", "logo_peladinha.png"
 
-# CHAVE SECRETA DE SEGURANÇA PARA CRIAR ADMINS (Altere para a senha mestre que desejar)
-CHAVE_MESTRE_ADMIN = "PeladinhaMaster2026@"
-
 if not os.path.exists(UPLOAD_DIR): 
     os.makedirs(UPLOAD_DIR)
 
@@ -104,7 +101,7 @@ if "jogadoras" not in st.session_state:
 if "presencas" not in st.session_state: 
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
 if "administradores" not in st.session_state: 
-    st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "perfil": "Admin"}])
+    st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "celular": "5531999999999"}])
 if "avisos" not in st.session_state: 
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {"limite_vagas": 15, "pix": "peladinhafc@email.com", "vencimento": "Todo dia 10", "valor_mensalidade": 50.0, "valor_avulso": 15.0})
 if "conteudos" not in st.session_state: 
@@ -121,8 +118,6 @@ if "usuario_logado" not in st.session_state:
     st.session_state.usuario_logado = None
 if "perfil_logado" not in st.session_state: 
     st.session_state.perfil_logado = None
-if "editando_card" not in st.session_state: 
-    st.session_state.editando_card = None
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA EXIBIR A LOGO CENTRALIZADA
@@ -134,7 +129,7 @@ def exibir_topo_logo():
         st.markdown("<h1 style='text-align: center; color: #EC4899;'>⚽ PELADINHA FC</h1>", unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
-# FLUXO DE TELA DE LOGIN E CADASTRO SEGURO
+# FLUXO DE TELA DE LOGIN
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
     exibir_topo_logo()
@@ -145,11 +140,8 @@ if st.session_state.pagina_atual == "login":
             if st.button("🔐 ENTRAR NO SISTEMA"): 
                 st.session_state.sub_tela_login = "entrar"
                 st.rerun()
-            if st.button("📝 CADASTRAR COMO ATLETA"): 
+            if st.button("📝 CADASTRAR ATLETA"): 
                 st.session_state.sub_tela_login = "cad_atleta"
-                st.rerun()
-            if st.button("🛡️ CADASTRAR COMO ADMIN / DEV (RESTRITO)"): 
-                st.session_state.sub_tela_login = "cad_admin"
                 st.rerun()
                 
         elif st.session_state.sub_tela_login == "entrar":
@@ -160,11 +152,11 @@ if st.session_state.pagina_atual == "login":
                 btn_sub = st.form_submit_button("ACESSAR")
                 
                 if btn_sub:
-                    # Verifica Admin cadastrados ou padrão
-                    admin_encontrado = next((a for a in st.session_state.administradores if a["login"].lower() == u_input.lower() and a["senha"] == p_input), None)
-                    if admin_encontrado or (u_input.lower() == "admin" and p_input == "1980"):
+                    # Verifica Admin
+                    admin_encontrado = next((a for a in st.session_state.administradores if a["login"] == u_input and a["senha"] == p_input), None)
+                    if admin_encontrado or (u_input == "admin" and p_input == "1980"):
                         st.session_state.usuario_logado = admin_encontrado["nome"] if admin_encontrado else "Administrador"
-                        st.session_state.perfil_logado = admin_encontrado.get("perfil", "Admin") if admin_encontrado else "Admin"
+                        st.session_state.perfil_logado = "Admin"
                         st.session_state.pagina_atual = "dashboard"
                         st.rerun()
                     else:
@@ -188,7 +180,7 @@ if st.session_state.pagina_atual == "login":
                 nome_atleta = st.text_input("Nome Completo")
                 cel_atleta = st.text_input("Celular (WhatsApp)")
                 pos_atleta = st.selectbox("Posição Principal", ["Linha", "Goleira"])
-                btn_cad = st.form_submit_button("CADASTRAR ATLETA")
+                btn_cad = st.form_submit_button("CADASTRAR")
                 
                 if btn_cad:
                     if nome_atleta.strip():
@@ -200,34 +192,6 @@ if st.session_state.pagina_atual == "login":
                         st.rerun()
                     else:
                         st.error("Preencha o nome corretamente.")
-            if st.button("⬅️ Voltar"):
-                st.session_state.sub_tela_login = "menu"
-                st.rerun()
-
-        elif st.session_state.sub_tela_login == "cad_admin":
-            st.markdown("<h3 style='text-align: center;'>Cadastro Seguro Admin / Dev</h3>", unsafe_allow_html=True)
-            st.info("⚠️ Este cadastro exige uma chave mestra de segurança fornecida apenas aos criadores do sistema.")
-            with st.form("form_cad_admin"):
-                nome_adm = st.text_input("Nome do Administrador")
-                login_adm = st.text_input("Login de Acesso")
-                senha_adm = st.text_input("Senha", type="password")
-                perfil_escolhido = st.selectbox("Nível de Perfil", ["Admin", "Dev"])
-                chave_secreta = st.text_input("Chave Mestra de Segurança", type="password")
-                btn_cad_adm = st.form_submit_button("CADASTRAR ADMIN")
-                
-                if btn_cad_adm:
-                    if chave_secreta == CHAVE_MESTRE_ADMIN:
-                        if nome_adm.strip() and login_adm.strip() and senha_adm.strip():
-                            novo_adm = {"nome": nome_adm, "login": login_adm, "senha": senha_adm, "perfil": perfil_escolhido}
-                            st.session_state.administradores.append(novo_adm)
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador cadastrado com sucesso! Volte e faça login.")
-                            st.session_state.sub_tela_login = "menu"
-                            st.rerun()
-                        else:
-                            st.error("Preencha todos os campos obrigatórios.")
-                    else:
-                        st.error("Chave mestra incorreta! Acesso negado para criação de administradores.")
             if st.button("⬅️ Voltar"):
                 st.session_state.sub_tela_login = "menu"
                 st.rerun()
@@ -248,33 +212,12 @@ else:
         if st.session_state.pagina_atual != "dashboard":
             if st.button("⬅️ Voltar ao Menu Principal"):
                 st.session_state.pagina_atual = "dashboard"
-                st.session_state.editando_card = None
                 st.rerun()
             st.markdown("---")
 
         # --- MENU / DASHBOARD ---
         if st.session_state.pagina_atual == "dashboard":
-            # Card editável do Dashboard (Boas-vindas)
-            if st.session_state.perfil_logado in ["Admin", "Dev"]:
-                if st.session_state.editando_card == "dashboard_info":
-                    with st.form("form_edit_dash"):
-                        novo_texto_dash = st.text_area("Editar Mensagem de Boas-Vindas", value=st.session_state.conteudos['dashboard_info'])
-                        if st.form_submit_button("💾 Salvar Alteração"):
-                            st.session_state.conteudos['dashboard_info'] = novo_texto_dash
-                            salvar_dados(CONTEUDOS_FILE, st.session_state.conteudos)
-                            st.session_state.editando_card = None
-                            st.success("Card atualizado!")
-                            st.rerun()
-                    if st.button("❌ Cancelar Edição"):
-                        st.session_state.editando_card = None
-                        st.rerun()
-                else:
-                    st.markdown(f"<div class='card-team' style='text-align: center;'>{st.session_state.conteudos['dashboard_info']}</div>", unsafe_allow_html=True)
-                    if st.button("✏️ Editar este Card (Boas-Vindas)"):
-                        st.session_state.editando_card = "dashboard_info"
-                        st.rerun()
-            else:
-                st.markdown(f"<div class='card-team' style='text-align: center;'>{st.session_state.conteudos['dashboard_info']}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='card-team' style='text-align: center;'>{st.session_state.conteudos['dashboard_info']}</div>", unsafe_allow_html=True)
             
             if st.button("📌 Lista de Presença"):
                 st.session_state.pagina_atual = "lista"
@@ -288,13 +231,18 @@ else:
             if st.button("⚽ Sorteio de Times"):
                 st.session_state.pagina_atual = "sorteio"
                 st.rerun()
+                
+            # Acesso exclusivo Admin/Dev para editar os cards
+            if st.session_state.perfil_logado in ["Admin", "Dev"]:
+                if st.button("🛠️ Painel de Gerenciamento & Edição de Cards"):
+                    st.session_state.pagina_atual = "gerenciamento"
+                    st.rerun()
                     
             if st.button("🚪 Sair / Trocar Conta"):
                 st.session_state.pagina_atual = "login"
                 st.session_state.sub_tela_login = "menu"
                 st.session_state.usuario_logado = None
                 st.session_state.perfil_logado = None
-                st.session_state.editando_card = None
                 st.rerun()
 
         # --- LISTA DE PRESENÇA ---
@@ -308,53 +256,44 @@ else:
             else:
                 st.warning("Nenhuma atleta cadastrada ou ativa no momento.")
 
-        # --- REGULAMENTO (Com Edição Direta no Card) ---
+        # --- REGULAMENTO ---
         elif st.session_state.pagina_atual == "regulamento":
             st.subheader("📜 Regulamento")
-            
-            if st.session_state.perfil_logado in ["Admin", "Dev"] and st.session_state.editando_card == "regulamento":
-                with st.form("form_edit_reg"):
-                    novo_reg = st.text_area("Editar Regulamento", value=st.session_state.conteudos['regulamento'], height=150)
-                    if st.form_submit_button("💾 Salvar Regulamento"):
-                        st.session_state.conteudos['regulamento'] = novo_reg
-                        salvar_dados(CONTEUDOS_FILE, st.session_state.conteudos)
-                        st.session_state.editando_card = None
-                        st.success("Regulamento atualizado com sucesso!")
-                        st.rerun()
-                if st.button("❌ Cancelar Edição"):
-                    st.session_state.editando_card = None
-                    st.rerun()
-            else:
-                st.markdown(f"<div class='card-team'>{st.session_state.conteudos['regulamento']}</div>", unsafe_allow_html=True)
-                if st.session_state.perfil_logado in ["Admin", "Dev"]:
-                    if st.button("✏️ Editar este Card (Regulamento)"):
-                        st.session_state.editando_card = "regulamento"
-                        st.rerun()
+            st.markdown(f"<div class='card-team'>{st.session_state.conteudos['regulamento']}</div>", unsafe_allow_html=True)
 
-        # --- ANIVERSARIANTES (Com Edição Direta no Card) ---
+        # --- ANIVERSARIANTES ---
         elif st.session_state.pagina_atual == "aniversariantes":
             st.subheader("🎂 Aniversariantes do Mês")
-            
-            if st.session_state.perfil_logado in ["Admin", "Dev"] and st.session_state.editando_card == "aniversariantes":
-                with st.form("form_edit_aniv"):
-                    novo_aniv = st.text_area("Editar Aniversariantes", value=st.session_state.conteudos['aniversariantes'], height=120)
-                    if st.form_submit_button("💾 Salvar Aniversariantes"):
-                        st.session_state.conteudos['aniversariantes'] = novo_aniv
-                        salvar_dados(CONTEUDOS_FILE, st.session_state.conteudos)
-                        st.session_state.editando_card = None
-                        st.success("Card de aniversariantes atualizado!")
-                        st.rerun()
-                if st.button("❌ Cancelar Edição"):
-                    st.session_state.editando_card = None
-                    st.rerun()
-            else:
-                st.markdown(f"<div class='card-team'>{st.session_state.conteudos['aniversariantes']}</div>", unsafe_allow_html=True)
-                if st.session_state.perfil_logado in ["Admin", "Dev"]:
-                    if st.button("✏️ Editar este Card (Aniversariantes)"):
-                        st.session_state.editando_card = "aniversariantes"
-                        st.rerun()
+            st.markdown(f"<div class='card-team'>{st.session_state.conteudos['aniversariantes']}</div>", unsafe_allow_html=True)
 
         # --- SORTEIO DE TIMES ---
         elif st.session_state.pagina_atual == "sorteio":
             st.subheader("⚽ Sorteio de Times")
             st.markdown("<div class='card-team'>Ferramenta de divisão automática de equipes equilibradas para a partida.</div>", unsafe_allow_html=True)
+
+        # --- GERENCIAMENTO E EDIÇÃO DE CARDS (ADMIN / DEV) ---
+        elif st.session_state.pagina_atual == "gerenciamento":
+            st.subheader("🛠️ Painel Administrativo & Edição de Conteúdos")
+            st.markdown("Aqui você pode alterar em tempo real os textos exibidos nos cards do aplicativo.")
+            
+            with st.form("form_edicao_cards"):
+                st.markdown("### Editar Card: Regulamento")
+                novo_regulamento = st.text_area("Texto do Regulamento", value=st.session_state.conteudos.get("regulamento", ""), height=120)
+                
+                st.markdown("### Editar Card: Aniversariantes")
+                novo_aniv = st.text_area("Texto de Aniversariantes", value=st.session_state.conteudos.get("aniversariantes", ""), height=100)
+                
+                st.markdown("### Editar Card: Mensagem do Dashboard")
+                novo_dash = st.text_area("Texto de Boas-Vindas", value=st.session_state.conteudos.get("dashboard_info", ""), height=100)
+                
+                salvar_alt = st.form_submit_button("Salvar Alterações dos Cards")
+                
+                if salvar_alt:
+                    st.session_state.conteudos["regulamento"] = novo_regulamento
+                    st.session_state.conteudos["aniversariantes"] = novo_aniv
+                    st.session_state.conteudos["dashboard_info"] = novo_dash
+                    
+                    # Salva permanentemente no arquivo JSON
+                    salvar_dados(CONTEUDOS_FILE, st.session_state.conteudos)
+                    st.success("Todos os cards foram atualizados e salvos com sucesso!")
+                    st.rerun()
