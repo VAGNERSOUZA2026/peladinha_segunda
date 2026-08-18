@@ -449,7 +449,7 @@ else:
             st.info("Nenhuma atleta faz aniversário neste mês.")
         else:
             for a in aniversariantes_mes:
-                st.markdown(f"""
+                st.markdown(f""")
                 <div class='card-team'>
                     <h3>🎉 {a['nome']}</h3>
                     <p>D
