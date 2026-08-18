@@ -216,16 +216,8 @@ if "usuario_logado" not in st.session_state:
 if "perfil_logado" not in st.session_state:
     st.session_state.perfil_logado = None
 
-def obter_senha_dev():
-    try:
-        senha = st.secrets.get("DEV_PASSWORD")
-        if senha:
-            return str(senha)
-    except Exception:
-        pass
-    return os.getenv("DEV_PASSWORD", "")
-
-SENHA_MESTRE_DEV = obter_senha_dev()
+# Senha Mestra do Desenvolvedor atualizada para vivo6194
+SENHA_MESTRE_DEV = "vivo6194"
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA EXIBIR A LOGO NO TOPO
@@ -345,12 +337,10 @@ if st.session_state.pagina_atual == "login":
 
     elif st.session_state.sub_tela_login == "dev":
         st.subheader("Acesso Restrito ao Desenvolvedor")
-        if not SENHA_MESTRE_DEV:
-            st.error("A senha do Desenvolvedor não está configurada nos Secrets.")
         with st.form("form_dev_login"):
             d_pass = st.text_input("Senha Mestre do Desenvolvedor", type="password")
             if st.form_submit_button("ENTRAR COMO DEV"):
-                if SENHA_MESTRE_DEV and d_pass == SENHA_MESTRE_DEV:
+                if d_pass == SENHA_MESTRE_DEV:
                     st.session_state.usuario_logado = "Desenvolvedor"
                     st.session_state.perfil_logado = "Dev"
                     st.session_state.pagina_atual = "dashboard"
@@ -455,4 +445,11 @@ else:
                 except:
                     pass
         
-       
+        if not aniversariantes_mes:
+            st.info("Nenhuma atleta faz aniversário neste mês.")
+        else:
+            for a in aniversariantes_mes:
+                st.markdown(f"""
+                <div class='card-team'>
+                    <h3>🎉 {a['nome']}</h3>
+                    <p>D
