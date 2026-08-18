@@ -216,7 +216,6 @@ if "usuario_logado" not in st.session_state:
 if "perfil_logado" not in st.session_state:
     st.session_state.perfil_logado = None
 
-# Senha Mestra do Desenvolvedor atualizada para vivo6194
 SENHA_MESTRE_DEV = "vivo6194"
 
 # -----------------------------------------------------------------------------
@@ -449,7 +448,7 @@ else:
             st.info("Nenhuma atleta faz aniversário neste mês.")
         else:
             for a in aniversariantes_mes:
-                st.markdown(f""")
+                st.markdown(f"""
                 <div class='card-team'>
                     <h3>🎉 {a['nome']}</h3>
-                    <p>D
+                    <p>Data de Aniversário: <b>{a.get('nascimento')}</b> | Tipo: 
