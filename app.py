@@ -5,14 +5,12 @@ import os
 import random
 from datetime import datetime, timedelta, timezone
 from urllib.parse import quote
-from PIL import Image
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
 # -----------------------------------------------------------------------------
 fuso_br = timezone(timedelta(hours=-3))
 hoje_dt = datetime.now(fuso_br)
-data_hoje_id = hoje_dt.strftime("%Y-%m-%d")
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DA PÁGINA
@@ -130,7 +128,6 @@ PRESENCAS_FILE = "presencas.json"
 AVISOS_FILE = "avisos.json"
 FINANCE_FILE = "financeiro.json"
 ADMINS_FILE = "administradores.json"
-ADMIN_REQUESTS_FILE = "solicitacoes_admin.json"
 REGULAMENTO_FILE = "regulamento.json"
 SORTEIO_FILE = "sorteio.json"
 COMPROVANTES_FILE = "comprovantes.json"
@@ -165,6 +162,11 @@ def obter_hora_p(p):
 def obter_tipo_p(p):
     return p.get("tipo", "Avulso") if isinstance(p, dict) else "Avulso"
 
+def file_to_base64(file_path):
+    import base64
+    with open(file_path, "rb") as f:
+        return base64.b64encode(f.read()).decode("utf-8")
+
 # -----------------------------------------------------------------------------
 # INICIALIZAÇÃO DO SESSION STATE
 # -----------------------------------------------------------------------------
@@ -184,8 +186,6 @@ if "administradores" not in st.session_state:
         ADMINS_FILE,
         [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "celular": "5531999999999"}]
     )
-if "solicitacoes_admin" not in st.session_state:
-    st.session_state.solicitacoes_admin = carregar_dados(ADMIN_REQUESTS_FILE, [])
 if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
         "vencimento": "Todo dia 10", 
@@ -213,7 +213,9 @@ if "usuario_logado" not in st.session_state:
 if "perfil_logado" not in st.session_state:
     st.session_state.perfil_logado = None
 
-SENHA_MESTRE_DEV = "vivo6194"
+# SENHA MESTRE DO DESENVOLVEDOR DEFINIDA COMO 1980
+SENHA_MESTRE_DEV = "1980"
+SENHA_AUTORIZACAO_ADMIN = "1980" # Senha necessária para cadastrar novos admins com segurança
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA EXIBIR A LOGO NO TOPO
@@ -243,11 +245,6 @@ def exibir_topo_logo():
                     st.success("Logo atualizada com sucesso! Recarregando...")
                     st.rerun()
 
-def file_to_base64(file_path):
-    import base64
-    with open(file_path, "rb") as f:
-        return base64.b64encode(f.read()).decode("utf-8")
-
 # -----------------------------------------------------------------------------
 # TELA DE LOGIN / CARDS ESTILO APP MOBILE
 # -----------------------------------------------------------------------------
@@ -268,6 +265,10 @@ if st.session_state.pagina_atual == "login":
 
         if st.button("📋 CADASTRAR COMO ATLETA", key="btn_card_atleta"):
             st.session_state.sub_tela_login = "cad_atleta"
+            st.rerun()
+
+        if st.button("👑 CADASTRAR COMO ADMINISTRADOR", key="btn_card_admin"):
+            st.session_state.sub_tela_login = "cad_admin"
             st.rerun()
 
         if st.button("⚙️ ÁREA DO DESENVOLVEDOR", key="btn_card_dev"):
@@ -319,17 +320,37 @@ if st.session_state.pagina_atual == "login":
                         })
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success("Cadastro realizado com sucesso! Aguardando aprovação de um Administrador.")
-                        
-                        st.markdown("---")
-                        st.write("📱 **Aviso importante:** Para agilizar sua aprovação, clique abaixo para avisar um dos administradores via WhatsApp:")
-                        for adm in st.session_state.administradores:
-                            cel_adm = adm.get("celular", "").strip()
-                            if cel_adm:
-                                msg = f"Olá {adm['nome']}! Acabei de me cadastrar no Peladinha FC como {c_tipo} (Usuário: {c_user.strip()}). Pode aprovar meu cadastro por favor?"
-                                link_zap = f"https://wa.me/{cel_adm}?text={quote(msg)}"
-                                st.markdown(f"👉 [Avisar Admin {adm['nome']} no WhatsApp]({link_zap})", unsafe_allow_html=True)
                 else:
                     st.error("Preencha todos os campos obrigatórios!")
+
+    elif st.session_state.sub_tela_login == "cad_admin":
+        st.subheader("Cadastro de Novo Administrador")
+        st.info("⚠️ Para criar uma conta de administrador, é necessário informar o código/senha de autorização.")
+        with st.form("form_cad_admin_novo", clear_on_submit=True):
+            a_nome = st.text_input("Nome do Administrador *")
+            a_cel = st.text_input("Celular (WhatsApp) *", placeholder="Ex: 5531999999999")
+            a_user = st.text_input("Login de Admin *")
+            a_pass = st.text_input("Senha de Acesso *", type="password")
+            a_aut = st.text_input("Senha de Autorização *", type="password", help="Senha padrão de segurança fornecida aos criadores do app.")
+            
+            if st.form_submit_button("CADASTRAR ADMINISTRADOR"):
+                if a_aut == SENHA_AUTORIZACAO_ADMIN:
+                    if a_nome and a_user and a_pass:
+                        if any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
+                            st.error("Este login de administrador já existe!")
+                        else:
+                            st.session_state.administradores.append({
+                                "nome": a_nome.strip(),
+                                "login": a_user.strip(),
+                                "senha": a_pass.strip(),
+                                "celular": a_cel.strip()
+                            })
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.success("Administrador cadastrado com sucesso! Agora você já pode entrar no sistema.")
+                    else:
+                        st.error("Preencha todos os campos obrigatórios!")
+                else:
+                    st.error("Senha de autorização incorreta! Acesso negado para criar admin.")
 
     elif st.session_state.sub_tela_login == "dev":
         st.subheader("Acesso Restrito ao Desenvolvedor")
@@ -342,7 +363,7 @@ if st.session_state.pagina_atual == "login":
                     st.session_state.pagina_atual = "dashboard"
                     st.rerun()
                 else:
-                    st.error("Senha mestre incorreta!")
+                    st.error("Senha mestre incorreta! (Padrão: 1980)")
 
 # -----------------------------------------------------------------------------
 # PAINEL PRINCIPAL (DASHBOARD E TELAS)
@@ -424,32 +445,4 @@ else:
     elif st.session_state.pagina_atual == "regulamento":
         st.subheader("📄 Regulamento Interno & Boa Convivência")
         for reg in st.session_state.regulamento:
-            st.markdown(f"<div class='card-team'><h4>{reg['topico']}</h4><p>{reg['regrinha']}</p></div>", unsafe_allow_html=True)
-
-    elif st.session_state.pagina_atual == "aniversariantes":
-        st.subheader("🎂 Painel de Aniversariantes do Mês")
-        mes_atual = hoje_dt.month
-        aniversariantes_mes = []
-        for j in st.session_state.jogadoras:
-            nasc_str = j.get("nascimento", "")
-            if nasc_str and "/" in nasc_str:
-                try:
-                    partes = nasc_str.split("/")
-                    mes_nasc = int(partes[1])
-                    if mes_nasc == mes_atual:
-                        aniversariantes_mes.append(j)
-                except:
-                    pass
-        
-        if not aniversariantes_mes:
-            st.info("Nenhuma atleta faz aniversário neste mês.")
-        else:
-            for a in aniversariantes_mes:
-                st.markdown(f"""
-                <div class='card-team'>
-                    <h3>🎉 {a['nome']}</h3>
-                    <p>Data de Aniversário: <b>{a.get('nascimento')}</b> | Tipo: <code>{a.get('tipo', 'Avulso')}</code></p>
-                </div>
-                """, unsafe_allow_html=True)
-
-    eli
+            st.markdown(f"<div class='card-team'><
