@@ -44,13 +44,6 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
     }
     
-    div.stTextArea textarea, div.stTextInput input, div.stSelectbox select {
-        background-color: #0F172A !important;
-        color: #FFFFFF !important;
-        border: 1px solid #374151 !important;
-        border-radius: 8px !important;
-    }
-    
     div.stButton > button:first-child {
         background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%) !important;
         color: #FFFFFF !important;
@@ -79,6 +72,7 @@ AVISOS_FILE, COMPROVANTES_FILE = "avisos.json", "comprovantes.json"
 SORTEIO_FILE, CONTEUDOS_FILE = "sorteio.json", "conteudos.json"
 UPLOAD_DIR, LOGO_FILE = "comprovantes_imgs", "logo_peladinha.png"
 
+# CHAVE SECRETA DE SEGURANÇA PARA CRIAR ADMINS (Altere para a senha mestre que desejar)
 CHAVE_MESTRE_ADMIN = "PeladinhaMaster2026@"
 
 if not os.path.exists(UPLOAD_DIR): 
@@ -106,28 +100,19 @@ def file_to_base64(path):
 # INICIALIZAÇÃO SESSION STATE
 # -----------------------------------------------------------------------------
 if "jogadoras" not in st.session_state: 
-    st.session_state.jogadoras = carregar_dados(DATA_FILE, [
-        {"nome": "Ana Goleira", "celular": "31999999999", "posicao": "Goleira", "status": "Ativo"},
-        {"nome": "Beatriz Goleira", "celular": "31999999998", "posicao": "Goleira", "status": "Ativo"},
-        {"nome": "Carla Linha", "celular": "31999999997", "posicao": "Linha", "status": "Ativo"},
-        {"nome": "Daniela Linha", "celular": "31999999996", "posicao": "Linha", "status": "Ativo"},
-        {"nome": "Fernanda Linha", "celular": "31999999995", "posicao": "Linha", "status": "Ativo"},
-        {"nome": "Gabriela Linha", "celular": "31999999994", "posicao": "Linha", "status": "Ativo"},
-        {"nome": "Juliana Linha", "celular": "31999999993", "posicao": "Linha", "status": "Ativo"},
-        {"nome": "Mariana Linha", "celular": "31999999992", "posicao": "Linha", "status": "Ativo"}
-    ])
+    st.session_state.jogadoras = carregar_dados(DATA_FILE, [])
 if "presencas" not in st.session_state: 
     st.session_state.presencas = carregar_dados(PRESENCAS_FILE, [])
 if "administradores" not in st.session_state: 
     st.session_state.administradores = carregar_dados(ADMINS_FILE, [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "perfil": "Admin"}])
+if "avisos" not in st.session_state: 
+    st.session_state.avisos = carregar_dados(AVISOS_FILE, {"limite_vagas": 15, "pix": "peladinhafc@email.com", "vencimento": "Todo dia 10", "valor_mensalidade": 50.0, "valor_avulso": 15.0})
 if "conteudos" not in st.session_state: 
     st.session_state.conteudos = carregar_dados(CONTEUDOS_FILE, {
         "regulamento": "Regulamento Oficial: Respeito mútuo, pontualidade nos horários dos jogos e pagamento da mensalidade em dia.",
         "aniversariantes": "Parabéns a todas as craques aniversariantes deste mês! Muitas felicidades e gols!",
         "dashboard_info": "Bem-vinda ao sistema oficial da nossa Peladinha FC. Selecione uma opção abaixo para navegar."
     })
-if "times_sorteados" not in st.session_state:
-    st.session_state.times_sorteados = []
 if "pagina_atual" not in st.session_state: 
     st.session_state.pagina_atual = "login"
 if "sub_tela_login" not in st.session_state: 
@@ -175,6 +160,7 @@ if st.session_state.pagina_atual == "login":
                 btn_sub = st.form_submit_button("ACESSAR")
                 
                 if btn_sub:
+                    # Verifica Admin cadastrados ou padrão
                     admin_encontrado = next((a for a in st.session_state.administradores if a["login"].lower() == u_input.lower() and a["senha"] == p_input), None)
                     if admin_encontrado or (u_input.lower() == "admin" and p_input == "1980"):
                         st.session_state.usuario_logado = admin_encontrado["nome"] if admin_encontrado else "Administrador"
@@ -182,6 +168,7 @@ if st.session_state.pagina_atual == "login":
                         st.session_state.pagina_atual = "dashboard"
                         st.rerun()
                     else:
+                        # Verifica Atleta cadastrada
                         atleta_encontrada = next((j for j in st.session_state.jogadoras if j["nome"].lower() == u_input.lower()), None)
                         if atleta_encontrada:
                             st.session_state.usuario_logado = atleta_encontrada["nome"]
@@ -251,6 +238,7 @@ if st.session_state.pagina_atual == "login":
 else:
     exibir_topo_logo()
     
+    # Coluna Mestra responsável por manter o alinhamento centralizado com a logo
     _, col_master, _ = st.columns([0.5, 9, 0.5])
     
     with col_master:
@@ -266,6 +254,7 @@ else:
 
         # --- MENU / DASHBOARD ---
         if st.session_state.pagina_atual == "dashboard":
+            # Card editável do Dashboard (Boas-vindas)
             if st.session_state.perfil_logado in ["Admin", "Dev"]:
                 if st.session_state.editando_card == "dashboard_info":
                     with st.form("form_edit_dash"):
@@ -311,7 +300,7 @@ else:
         # --- LISTA DE PRESENÇA ---
         elif st.session_state.pagina_atual == "lista":
             st.subheader("📌 Confirmação de Presença")
-            atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
+            atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
             if atativas_nomes:
                 atleta_selecionada = st.selectbox("Selecione sua Atleta", atativas_nomes)
                 if st.button("Confirmar Presença na Próxima Pelada"):
@@ -319,7 +308,7 @@ else:
             else:
                 st.warning("Nenhuma atleta cadastrada ou ativa no momento.")
 
-        # --- REGULAMENTO ---
+        # --- REGULAMENTO (Com Edição Direta no Card) ---
         elif st.session_state.pagina_atual == "regulamento":
             st.subheader("📜 Regulamento")
             
@@ -342,7 +331,7 @@ else:
                         st.session_state.editando_card = "regulamento"
                         st.rerun()
 
-        # --- ANIVERSARIANTES ---
+        # --- ANIVERSARIANTES (Com Edição Direta no Card) ---
         elif st.session_state.pagina_atual == "aniversariantes":
             st.subheader("🎂 Aniversariantes do Mês")
             
@@ -365,54 +354,7 @@ else:
                         st.session_state.editando_card = "aniversariantes"
                         st.rerun()
 
-        # --- SORTEIO DE TIMES AUTOMÁTICO E INTELIGENTE ---
+        # --- SORTEIO DE TIMES ---
         elif st.session_state.pagina_atual == "sorteio":
-            st.subheader("⚽ Sorteio Automático de Times")
-            st.markdown("<div class='card-team'>O sistema distribui automaticamente as goleiras e jogadoras de linha para formar equipes equilibradas.</div>", unsafe_allow_num := 0, unsafe_allow_html=True)
-            
-            qtd_times = st.selectbox("Quantidade de Times a Formar", [2, 3, 4], index=0)
-            
-            if st.button("🎲 REALIZAR SORTEIO AGORA"):
-                jogadoras_ativas = [j for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
-                
-                # Separa entre goleiras e linha
-                goleiras = [j["nome"] for j in jogadoras_ativas if j.get("posicao") == "Goleira"]
-                linhas = [j["nome"] for j in jogadoras_ativas if j.get("posicao") == "Linha"]
-                
-                # Se não houver posições definidas ou faltarem goleiras, trata todas como linha
-                if not goleiras:
-                    goleiras = linhas[:qtd_times]
-                    linhas = linhas[qtd_times:]
-                
-                random.shuffle(goleiras)
-                random.shuffle(linhas)
-                
-                # Inicializa os times vazios
-                times = [ {"goleira": [], "linha": []} for _ in range(qtd_times) ]
-                
-                # Distribui as goleiras primeiro (1 por time enquanto houver)
-                for i, g in enumerate(goleiras):
-                    times[i % qtd_times]["goleira"].append(g)
-                
-                # Distribui as jogadoras de linha de forma equilibrada
-                for i, l in enumerate(linhas):
-                    times[i % qtd_times]["linha"].append(l)
-                    
-                st.session_state.times_sorteados = times
-                st.success("Times sorteados com sucesso!")
-                
-            # Exibe os times sorteados se houverem
-            if st.session_state.times_sorteados:
-                st.markdown("---")
-                st.markdown("### 🏆 Equipes Definidas")
-                for idx, t in enumerate(st.session_state.times_sorteados):
-                    gols_str = ", ".join(t["goleira"]) if t["goleira"] else "Nenhuma"
-                    linhas_str = ", ".join(t["linha"]) if t["linha"] else "Nenhuma"
-                    
-                    st.markdown(f"""
-                    <div class='card-team'>
-                        <h4 style='color: #EC4899; margin-bottom: 8px;'>Time {idx + 1}</h4>
-                        <p><b>🛡️ Goleira:</b> {gols_str}</p>
-                        <p><b>⚽ Jogadoras de Linha:</b> {linhas_str}</p>
-                    </div>
-                    """, unsafe_allow_html=True)
+            st.subheader("⚽ Sorteio de Times")
+            st.markdown("<div class='card-team'>Ferramenta de divisão automática de equipes equilibradas para a partida.</div>", unsafe_allow_html=True)
