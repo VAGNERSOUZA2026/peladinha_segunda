@@ -47,7 +47,6 @@ st.markdown("""
         font-size: 0.95rem !important;
     }
 
-    /* Cartões de Conteúdo e Menu Mobile Style */
     .card-team {
         background: #161E2E !important;
         border: 1px solid #374151 !important;
@@ -69,7 +68,6 @@ st.markdown("""
         font-weight: 700 !important;
     }
 
-    /* Botões Principais Rosa Pink */
     div.stButton > button:first-child {
         background: linear-gradient(135deg, #EC4899 0%, #DB2777 100%) !important;
         color: #FFFFFF !important;
@@ -87,7 +85,6 @@ st.markdown("""
         transform: translateY(-2px);
     }
 
-    /* Inputs e Formulários */
     .stTextInput input, .stSelectbox select, .stNumberInput input {
         background-color: #1F2937 !important;
         color: #FFFFFF !important;
@@ -451,4 +448,8 @@ else:
                 st.markdown(f"""
                 <div class='card-team'>
                     <h3>🎉 {a['nome']}</h3>
-                    <p>Data de Aniversário: <b>{a.get('nascimento')}</b> | Tipo: 
+                    <p>Data de Aniversário: <b>{a.get('nascimento')}</b> | Tipo: <code>{a.get('tipo', 'Avulso')}</code></p>
+                </div>
+                """, unsafe_allow_html=True)
+
+    eli
