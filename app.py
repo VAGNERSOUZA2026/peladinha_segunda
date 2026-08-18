@@ -4,7 +4,6 @@ import json
 import os
 import random
 from datetime import datetime, timedelta, timezone
-from urllib.parse import quote
 
 # -----------------------------------------------------------------------------
 # CONFIGURAÇÃO DE FUSO HORÁRIO E DATAS
@@ -25,7 +24,7 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 # ESTILIZAÇÃO CSS CUSTOMIZADA
 # -----------------------------------------------------------------------------
-st.markdown("""
+css_customizado = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
     
@@ -118,7 +117,8 @@ st.markdown("""
         border: none !important;
     }
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(css_customizado, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # ARQUIVOS JSON E PERSISTÊNCIA
@@ -441,4 +441,4 @@ else:
         for reg in st.session_state.regulamento:
             st.markdown(
                 f'<div class="card-team"><h4>{reg["topico"]}</h4><p>{reg["regrinha"]}</p></div>',
-                unsafe_allow_html=
+                unsafe_allow_ht
