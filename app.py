@@ -537,7 +537,7 @@ else:
                 st.write("### 👑 Inclusão pelo Admin")
                 
                 with st.form("form_add_manual_cadastrada"):
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
                     atleta_escolhida = st.selectbox("Adicionar Jogadora Cadastrada", atativas_nomes if atativas_nomes else ["Nenhuma"])
                     if st.form_submit_button("Incluir Cadastrada"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
@@ -577,14 +577,29 @@ else:
                 with st.form("form_pres"):
                     c_ok = st.form_submit_button("👍 Confirmar Presença")
                     c_canc = st.form_submit_button("❌ Cancelar Presença")
-                if c_ok and not ja_esta:
-                    st.session_state.presencas.append({"nome": j_name, "hora": hoje_dt.strftime("%H:%M"), "tipo": tipo_usuario_atual, "dt_confirmacao": hoje_dt.isoformat()})
-                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.rerun()
-                if c_canc and ja_esta:
-                    st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_name]
-                    salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
-                    st.rerun()
+                
+                if c_ok:
+                    if ja_esta:
+                        st.info("Você já confirmou sua presença! Seu horário e posição foram mantidos intactos.")
+                    else:
+                        st.session_state.presencas.append({
+                            "nome": j_name, 
+                            "hora": hoje_dt.strftime("%H:%M"), 
+                            "tipo": tipo_usuario_atual, 
+                            "dt_confirmacao": hoje_dt.isoformat()
+                        })
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.success("Presença confirmada com sucesso!")
+                        st.rerun()
+
+                if c_canc:
+                    if ja_esta:
+                        st.session_state.presencas = [p for p in st.session_state.presencas if obter_nome_p(p) != j_name]
+                        salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                        st.success("Sua presença foi cancelada.")
+                        st.rerun()
+                    else:
+                        st.warning("Você não está na lista de presença.")
 
     elif st.session_state.pagina_atual == "sorteio":
         st.subheader("🏆 Sorteio de Times & Grupos (Às 18:30)")
