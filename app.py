@@ -444,7 +444,7 @@ else:
                     st.markdown(f'<div class="card-team"><h3>🎉 {a["nome"]}</h3><p>Data: <b>{nasc_str}</b></p></div>', unsafe_allow_html=True)
             
             st.markdown("---")
-            st.info("💌 Mensagem disparada para o grupo lembrando todas as atletas de parabenizarem as aniversariantes do dia!")
+            st.info("💌 Mensagem disparada para o grupo lembrando todas das aniversariantes do dia!")
 
     elif st.session_state.pagina_atual == "lista":
         st.subheader("📋 Lista de Presença e Confirmações")
@@ -471,7 +471,6 @@ else:
             if st.session_state.perfil_logado in ["Admin", "Dev"]:
                 st.write("### 👑 Inclusão pelo Admin")
                 
-                # Opção 1: Incluir Jogadora Cadastrada
                 with st.form("form_add_manual_cadastrada"):
                     atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
                     atleta_escolhida = st.selectbox("Adicionar Jogadora Cadastrada", atativas_nomes if atativas_nomes else ["Nenhuma"])
@@ -483,7 +482,6 @@ else:
                             st.success(f"{atleta_escolhida} incluída!")
                             st.rerun()
 
-                # Opção 2: Incluir Convidada Avulsa
                 with st.form("form_add_manual_convidada"):
                     nome_convidada = st.text_input("Adicionar Convidada Avulsa (Nome)")
                     if st.form_submit_button("Incluir Convidada"):
@@ -533,7 +531,7 @@ else:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
                 nomes_editados = st.multiselect(
                     "Selecione as atletas presentes para o sorteio:", 
-                    [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], 
+                    [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"], 
                     default=nomes_oficiais if nomes_oficiais else None
                 )
                 if st.button("Atualizar Lista Oficial do Sorteio"):
@@ -727,7 +725,7 @@ else:
             st.markdown("---")
 
         st.write("### 👑 Aprovação de Cadastros Pendentes")
-        pendentes_j = [item for item in st.session_state.jogadoras if item.get("status"] == "Pendente"]
+        pendentes_j = [item for item in st.session_state.jogadoras if item.get("status") == "Pendente"]
         if not pendentes_j:
             st.info("Nenhum cadastro de atleta pendente no momento.")
         else:
