@@ -205,7 +205,7 @@ if "avisos" not in st.session_state:
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade de Mensalistas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda-feira têm prioridade nas 15 vagas."},
-        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após las 17:00, se sobrarem vagas, sobem automaticamente."},
+        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após as 17:00, se sobrarem vagas, sobem automaticamente."},
         {"topico": "⏰ 3. Fechamento e Sorteio Automático", "regrinha": "A lista fecha às 18:00 e o sorteio automático dos grupos é realizado rigidamente às 18:30."},
         {"topico": "🚫 4. Conduta e Fair Play na Quadra", "regrinha": "Entradas violentas, jogo desleal e agressões verbais são estritamente proibidos, sujeitos a suspensão imediata."}
     ])
@@ -372,7 +372,6 @@ if st.session_state.pagina_atual == "login":
 else:
     exibir_topo_logo()
     
-    # Saudação dinâmica baseada no horário
     hora_atual = hoje_dt.hour
     if 5 <= hora_atual < 12:
         saudacao_tempo = "Bom dia"
@@ -381,7 +380,6 @@ else:
     else:
         saudacao_tempo = "Boa noite"
 
-    # Verificar se é aniversário da jogadora logada hoje
     eh_aniversario_hoje = False
     if st.session_state.perfil_logado == "Jogadora":
         atleta_obj = next((j for j in st.session_state.jogadoras if j.get("nome") == st.session_state.usuario_logado), None)
@@ -640,241 +638,218 @@ else:
         if st.button("Realizar Sorteio Paralelo na Quadra"):
             if presenca_quadra:
                 lista_paralela = [n.strip() for n in presenca_quadra.split(",") if n.strip()]
-                random.shuffle(lista_paralela)
-                met = len(lista_paralela) // 2
-                t1 = lista_paralela[:met]
-                t2 = lista_paralela[met:]
-                st.markdown(f'<div class="card-team"><h4>⚽ Time Paralelo 1</h4>' + "".join([f"<p>• {n}</p>" for n in t1]) + '</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="card-team"><h4>⚽ Time Paralelo 2</h4>' + "".join([f"<p>• {n}</p>" for n in t2]) + '</div>', unsafe_allow_html=True)
+                if len(lista_paralela) >= 2:
+                    random.shuffle(lista_paralela)
+                    metade_p = len(lista_paralela) // 2
+                    time_1 = lista_paralela[:metade_p]
+                    time_2 = lista_paralela[metade_p:]
+                    
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        st.markdown(f'<div class="card-team"><h4>⚽ Time 1 (Paralelo)</h4>' + "".join([f"<p>• {n}</p>" for n in time_1]) + '</div>', unsafe_allow_html=True)
+                    with col_p2:
+                        st.markdown(f'<div class="card-team"><h4>⚽ Time 2 (Paralelo)</h4>' + "".join([f"<p>• {n}</p>" for n in time_2]) + '</div>', unsafe_allow_html=True)
+                else:
+                    st.warning("Insira pelo menos 2 nomes para realizar o sorteio paralelo.")
             else:
-                st.error("Digite os nomes para o sorteio paralelo.")
+                st.error("Digite os nomes das atletas presentes na quadra.")
 
     elif st.session_state.pagina_atual == "elenco":
-        st.subheader("👕 Elenco de Jogadoras")
-        for j in st.session_state.jogadoras:
-            status_cor = "🟢 Ativa" if j.get("status") == "Ativo" else "🔴 Inativa"
-            pag_cor = "✅ Em Dia" if j.get("quitado") == "Sim" else "❌ Pendente"
-            st.markdown(f'<div class="card-team"><b>{j["nome"]}</b> | Tipo: <code>{j.get("tipo")}</code> | Status: <b>{status_cor}</b> | Pagamento: <b>{pag_cor}</b></div>', unsafe_allow_html=True)
-
-    elif st.session_state.pagina_atual == "pagamento":
-        st.subheader("💳 Chave Pix e Dados para Pagamento")
-        
-        if st.session_state.perfil_logado in ["Admin", "Dev"]:
-            with st.expander("🛠️ Editar Dados de Pagamento / Chave Pix"):
-                with st.form("form_edit_pix"):
-                    novo_pix = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
-                    novo_banco = st.text_input("Banco", value=st.session_state.avisos.get("banco", ""))
-                    novo_beneficiario = st.text_input("Beneficiário", value=st.session_state.avisos.get("beneficiario", ""))
-                    v_mensal_novo = st.number_input("Valor Mensalidade (R$)", value=float(st.session_state.avisos.get("valor_mensalidade", 50.0)))
-                    v_avulso_novo = st.number_input("Valor Avulso (R$)", value=float(st.session_state.avisos.get("valor_avulso", 15.0)))
-                    
-                    if st.form_submit_button("Salvar Alterações de Pagamento"):
-                        st.session_state.avisos["pix"] = novo_pix
-                        st.session_state.avisos["banco"] = novo_banco
-                        st.session_state.avisos["beneficiario"] = novo_beneficiario
-                        st.session_state.avisos["valor_mensalidade"] = v_mensal_novo
-                        st.session_state.avisos["valor_avulso"] = v_avulso_novo
-                        salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                        st.success("Dados de pagamento atualizados com sucesso!")
-                        st.rerun()
-
-        tipo_atual = "Avulso"
-        nome_logado = st.session_state.usuario_logado
-        for j in st.session_state.jogadoras:
-            if j.get("nome") == nome_logado:
-                tipo_atual = j.get("tipo", "Avulso")
-        
-        v_mensal = st.session_state.avisos.get("valor_mensalidade", 50.00)
-        v_avulso = st.session_state.avisos.get("valor_avulso", 15.00)
-        valor_devido = v_mensal if tipo_atual == "Mensalista" else v_avulso
-
-        st.markdown(f"""
-        <div class="card-team">
-            <h4>🏷️ Informações de Pagamento ({tipo_atual})</h4>
-            <p>Valor correspondente à sua categoria: <b>R$ {valor_devido:.2f}</b></p>
-            <hr style="border-color: #374151;">
-            <p><b>Chave Pix:</b> <code>{st.session_state.avisos.get("pix")}</code></p>
-            <p><b>Banco:</b> {st.session_state.avisos.get("banco", "Banco Inter")}</p>
-            <p><b>Beneficiário:</b> {st.session_state.avisos.get("beneficiario", "Peladinha FC")}</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if st.session_state.perfil_logado in ["Jogadora", "Admin", "Dev"]:
-            with st.form("form_comp"):
-                if st.session_state.perfil_logado in ["Admin", "Dev"]:
-                    nomes_joga_pag = [j["nome"] for j in st.session_state.jogadoras]
-                    atleta_selecionada_comp = st.selectbox("Enviar em nome de:", nomes_joga_pag if nomes_joga_pag else [st.session_state.usuario_logado])
-                else:
-                    atleta_selecionada_comp = st.session_state.usuario_logado
-
-                up = st.file_uploader("Enviar Comprovante de Pagamento", type=["png", "jpg", "jpeg"])
-                if st.form_submit_button("Enviar Comprovante para o Admin"):
-                    if up:
-                        path = os.path.join(UPLOAD_DIR, f"{atleta_selecionada_comp}.png")
-                        with open(path, "wb") as f: f.write(up.getbuffer())
-                        st.session_state.comprovantes.append({"nome": atleta_selecionada_comp, "arquivo": path, "valor": valor_devido, "tipo": tipo_atual, "conferido": False})
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
-                        st.success("Comprovante enviado com sucesso para validação do Administrador!")
-
-    elif st.session_state.pagina_atual == "caixa":
-        st.subheader("📸 Fluxo de Caixa e Acompanhamento de Mensalistas")
-        
-        if st.session_state.comprovantes:
-            st.write("### 📥 Comprovantes Pendentes de Aprovação")
-            for idx, comp in enumerate(st.session_state.comprovantes):
-                if not comp.get("conferido"):
-                    st.markdown(f'<div class="card-team">Atleta: <b>{comp["nome"]}</b> | Valor: R$ {comp.get("valor", 0):.2f}</div>', unsafe_allow_html=True)
-                    if st.button(f"Aprovar e Lançar no Caixa ({comp['nome']})", key=f"apr_comp_{idx}"):
-                        comp["conferido"] = True
-                        st.session_state.financeiro.append({
-                            "data": hoje_dt.strftime("%Y-%m-%d"),
-                            "tipo": "Receita",
-                            "descricao": f"Pagamento - {comp['nome']}",
-                            "valor": comp.get("valor", 0),
-                            "status": "Pago"
-                        })
-                        for j in st.session_state.jogadoras:
-                            if j["nome"] == comp["nome"]:
-                                j["quitado"] = "Sim"
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+        st.subheader("👕 Elenco de Jogadoras Cadastradas")
+        for idx, j in enumerate(st.session_state.jogadoras):
+            st.markdown(
+                f'<div class="card-team">'
+                f'<h4>{j.get("nome")}</h4>'
+                f'<p>Tipo: <code>{j.get("tipo")}</code> | Status: <code>{j.get("status")}</code> | Mensalidade Quitada: <code>{j.get("quitado", "Não")}</code></p>'
+                f'<small>Nascimento: {j.get("nascimento", "--/--")}</small>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+            if st.session_state.perfil_logado in ["Admin", "Dev"]:
+                col_el1, col_el2 = st.columns(2)
+                with col_el1:
+                    novo_quit = "Sim" if j.get("quitado") != "Sim" else "Não"
+                    if st.button(f"Alternar Quitação ({novo_quit})", key=f"quit_{idx}"):
+                        st.session_state.jogadoras[idx]["quitado"] = novo_quit
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Pagamento aprovado e lançado no caixa com sucesso!")
                         st.rerun()
-
-        with st.expander("➕ Lançar Nova Receita / Despesa"):
-            with st.form("form_novo_fluxo"):
-                f_tipo = st.selectbox("Tipo", ["Receita", "Despesa"])
-                f_desc = st.text_input("Descrição (Ex: Aluguel da Quadra / Compra de Coletes)")
-                f_val = st.number_input("Valor (R$)", min_value=0.0, value=50.0)
-                f_status = st.selectbox("Status", ["Pago", "Pendente"])
-                if st.form_submit_button("Salvar Lançamento"):
-                    if f_desc:
-                        st.session_state.financeiro.append({
-                            "data": hoje_dt.strftime("%Y-%m-%d"),
-                            "tipo": f_tipo, "descricao": f_desc, "valor": f_val, "status": f_status
-                        })
-                        salvar_dados(FINANCE_FILE, st.session_state.financeiro)
-                        st.success("Lançamento adicionado!")
-                        st.rerun()
-
-        total_rec = sum(i["valor"] for i in st.session_state.financeiro if i["tipo"] == "Receita" and i["status"] == "Pago")
-        total_desp = sum(i["valor"] for i in st.session_state.financeiro if i["tipo"] == "Despesa" and i["status"] == "Pago")
-        saldo_geral = total_rec - total_desp
-
-        col_c1, col_c2, col_c3 = st.columns(3)
-        with col_c1:
-            st.metric("Receitas Pagas", f"R$ {total_rec:.2f}")
-        with col_c2:
-            st.metric("Despesas Pagas", f"R$ {total_desp:.2f}")
-        with col_c3:
-            st.metric("Saldo em Caixa", f"R$ {saldo_geral:.2f}")
-
-        st.write("### 📋 Lançamentos Registrados (Mensal / Semanal)")
-        for lanc in st.session_state.financeiro:
-            cor_st = "🟢 Pago" if lanc.get("status") == "Pago" else "🟠 Pendente"
-            st.markdown(f'<div class="card-team"><b>[{lanc["tipo"]}]</b> {lanc["descricao"]} — <b>R$ {lanc["valor"]:.2f}</b> | Status: <b>{cor_st}</b> ({lanc.get("data")})</div>', unsafe_allow_html=True)
-
-        st.write("### 👥 Acompanhamento de Pagamento das Mensalistas")
-        for j in st.session_state.jogadoras:
-            if j.get("tipo") == "Mensalista":
-                st.markdown(f'<div class="card-team">Mensalista: <b>{j["nome"]}</b> — Situação: <b>{"✅ Em Dia" if j.get("quitado")=="Sim" else "❌ Pendente"}</b></div>', unsafe_allow_html=True)
-
-    elif st.session_state.pagina_atual == "gerenciamento":
-        st.subheader("🛠️ Gerenciamento Geral & Credenciais")
-        
-        with st.expander("🔑 Alterar Senha de Autorização para Novos Admins"):
-            with st.form("form_alt_senha_aut"):
-                nova_senha_aut_input = st.text_input("Nova Senha de Autorização", type="password")
-                if st.form_submit_button("Atualizar Senha de Autorização"):
-                    if nova_senha_aut_input.strip():
-                        st.session_state.avisos["senha_autorizacao_admin"] = nova_senha_aut_input.strip()
-                        salvar_dados(AVISOS_FILE, st.session_state.avisos)
-                        st.success("Senha de autorização de administradores alterada com sucesso!")
-                        st.rerun()
-                    else:
-                        st.error("A senha não pode estar em branco.")
-
-        if st.session_state.perfil_logado == "Dev":
-            st.write("### 🔐 [DEV] Credenciais de Acesso de Todas as Contas")
-            for adm in st.session_state.administradores:
-                st.markdown(f'<div class="card-team">Admin: <b>{adm["nome"]}</b> | Login: <code>{adm["login"]}</code> | Senha: <code>{adm["senha"]}</code></div>', unsafe_allow_html=True)
-            for j in st.session_state.jogadoras:
-                st.markdown(f'<div class="card-team">Atleta: <b>{j["nome"]}</b> | Login: <code>{j.get("login")}</code> | Senha: <code>{j.get("senha")}</code></div>', unsafe_allow_html=True)
-            st.markdown("---")
-
-        st.write("### 👑 Aprovação de Cadastros Pendentes")
-        pendentes_j = [item for item in st.session_state.jogadoras if item.get("status") == "Pendente"]
-        if not pendentes_j:
-            st.info("Nenhum cadastro de atleta pendente no momento.")
-        else:
-            for j in pendentes_j:
-                st.markdown(f'<div class="card-team">Atleta Pendente: <b>{j["nome"]}</b> ({j.get("tipo")})</div>', unsafe_allow_html=True)
-                if st.button(f"Aprovar Atleta {j['nome']}", key=f"ap_{j['nome']}"):
-                    j["status"] = "Ativo"
-                    salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                    st.success("Atleta aprovada com sucesso!")
-                    st.rerun()
-
-        st.markdown("---")
-        st.write("### ✏️ Gerenciar / Editar / Excluir Cadastros")
-
-        tab_g1, tab_g2 = st.tabs(["Jogadoras", "Administradores"])
-
-        with tab_g1:
-            for idx, j in enumerate(st.session_state.jogadoras):
-                with st.expander(f"Jogadora: {j['nome']} ({j.get('tipo', 'Avulso')})"):
-                    with st.form(f"form_edit_jog_{idx}"):
-                        novo_nome_j = st.text_input("Nome", value=j["nome"])
-                        novo_tipo_j = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if j.get("tipo") == "Avulso" else 1)
-                        novo_status_j = st.selectbox("Status", ["Ativo", "Pendente", "Inativo"], index=0 if j.get("status") == "Ativo" else (1 if j.get("status") == "Pendente" else 2))
-                        novo_quitado_j = st.selectbox("Quitado", ["Sim", "Não"], index=0 if j.get("quitado") == "Sim" else 1)
-                        novo_login_j = st.text_input("Login", value=j.get("login", ""))
-                        novo_senha_j = st.text_input("Senha", value=j.get("senha", ""))
-
-                        btn_salvar_j = st.form_submit_button("Salvar Alterações da Atleta")
-                        if btn_salvar_j:
-                            j["nome"] = novo_nome_j
-                            j["tipo"] = novo_tipo_j
-                            j["status"] = novo_status_j
-                            j["quitado"] = novo_quitado_j
-                            j["login"] = novo_login_j
-                            j["senha"] = novo_senha_j
-                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                            st.success("Atleta atualizada com sucesso!")
-                            st.rerun()
-
-                    if st.button(f"🗑️ Excluir Atleta {j['nome']}", key=f"del_jog_{idx}"):
+                with col_el2:
+                    if st.button(f"Excluir Jogadora", key=f"del_jog_{idx}"):
                         st.session_state.jogadoras.pop(idx)
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
-                        st.success("Atleta excluída com sucesso!")
                         st.rerun()
 
-        with tab_g2:
-            for idx, adm in enumerate(st.session_state.administradores):
-                is_admin_principal = adm.get("login") == "admin"
-                with st.expander(f"Administrador: {adm['nome']} ({adm.get('login')})"):
-                    with st.form(f"form_edit_adm_{idx}"):
-                        novo_nome_a = st.text_input("Nome", value=adm["nome"])
-                        novo_cel_a = st.text_input("Celular", value=adm.get("celular", ""))
-                        novo_login_a = st.text_input("Login", value=adm.get("login", ""))
-                        novo_senha_a = st.text_input("Senha", value=adm.get("senha", ""))
+    elif st.session_state.pagina_atual == "pagamento":
+        st.subheader("💠 Pagamento via Pix & Envio de Comprovantes")
+        pix_chave = st.session_state.avisos.get("pix", "peladinhafc@email.com")
+        banco_nome = st.session_state.avisos.get("banco", "Banco Inter")
+        beneficiario_nome = st.session_state.avisos.get("beneficiario", "Peladinha FC Ltda")
+        v_mensal = st.session_state.avisos.get("valor_mensalidade", 50.00)
+        v_avulso = st.session_state.avisos.get("valor_avulso", 15.00)
+        
+        st.markdown(
+            f'<div class="card-team">'
+            f'<h4>📌 Dados para Pagamento Pix</h4>'
+            f'<p><b>Chave Pix:</b> <code>{pix_chave}</code></p>'
+            f'<p><b>Instituição/Banco:</b> {banco_nome}</p>'
+            f'<p><b>Beneficiário:</b> {beneficiario_nome}</p>'
+            f'<hr style="border-color: #EC4899;">'
+            f'<p><b>Valores:</b> Mensalidade: R$ {v_mensal:.2f} | Avulso: R$ {v_avulso:.2f}</p>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        
+        st.markdown("### 📤 Enviar Comprovante de Pagamento")
+        with st.form("form_envio_comprovante", clear_on_submit=True):
+            nome_pagante = st.text_input("Nome da Atleta / Pagante", value=st.session_state.usuario_logado if st.session_state.usuario_logado else "")
+            desc_pagamento = st.text_input("Descrição (Ex: Mensalidade de Agosto / Jogo Avulso)")
+            arquivo_comp = st.file_uploader("Anexar Imagem do Comprovante (.png, .jpg)", type=["png", "jpg", "jpeg"])
+            
+            if st.form_submit_button("Enviar Comprovante"):
+                if nome_pagante and arquivo_comp:
+                    nome_arquivo = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{arquivo_comp.name}"
+                    caminho_completo = os.path.join(UPLOAD_DIR, nome_arquivo)
+                    with open(caminho_completo, "wb") as f:
+                        f.write(arquivo_comp.getbuffer())
+                    
+                    st.session_state.comprovantes.append({
+                        "nome": nome_pagante,
+                        "descricao": desc_pagamento,
+                        "arquivo": caminho_completo,
+                        "data": hoje_dt.strftime("%d/%m/%Y %H:%M"),
+                        "status": "Pendente"
+                    })
+                    salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                    st.success("Comprovante enviado com sucesso para análise do Administrador!")
+                else:
+                    st.error("Preencha o nome e selecione a imagem do comprovante.")
 
-                        btn_salvar_a = st.form_submit_button("Salvar Alterações do Admin")
-                        if btn_salvar_a:
-                            adm["nome"] = novo_nome_a
-                            adm["celular"] = novo_cel_a
-                            adm["login"] = novo_login_a
-                            adm["senha"] = novo_senha_a
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador atualizado com sucesso!")
+    elif st.session_state.pagina_atual == "caixa":
+        st.subheader("📸 Fluxo de Caixa & Gestão Financeira")
+        
+        total_rec = sum(item["valor"] for item in st.session_state.financeiro if item.get("tipo") == "Receita" and item.get("status") == "Pago")
+        total_desp = sum(item["valor"] for item in st.session_state.financeiro if item.get("tipo") == "Despesa" and item.get("status") == "Pago")
+        saldo_caixa = total_rec - total_desp
+        
+        col_c1, col_c2, col_c3 = st.columns(3)
+        with col_c1:
+            st.metric("Receitas", f"R$ {total_rec:.2f}")
+        with col_c2:
+            st.metric("Despesas", f"R$ {total_desp:.2f}")
+        with col_c3:
+            st.metric("Saldo Atual", f"R$ {saldo_caixa:.2f}")
+            
+        st.markdown("---")
+        st.markdown("### ➕ Adicionar Nova Movimentação")
+        with st.form("form_novo_fluxo", clear_on_submit=True):
+            f_tipo = st.selectbox("Tipo", ["Receita", "Despesa"])
+            f_desc = st.text_input("Descrição")
+            f_valor = st.number_input("Valor (R$)", min_value=0.0, step=5.0)
+            f_status = st.selectbox("Status", ["Pago", "Pendente"])
+            if st.form_submit_button("Salvar Lançamento"):
+                if f_desc and f_valor > 0:
+                    st.session_state.financeiro.append({
+                        "data": hoje_dt.strftime("%Y-%m-%d"),
+                        "tipo": f_tipo,
+                        "descricao": f_desc,
+                        "valor": f_valor,
+                        "status": f_status
+                    })
+                    salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                    st.success("Movimentação salva!")
+                    st.rerun()
+                else:
+                    st.error("Preencha a descrição e um valor válido.")
+
+        st.markdown("### 📑 Histórico de Lançamentos")
+        for idx, mov in enumerate(st.session_state.financeiro):
+            cor_borda = "#10B981" if mov.get("tipo") == "Receita" else "#EF4444"
+            st.markdown(
+                f'<div class="card-team" style="border-left: 5px solid {cor_borda};">'
+                f'<b>{mov.get("data")}</b> - {mov.get("tipo")}: {mov.get("descricao")} <br>'
+                f'Valor: <b>R$ {mov.get("valor", 0):.2f}</b> [Status: <code>{mov.get("status")}</code>]'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+            if st.button("Excluir Lançamento", key=f"del_mov_{idx}"):
+                st.session_state.financeiro.pop(idx)
+                salvar_dados(FINANCE_FILE, st.session_state.financeiro)
+                st.rerun()
+
+        st.markdown("---")
+        st.markdown("### 📥 Comprovantes Enviados para Aprovação")
+        if not st.session_state.comprovantes:
+            st.info("Nenhum comprovante enviado no momento.")
+        else:
+            for idx, comp in enumerate(st.session_state.comprovantes):
+                st.markdown(
+                    f'<div class="card-team">'
+                    f'<h4>Enviado por: {comp.get("nome")}</h4>'
+                    f'<p>Descrição: {comp.get("descricao")}</p>'
+                    f'<p>Data: {comp.get("data")} | Status: <code>{comp.get("status")}</code></p>'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
+                if os.path.exists(comp.get("arquivo", "")):
+                    st.image(comp["arquivo"], caption=f"Comprovante de {comp.get('nome')}", width=300)
+                
+                if comp.get("status") == "Pendente":
+                    if st.button("Aprovar Comprovante", key=f"apr_comp_{idx}"):
+                        st.session_state.comprovantes[idx]["status"] = "Aprovado"
+                        salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
+                        st.success("Comprovante aprovado!")
+                        st.rerun()
+
+    elif st.session_state.pagina_atual == "gerenciamento":
+        st.subheader("⚙️ Gerenciamento Geral & Aprovações")
+        
+        st.markdown("### ⏳ Cadastros de Atletas Pendentes")
+        pendentes = [j for j in st.session_state.jogadoras if j.get("status") == "Pendente"]
+        if not pendentes:
+            st.info("Nenhum cadastro pendente de aprovação.")
+        else:
+            for j in st.session_state.jogadoras:
+                if j.get("status") == "Pendente":
+                    st.markdown(
+                        f'<div class="card-team">'
+                        f'<h4>{j.get("nome")} ({j.get("tipo")})</h4>'
+                        f'<p>Login: <code>{j.get("login")}</code> | Nascimento: {j.get("nascimento")}</p>'
+                        f'</div>',
+                        unsafe_allow_html=True
+                    )
+                    idx_real = st.session_state.jogadoras.index(j)
+                    col_ap1, col_ap2 = st.columns(2)
+                    with col_ap1:
+                        if st.button(f"Aprovar {j.get('nome')}", key=f"aprov_{idx_real}"):
+                            st.session_state.jogadoras[idx_real]["status"] = "Ativo"
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.success("Atleta aprovada com sucesso!")
+                            st.rerun()
+                    with col_ap2:
+                        if st.button(f"Rejeitar {j.get('nome')}", key=f"rej_{idx_real}"):
+                            st.session_state.jogadoras.pop(idx_real)
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
                             st.rerun()
 
-                    if not is_admin_principal:
-                        if st.button(f"🗑️ Excluir Administrador {adm['nome']}", key=f"del_adm_{idx}"):
-                            st.session_state.administradores.pop(idx)
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador excluído com sucesso!")
-                            st.rerun()
-                    else:
-                        st.info("O Administrador Principal padrão não pode ser excluído.")
+        st.markdown("---")
+        st.markdown("### ⚙️ Configurações Gerais do Sistema")
+        with st.form("form_config_geral"):
+            cfg_vagas = st.number_input("Limite de Vagas Oficiais", min_value=2, max_value=50, value=int(st.session_state.avisos.get("limite_vagas", 15)))
+            cfg_pix = st.text_input("Chave Pix Oficial", value=st.session_state.avisos.get("pix", ""))
+            cfg_banco = st.text_input("Nome do Banco", value=st.session_state.avisos.get("banco", ""))
+            cfg_benef = st.text_input("Nome do Beneficiário", value=st.session_state.avisos.get("beneficiario", ""))
+            cfg_v_mensal = st.number_input("Valor da Mensalidade (R$)", value=float(st.session_state.avisos.get("valor_mensalidade", 50.0)))
+            cfg_v_avulso = st.number_input("Valor Avulso (R$)", value=float(st.session_state.avisos.get("valor_avulso", 15.0)))
+            cfg_senha_adm = st.text_input("Senha de Autorização para Novos Admins", value=st.session_state.avisos.get("senha_autorizacao_admin", "1980"), type="password")
+            
+            if st.form_submit_button("Salvar Configurações"):
+                st.session_state.avisos["limite_vagas"] = int(cfg_vagas)
+                st.session_state.avisos["pix"] = cfg_pix
+                st.session_state.avisos["banco"] = cfg_banco
+                st.session_state.avisos["beneficiario"] = cfg_benef
+                st.session_state.avisos["valor_mensalidade"] = float(cfg_v_mensal)
+                st.session_state.avisos["valor_avulso"] = float(cfg_v_avulso)
+                st.session_state.avisos["senha_autorizacao_admin"] = cfg_senha_adm
+                salvar_dados(AVISOS_FILE, st.session_state.avisos)
+                st.success("Configurações atualizadas com sucesso!")
+                st.rerun()
