@@ -12,7 +12,7 @@ fuso_br = timezone(timedelta(hours=-3))
 hoje_dt = datetime.now(fuso_br)
 
 # -----------------------------------------------------------------------------
-# CONFIGURAÇÃO DA PÁGINA (ESTABILIZADA PARA NÃO DESLOGAR COM F5)
+# CONFIGURAÇÃO DA PÁGINA
 # -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="Peladinha FC",
@@ -40,12 +40,10 @@ st.markdown("""
         background-position: 0 0, 15px 15px;
     }
 
-    /* Ocultar elementos nativos desnecessários */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
-    /* Estilização Geral de Cartões */
     .card-team {
         background: rgba(22, 30, 46, 0.85);
         border: 1px solid #374151;
@@ -66,7 +64,6 @@ st.markdown("""
         font-weight: 700; 
     }
 
-    /* Estilização Customizada dos Botões de Menu (Estilo Card Neon) */
     div.stButton > button:first-child {
         background: linear-gradient(135deg, rgba(22, 30, 46, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
         color: #FFFFFF;
@@ -86,7 +83,6 @@ st.markdown("""
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(22, 30, 46, 0.95) 100%);
     }
 
-    /* Inputs e Caixas de Texto */
     .stTextInput input, .stSelectbox select, .stNumberInput input {
         background-color: #1F2937;
         color: #FFFFFF;
@@ -193,7 +189,7 @@ SENHA_MESTRE_DEV = "1980"
 SENHA_AUTORIZACAO_ADMIN = "1980"
 
 # -----------------------------------------------------------------------------
-# FUNÇÃO PARA EXIBIR A LOGO NO TOPO (SEM O BOTÃO ATUALIZAR)
+# FUNÇÃO PARA EXIBIR A LOGO NO TOPO
 # -----------------------------------------------------------------------------
 def exibir_topo_logo():
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -299,7 +295,6 @@ if st.session_state.pagina_atual == "login":
 
     elif st.session_state.sub_tela_login == "cad_admin":
         st.subheader("Cadastro de Novo Administrador")
-        # Correção implementada: campos em formulário adequado sem quebra com enter no primeiro campo
         with st.form("form_cad_admin_novo", clear_on_submit=True):
             a_nome = st.text_input("Nome do Administrador *")
             a_cel = st.text_input("Celular (WhatsApp) *", placeholder="Ex: 5531999999999")
@@ -366,7 +361,7 @@ else:
     if st.session_state.pagina_atual == "dashboard":
         cards = [
             ("📄 **Regulamento**\n\nConsulte o regulamento do time", "regulamento"),
-            ("👥 **Lista de Presenças**\n\Veja e gerencie as presenças", "lista"),
+            ("👥 **Lista de Presenças**\n\nVeja e gerencie as presenças", "lista"),
             ("🏆 **Sorteio de Times & Grupos**\n\nSorteio automático e paralelo", "sorteio"),
             ("👕 **Elenco de Jogadoras**\n\nConfira o status do elenco", "elenco"),
             ("💠 **Pagamento Pix**\n\nValores e envio de comprovantes", "pagamento"),
@@ -403,7 +398,6 @@ else:
     elif st.session_state.pagina_atual == "regulamento":
         st.subheader("📄 Regulamento Interno & Boa Convivência")
         
-        # Opção de edição para Admin/Dev
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
             with st.expander("🛠️ Adicionar / Editar Regra"):
                 with st.form("form_add_regra"):
@@ -510,7 +504,6 @@ else:
         st.markdown("### 🤖 Sorteio Oficial Automático (Grupos)")
         nomes_oficiais = [obter_nome_p(p) for p in st.session_state.presencas][:15]
         
-        # Opção do Admin de editar a lista do sorteio oficial em caso de desistência repentina
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
                 nomes_editados = st.multiselect("Selecione as atletas presentes para o sorteio:", [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], default=nomes_oficiais if nomes_oficiais else None)
@@ -559,7 +552,6 @@ else:
     elif st.session_state.pagina_atual == "pagamento":
         st.subheader("💳 Chave Pix e Dados para Pagamento")
         
-        # Identificar se a usuária logada é mensalistas ou avulsa para mostrar o valor correto
         tipo_atual = "Avulso"
         nome_logado = st.session_state.usuario_logado
         for j in st.session_state.jogadoras:
@@ -595,7 +587,6 @@ else:
     elif st.session_state.pagina_atual == "caixa":
         st.subheader("📸 Fluxo de Caixa e Acompanhamento de Mensalistas")
         
-        # Validar comprovantes pendentes enviados pelas jogadoras para aprovação automática no caixa
         if st.session_state.comprovantes:
             st.write("### 📥 Comprovantes Pendentes de Aprovação")
             for idx, comp in enumerate(st.session_state.comprovantes):
@@ -603,7 +594,6 @@ else:
                     st.markdown(f'<div class="card-team">Atleta: <b>{comp["nome"]}</b> | Valor: R$ {comp.get("valor", 0):.2f}</div>', unsafe_allow_html=True)
                     if st.button(f"Aprovar e Lançar no Caixa ({comp['nome']})", key=f"apr_comp_{idx}"):
                         comp["conferido"] = True
-                        # Adiciona automaticamente no caixa
                         st.session_state.financeiro.append({
                             "data": hoje_dt.strftime("%Y-%m-%d"),
                             "tipo": "Receita",
@@ -611,7 +601,6 @@ else:
                             "valor": comp.get("valor", 0),
                             "status": "Pago"
                         })
-                        # Atualiza status da jogadora para quitado
                         for j in st.session_state.jogadoras:
                             if j["nome"] == comp["nome"]:
                                 j["quitado"] = "Sim"
@@ -621,7 +610,6 @@ else:
                         st.success("Pagamento aprovado e lançado no caixa com sucesso!")
                         st.rerun()
 
-        # Adicionar despesa manual
         with st.expander("➕ Lançar Nova Receita / Despesa"):
             with st.form("form_novo_fluxo"):
                 f_tipo = st.selectbox("Tipo", ["Receita", "Despesa"])
@@ -638,7 +626,6 @@ else:
                         st.success("Lançamento adicionado!")
                         st.rerun()
 
-        # Métricas semanais e mensais
         total_rec = sum(i["valor"] for i in st.session_state.financeiro if i["tipo"] == "Receita" and i["status"] == "Pago")
         total_desp = sum(i["valor"] for i in st.session_state.financeiro if i["tipo"] == "Despesa" and i["status"] == "Pago")
         saldo_geral = total_rec - total_desp
@@ -654,7 +641,8 @@ else:
         st.write("### 📋 Lançamentos Registrados (Mensal / Semanal)")
         for lanc in st.session_state.financeiro:
             cor_st = "🟢 Pago" if lanc.get("status") == "Pago" else "🟠 Pendente"
-            st.markdown(f'<div class="card-team"><b>[{lanc["tipo"]}]</b> {lanc["descricao']} — <b>R$ {lanc["valor"]:.2f}</b> | Status: <b>{cor_st}</b> ({lanc.get("data")})</div>', unsafe_allow_html=True)
+            # Linha corrigida para evitar erro de sintaxe
+            st.markdown(f'<div class="card-team"><b>[{lanc["tipo"]}]</b> {lanc["descricao"]} — <b>R$ {lanc["valor"]:.2f}</b> | Status: <b>{cor_st}</b> ({lanc.get("data")})</div>', unsafe_allow_html=True)
 
         st.write("### 👥 Acompanhamento de Pagamento das Mensalistas")
         for j in st.session_state.jogadoras:
@@ -664,7 +652,6 @@ else:
     elif st.session_state.pagina_atual == "gerenciamento":
         st.subheader("🛠️ Gerenciamento Geral & Credenciais")
         
-        # Acesso do Desenvolvedor às credenciais de login/senha
         if st.session_state.perfil_logado == "Dev":
             st.write("### 🔐 [DEV] Credenciais de Acesso de Todas as Contas")
             for adm in st.session_state.administradores:
