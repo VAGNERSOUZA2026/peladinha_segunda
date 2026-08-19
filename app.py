@@ -50,6 +50,33 @@ st.markdown("""
         text-shadow: 0px 1px 3px rgba(0,0,0,0.8);
     }
 
+    /* Correção de Fundos Brancos em Expander, Uploaders e Abas */
+    .streamlit-expanderHeader, div[data-testid="stExpander"], div[data-baseweb="accordion"] {
+        background-color: #161E2E !important;
+        border: 1px solid #EC4899 !important;
+        border-radius: 12px !important;
+        color: #FFFFFF !important;
+    }
+    
+    div[data-testid="stFileUploader"] {
+        background-color: #161E2E !important;
+        border: 1px solid #EC4899 !important;
+        border-radius: 12px !important;
+        padding: 15px !important;
+    }
+    
+    div[data-testid="stFileUploader"] section {
+        background-color: #0B0F19 !important;
+        border: 1px dashed #EC4899 !important;
+    }
+
+    div.stTabs [data-baseweb="tab-list"] {
+        background-color: #0B0F19 !important;
+    }
+    div.stTabs [data-baseweb="tab"] {
+        color: #FFFFFF !important;
+    }
+
     .card-team {
         background: rgba(22, 30, 46, 0.95);
         border: 1px solid #EC4899;
@@ -345,13 +372,45 @@ if st.session_state.pagina_atual == "login":
 else:
     exibir_topo_logo()
     
-    st.markdown(
-        f'<div style="text-align: center; margin-bottom: 20px;">'
-        f'<span style="background-color: rgba(236, 72, 153, 0.25); color: #FFFFFF; padding: 6px 16px; border-radius: 20px; font-size: 0.95rem; font-weight: 700; border: 1px solid #EC4899;">'
-        f'👤 Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})'
-        f'</span></div>',
-        unsafe_allow_html=True
-    )
+    # Saudação dinâmica baseada no horário
+    hora_atual = hoje_dt.hour
+    if 5 <= hora_atual < 12:
+        saudacao_tempo = "Bom dia"
+    elif 12 <= hora_atual < 18:
+        saudacao_tempo = "Boa tarde"
+    else:
+        saudacao_tempo = "Boa noite"
+
+    # Verificar se é aniversário da jogadora logada hoje
+    eh_aniversario_hoje = False
+    if st.session_state.perfil_logado == "Jogadora":
+        atleta_obj = next((j for j in st.session_state.jogadoras if j.get("nome") == st.session_state.usuario_logado), None)
+        if atleta_obj and atleta_obj.get("nascimento"):
+            try:
+                partes_nasc = atleta_obj.get("nascimento").split("/")
+                dia_nasc = int(partes_nasc[0])
+                mes_nasc = int(partes_nasc[1])
+                if dia_nasc == hoje_dt.day and mes_nasc == hoje_dt.month:
+                    eh_aniversario_hoje = True
+            except:
+                pass
+
+    if eh_aniversario_hoje:
+        st.markdown(
+            f'<div class="card-team" style="border-color: #EC4899; text-align: center; box-shadow: 0 0 20px rgba(236,72,153,0.5);">'
+            f'<h3>🥳 {saudacao_tempo}, {st.session_state.usuario_logado}! 🎂</h3>'
+            f'<p><b>Parabéns pelo seu aniversário! Muita saúde, alegria e gols hoje e sempre! 💖⚽</b></p>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            f'<div style="text-align: center; margin-bottom: 15px;">'
+            f'<span style="background-color: rgba(236, 72, 153, 0.25); color: #FFFFFF; padding: 6px 16px; border-radius: 20px; font-size: 0.95rem; font-weight: 700; border: 1px solid #EC4899;">'
+            f'✨ {saudacao_tempo}, <b>{st.session_state.usuario_logado}</b>! ({st.session_state.perfil_logado})'
+            f'</span></div>',
+            unsafe_allow_html=True
+        )
     
     st.markdown(
         '<div style="text-align: center; color: #EC4899; margin-bottom: 25px; font-size: 0.9rem;">— ♥ —</div>', 
@@ -461,18 +520,24 @@ else:
         with col_l1:
             st.write(f"### 🟢 Confirmadas ({len(confirmadas)}/{limite})")
             for i, p in enumerate(confirmadas, 1):
-                st.markdown(f'<div class="card-team"><b>{i}.</b> {obter_nome_p(p)} <code>[{obter_tipo_p(p)}]</code></div>', unsafe_allow_html=True)
+                nome_p = obter_nome_p(p)
+                tipo_p = obter_tipo_p(p)
+                hora_p = p.get("hora", "--:--") if isinstance(p, dict) else "--:--"
+                st.markdown(f'<div class="card-team"><b>{i}.</b> {nome_p} <code>[{tipo_p}]</code> <br><small>🕒 Confirmado às: {hora_p}</small></div>', unsafe_allow_html=True)
 
             st.write(f"### ⏳ Fila de Espera ({len(espera)})")
             for i, p in enumerate(espera, 1):
-                st.markdown(f'<div class="card-team"><b>{i}º:</b> {obter_nome_p(p)} <code>[{obter_tipo_p(p)}]</code></div>', unsafe_allow_html=True)
+                nome_p = obter_nome_p(p)
+                tipo_p = obter_tipo_p(p)
+                hora_p = p.get("hora", "--:--") if isinstance(p, dict) else "--:--"
+                st.markdown(f'<div class="card-team"><b>{i}º:</b> {nome_p} <code>[{tipo_p}]</code> <br><small>🕒 Confirmado às: {hora_p}</small></div>', unsafe_allow_html=True)
 
         with col_l2:
             if st.session_state.perfil_logado in ["Admin", "Dev"]:
                 st.write("### 👑 Inclusão pelo Admin")
                 
                 with st.form("form_add_manual_cadastrada"):
-                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
+                    atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"]
                     atleta_escolhida = st.selectbox("Adicionar Jogadora Cadastrada", atativas_nomes if atativas_nomes else ["Nenhuma"])
                     if st.form_submit_button("Incluir Cadastrada"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
