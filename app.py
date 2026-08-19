@@ -172,7 +172,8 @@ if "avisos" not in st.session_state:
         "beneficiario": "Peladinha FC Ltda",
         "limite_vagas": 15,
         "valor_mensalidade": 50.00,
-        "valor_avulso": 15.00
+        "valor_avulso": 15.00,
+        "senha_autorizacao_admin": "1980"
     })
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
@@ -192,7 +193,6 @@ if "perfil_logado" not in st.session_state:
     st.session_state.perfil_logado = None
 
 SENHA_MESTRE_DEV = "1980"
-SENHA_AUTORIZACAO_ADMIN = "1980"
 
 # -----------------------------------------------------------------------------
 # FUNÇÃO PARA EXIBIR A LOGO NO TOPO
@@ -301,15 +301,16 @@ if st.session_state.pagina_atual == "login":
 
     elif st.session_state.sub_tela_login == "cad_admin":
         st.subheader("Cadastro de Novo Administrador")
-        # Sem clear_on_submit para os dados não sumirem caso digite senha errada
         a_nome = st.text_input("Nome do Administrador *", key="cad_adm_nome")
         a_cel = st.text_input("Celular (WhatsApp) *", placeholder="Ex: 5531999999999", key="cad_adm_cel")
         a_user = st.text_input("Login de Admin *", key="cad_adm_user")
         a_pass = st.text_input("Senha de Acesso *", type="password", key="cad_adm_pass")
-        a_aut = st.text_input("Senha de Autorização *", type="password", help="Senha padrão: 1980", key="cad_adm_aut")
+        
+        senha_autorizacao_atual = st.session_state.avisos.get("senha_autorizacao_admin", "1980")
+        a_aut = st.text_input("Senha de Autorização *", type="password", key="cad_adm_aut")
         
         if st.button("CADASTRAR ADMINISTRADOR", key="btn_sub_adm_custom"):
-            if a_aut.strip() == SENHA_AUTORIZACAO_ADMIN:
+            if a_aut.strip() == senha_autorizacao_atual:
                 if a_nome and a_user and a_pass:
                     if any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
                         st.error("Este login de administrador já existe!")
@@ -530,7 +531,11 @@ else:
         
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
-                nomes_editados = st.multiselect("Selecione as atletas presentes para o sorteio:", [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"], default=nomes_oficiais if nomes_oficiais else None)
+                nomes_editados = st.multiselect(
+                    "Selecione as atletas presentes para o sorteio:", 
+                    [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], 
+                    default=nomes_oficiais if nomes_oficiais else None
+                )
                 if st.button("Atualizar Lista Oficial do Sorteio"):
                     st.session_state.presencas = [{"nome": n, "tipo": "Atleta"} for n in nomes_editados]
                     salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
@@ -576,7 +581,6 @@ else:
     elif st.session_state.pagina_atual == "pagamento":
         st.subheader("💳 Chave Pix e Dados para Pagamento")
         
-        # Opção do Admin para editar os dados do Pix
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
             with st.expander("🛠️ Editar Dados de Pagamento / Chave Pix"):
                 with st.form("form_edit_pix"):
@@ -617,10 +621,8 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-        # Habilitar envio de comprovante para Jogadoras e Admin se testando
         if st.session_state.perfil_logado in ["Jogadora", "Admin", "Dev"]:
             with st.form("form_comp"):
-                # Se for admin, pode escolher qual jogadora está enviando o comprovante
                 if st.session_state.perfil_logado in ["Admin", "Dev"]:
                     nomes_joga_pag = [j["nome"] for j in st.session_state.jogadoras]
                     atleta_selecionada_comp = st.selectbox("Enviar em nome de:", nomes_joga_pag if nomes_joga_pag else [st.session_state.usuario_logado])
@@ -703,6 +705,19 @@ else:
     elif st.session_state.pagina_atual == "gerenciamento":
         st.subheader("🛠️ Gerenciamento Geral & Credenciais")
         
+        # Opção para alterar a Senha de Autorização de novos Administradores
+        with st.expander("🔑 Alterar Senha de Autorização para Novos Admins"):
+            with st.form("form_alt_senha_aut"):
+                nova_senha_aut_input = st.text_input("Nova Senha de Autorização", type="password")
+                if st.form_submit_button("Atualizar Senha de Autorização"):
+                    if nova_senha_aut_input.strip():
+                        st.session_state.avisos["senha_autorizacao_admin"] = nova_senha_aut_input.strip()
+                        salvar_dados(AVISOS_FILE, st.session_state.avisos)
+                        st.success("Senha de autorização de administradores alterada com sucesso!")
+                        st.rerun()
+                    else:
+                        st.error("A senha não pode estar em branco.")
+
         if st.session_state.perfil_logado == "Dev":
             st.write("### 🔐 [DEV] Credenciais de Acesso de Todas as Contas")
             for adm in st.session_state.administradores:
@@ -712,7 +727,7 @@ else:
             st.markdown("---")
 
         st.write("### 👑 Aprovação de Cadastros Pendentes")
-        pendentes_j = [item for item in st.session_state.jogadoras if item.get("status") == "Pendente"]
+        pendentes_j = [item for item in st.session_state.jogadoras if item.get("status"] == "Pendente"]
         if not pendentes_j:
             st.info("Nenhum cadastro de atleta pendente no momento.")
         else:
@@ -760,7 +775,6 @@ else:
 
         with tab_g2:
             for idx, adm in enumerate(st.session_state.administradores):
-                # Proteger o Admin Principal / Desenvolvedor se necessário, permitindo exclusão dos demais
                 is_admin_principal = adm.get("login") == "admin"
                 with st.expander(f"Administrador: {adm['nome']} ({adm.get('login')})"):
                     with st.form(f"form_edit_adm_{idx}"):
