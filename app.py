@@ -531,7 +531,7 @@ else:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
                 nomes_editados = st.multiselect(
                     "Selecione as atletas presentes para o sorteio:", 
-                    [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"], 
+                    [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], 
                     default=nomes_oficiais if nomes_oficiais else None
                 )
                 if st.button("Atualizar Lista Oficial do Sorteio"):
@@ -703,7 +703,6 @@ else:
     elif st.session_state.pagina_atual == "gerenciamento":
         st.subheader("🛠️ Gerenciamento Geral & Credenciais")
         
-        # Opção para alterar a Senha de Autorização de novos Administradores
         with st.expander("🔑 Alterar Senha de Autorização para Novos Admins"):
             with st.form("form_alt_senha_aut"):
                 nova_senha_aut_input = st.text_input("Nova Senha de Autorização", type="password")
