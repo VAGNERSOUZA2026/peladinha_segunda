@@ -22,7 +22,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# ESTILIZAÇÃO CSS CUSTOMIZADA (VISUAL NEON ROSA / DARK)
+# ESTILIZAÇÃO CSS CUSTOMIZADA (VISUAL NEON ROSA / DARK COM ALTO CONTRASTE)
 # -----------------------------------------------------------------------------
 st.markdown("""
 <style>
@@ -30,7 +30,7 @@ st.markdown("""
     
     html, body, [class*="css"] { 
         font-family: 'Montserrat', sans-serif; 
-        color: #F3F4F6; 
+        color: #FFFFFF !important; 
     }
     
     .stApp { 
@@ -44,14 +44,20 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
 
+    /* Forçar alta visibilidade em títulos, textos e labels */
+    h1, h2, h3, h4, h5, h6, label, p, span, div {
+        color: #FFFFFF !important;
+        text-shadow: 0px 1px 3px rgba(0,0,0,0.8);
+    }
+
     .card-team {
-        background: rgba(22, 30, 46, 0.85);
-        border: 1px solid #374151;
+        background: rgba(22, 30, 46, 0.95);
+        border: 1px solid #EC4899;
         border-radius: 14px;
         padding: 16px;
         margin-bottom: 14px;
         color: #FFFFFF;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4);
+        box-shadow: 0px 4px 15px rgba(236, 72, 153, 0.2);
     }
     .card-team h3, .card-team h4, .card-team p, .card-team b, .card-team span { 
         color: #FFFFFF !important; 
@@ -66,7 +72,7 @@ st.markdown("""
 
     div.stButton > button:first-child {
         background: linear-gradient(135deg, rgba(22, 30, 46, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
-        color: #FFFFFF;
+        color: #FFFFFF !important;
         font-weight: 600;
         border-radius: 16px;
         border: 1px solid #EC4899;
@@ -83,10 +89,10 @@ st.markdown("""
         background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(22, 30, 46, 0.95) 100%);
     }
 
-    .stTextInput input, .stSelectbox select, .stNumberInput input {
-        background-color: #1F2937;
-        color: #FFFFFF;
-        border: 1px solid #4B5563;
+    .stTextInput input, .stSelectbox select, .stNumberInput input, .stTextArea textarea {
+        background-color: #1F2937 !important;
+        color: #FFFFFF !important;
+        border: 1px solid #EC4899 !important;
         border-radius: 10px;
     }
 </style>
@@ -156,7 +162,7 @@ if "comprovantes" not in st.session_state:
 if "administradores" not in st.session_state:
     st.session_state.administradores = carregar_dados(
         ADMINS_FILE,
-        [{"nome": "Camila", "login": "admin", "senha": "1980", "celular": "5531999999999"}]
+        [{"nome": "Admin Principal", "login": "admin", "senha": "1980", "celular": "5531999999999"}]
     )
 if "avisos" not in st.session_state:
     st.session_state.avisos = carregar_dados(AVISOS_FILE, {
@@ -171,7 +177,7 @@ if "avisos" not in st.session_state:
 if "regulamento" not in st.session_state:
     st.session_state.regulamento = carregar_dados(REGULAMENTO_FILE, [
         {"topico": "📌 1. Prioridade de Mensalistas", "regrinha": "Mensalistas confirmando até as 17:00 de segunda-feira têm prioridade nas 15 vagas."},
-        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após as 17:00, se sobrarem vagas, sobem automaticamente."},
+        {"topico": "⏳ 2. Fila de Espera de Avulsas", "regrinha": "Avulsas entram na fila de espera. Após las 17:00, se sobrarem vagas, sobem automaticamente."},
         {"topico": "⏰ 3. Fechamento e Sorteio Automático", "regrinha": "A lista fecha às 18:00 e o sorteio automático dos grupos é realizado rigidamente às 18:30."},
         {"topico": "🚫 4. Conduta e Fair Play na Quadra", "regrinha": "Entradas violentas, jogo desleal e agressões verbais são estritamente proibidos, sujeitos a suspensão imediata."}
     ])
@@ -220,7 +226,7 @@ def exibir_topo_logo():
 # -----------------------------------------------------------------------------
 if st.session_state.pagina_atual == "login":
     exibir_topo_logo()
-    st.markdown('<p style="text-align: center; color: #9CA3AF; margin-bottom: 25px;">Mais que Futebol, Uma Conexão!</p>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #F3F4F6; font-weight: 600; margin-bottom: 25px;">Mais que Futebol, Uma Conexão!</p>', unsafe_allow_html=True)
 
     if st.session_state.sub_tela_login != "menu":
         if st.button("⬅️ Voltar ao Menu Inicial"):
@@ -295,30 +301,29 @@ if st.session_state.pagina_atual == "login":
 
     elif st.session_state.sub_tela_login == "cad_admin":
         st.subheader("Cadastro de Novo Administrador")
-        with st.form("form_cad_admin_novo", clear_on_submit=True):
-            a_nome = st.text_input("Nome do Administrador *")
-            a_cel = st.text_input("Celular (WhatsApp) *", placeholder="Ex: 5531999999999")
-            a_user = st.text_input("Login de Admin *")
-            a_pass = st.text_input("Senha de Acesso *", type="password")
-            a_aut = st.text_input("Senha de Autorização *", type="password", help="Senha padrão: 1980")
-            
-            btn_sub_adm = st.form_submit_button("CADASTRAR ADMINISTRADOR")
-            if btn_sub_adm:
-                if a_aut.strip() == SENHA_AUTORIZACAO_ADMIN:
-                    if a_nome and a_user and a_pass:
-                        if any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
-                            st.error("Este login de administrador já existe!")
-                        else:
-                            st.session_state.administradores.append({
-                                "nome": a_nome.strip(), "login": a_user.strip(),
-                                "senha": a_pass.strip(), "celular": a_cel.strip()
-                            })
-                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
-                            st.success("Administrador cadastrado com sucesso! Agora você já pode fazer o login.")
+        # Sem clear_on_submit para os dados não sumirem caso digite senha errada
+        a_nome = st.text_input("Nome do Administrador *", key="cad_adm_nome")
+        a_cel = st.text_input("Celular (WhatsApp) *", placeholder="Ex: 5531999999999", key="cad_adm_cel")
+        a_user = st.text_input("Login de Admin *", key="cad_adm_user")
+        a_pass = st.text_input("Senha de Acesso *", type="password", key="cad_adm_pass")
+        a_aut = st.text_input("Senha de Autorização *", type="password", help="Senha padrão: 1980", key="cad_adm_aut")
+        
+        if st.button("CADASTRAR ADMINISTRADOR", key="btn_sub_adm_custom"):
+            if a_aut.strip() == SENHA_AUTORIZACAO_ADMIN:
+                if a_nome and a_user and a_pass:
+                    if any(adm.get("login") == a_user.strip() for adm in st.session_state.administradores):
+                        st.error("Este login de administrador já existe!")
                     else:
-                        st.error("Preencha todos os campos obrigatórios!")
+                        st.session_state.administradores.append({
+                            "nome": a_nome.strip(), "login": a_user.strip(),
+                            "senha": a_pass.strip(), "celular": a_cel.strip()
+                        })
+                        salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                        st.success("Administrador cadastrado com sucesso! Agora você já pode fazer o login.")
                 else:
-                    st.error("Senha de autorização incorreta!")
+                    st.error("Preencha todos os campos obrigatórios!")
+            else:
+                st.error("Senha de autorização incorreta!")
 
     elif st.session_state.sub_tela_login == "dev":
         st.subheader("Acesso Restrito ao Desenvolvedor")
@@ -341,7 +346,7 @@ else:
     
     st.markdown(
         f'<div style="text-align: center; margin-bottom: 20px;">'
-        f'<span style="background-color: rgba(236, 72, 153, 0.15); color: #F472B6; padding: 6px 16px; border-radius: 20px; font-size: 0.9rem; font-weight: 500; border: 1px solid rgba(236, 72, 153, 0.3);">'
+        f'<span style="background-color: rgba(236, 72, 153, 0.25); color: #FFFFFF; padding: 6px 16px; border-radius: 20px; font-size: 0.95rem; font-weight: 700; border: 1px solid #EC4899;">'
         f'👤 Logado como: <b>{st.session_state.usuario_logado}</b> ({st.session_state.perfil_logado})'
         f'</span></div>',
         unsafe_allow_html=True
@@ -389,7 +394,7 @@ else:
             st.rerun()
 
         st.markdown(
-            '<div style="text-align: center; color: #9CA3AF; font-size: 0.8rem; margin-top: 40px; margin-bottom: 20px;">'
+            '<div style="text-align: center; color: #FFFFFF; font-weight: 600; font-size: 0.85rem; margin-top: 40px; margin-bottom: 20px;">'
             '© 2026 Peladinha FC | Mais que Futebol, Uma Conexão! ♥'
             '</div>', 
             unsafe_allow_html=True
@@ -463,17 +468,36 @@ else:
 
         with col_l2:
             if st.session_state.perfil_logado in ["Admin", "Dev"]:
-                st.write("### 👑 Ações do Administrador")
-                with st.form("form_add_manual"):
+                st.write("### 👑 Inclusão pelo Admin")
+                
+                # Opção 1: Incluir Jogadora Cadastrada
+                with st.form("form_add_manual_cadastrada"):
                     atativas_nomes = [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"]
-                    atleta_escolhida = st.selectbox("Atleta do Elenco", atativas_nomes if atativas_nomes else ["Nenhuma"])
-                    if st.form_submit_button("Incluir na Lista"):
+                    atleta_escolhida = st.selectbox("Adicionar Jogadora Cadastrada", atativas_nomes if atativas_nomes else ["Nenhuma"])
+                    if st.form_submit_button("Incluir Cadastrada"):
                         if atativas_nomes and not any(obter_nome_p(p) == atleta_escolhida for p in st.session_state.presencas):
                             tipo_atl = next((j.get("tipo", "Avulso") for j in st.session_state.jogadoras if j["nome"] == atleta_escolhida), "Avulso")
                             st.session_state.presencas.append({"nome": atleta_escolhida, "hora": hoje_dt.strftime("%H:%M"), "tipo": tipo_atl, "dt_confirmacao": hoje_dt.isoformat()})
                             salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                            st.success(f"{atleta_escolhida} incluída!")
                             st.rerun()
+
+                # Opção 2: Incluir Convidada Avulsa
+                with st.form("form_add_manual_convidada"):
+                    nome_convidada = st.text_input("Adicionar Convidada Avulsa (Nome)")
+                    if st.form_submit_button("Incluir Convidada"):
+                        if nome_convidada.strip():
+                            if not any(obter_nome_p(p).lower() == nome_convidada.strip().lower() for p in st.session_state.presencas):
+                                st.session_state.presencas.append({"nome": nome_convidada.strip(), "hora": hoje_dt.strftime("%H:%M"), "tipo": "Convidada", "dt_confirmacao": hoje_dt.isoformat()})
+                                salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
+                                st.success(f"Convidada {nome_convidada.strip()} incluída!")
+                                st.rerun()
+                            else:
+                                st.warning("Essa pessoa já está na lista!")
+                        else:
+                            st.error("Digite o nome da convidada.")
                 
+                st.write("#### Remover da Lista")
                 for p in st.session_state.presencas:
                     c_nome = obter_nome_p(p)
                     if st.button(f"Remover {c_nome}", key=f"rem_l_{c_nome}"):
@@ -506,7 +530,7 @@ else:
         
         if st.session_state.perfil_logado in ["Admin", "Dev"]:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
-                nomes_editados = st.multiselect("Selecione as atletas presentes para o sorteio:", [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], default=nomes_oficiais if nomes_oficiais else None)
+                nomes_editados = st.multiselect("Selecione as atletas presentes para o sorteio:", [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"], default=nomes_oficiais if nomes_oficiais else None)
                 if st.button("Atualizar Lista Oficial do Sorteio"):
                     st.session_state.presencas = [{"nome": n, "tipo": "Atleta"} for n in nomes_editados]
                     salvar_dados(PRESENCAS_FILE, st.session_state.presencas)
@@ -552,6 +576,26 @@ else:
     elif st.session_state.pagina_atual == "pagamento":
         st.subheader("💳 Chave Pix e Dados para Pagamento")
         
+        # Opção do Admin para editar os dados do Pix
+        if st.session_state.perfil_logado in ["Admin", "Dev"]:
+            with st.expander("🛠️ Editar Dados de Pagamento / Chave Pix"):
+                with st.form("form_edit_pix"):
+                    novo_pix = st.text_input("Chave Pix", value=st.session_state.avisos.get("pix", ""))
+                    novo_banco = st.text_input("Banco", value=st.session_state.avisos.get("banco", ""))
+                    novo_beneficiario = st.text_input("Beneficiário", value=st.session_state.avisos.get("beneficiario", ""))
+                    v_mensal_novo = st.number_input("Valor Mensalidade (R$)", value=float(st.session_state.avisos.get("valor_mensalidade", 50.0)))
+                    v_avulso_novo = st.number_input("Valor Avulso (R$)", value=float(st.session_state.avisos.get("valor_avulso", 15.0)))
+                    
+                    if st.form_submit_button("Salvar Alterações de Pagamento"):
+                        st.session_state.avisos["pix"] = novo_pix
+                        st.session_state.avisos["banco"] = novo_banco
+                        st.session_state.avisos["beneficiario"] = novo_beneficiario
+                        st.session_state.avisos["valor_mensalidade"] = v_mensal_novo
+                        st.session_state.avisos["valor_avulso"] = v_avulso_novo
+                        salvar_dados(AVISOS_FILE, st.session_state.avisos)
+                        st.success("Dados de pagamento atualizados com sucesso!")
+                        st.rerun()
+
         tipo_atual = "Avulso"
         nome_logado = st.session_state.usuario_logado
         for j in st.session_state.jogadoras:
@@ -573,14 +617,22 @@ else:
         </div>
         """, unsafe_allow_html=True)
 
-        if st.session_state.perfil_logado == "Jogadora":
+        # Habilitar envio de comprovante para Jogadoras e Admin se testando
+        if st.session_state.perfil_logado in ["Jogadora", "Admin", "Dev"]:
             with st.form("form_comp"):
+                # Se for admin, pode escolher qual jogadora está enviando o comprovante
+                if st.session_state.perfil_logado in ["Admin", "Dev"]:
+                    nomes_joga_pag = [j["nome"] for j in st.session_state.jogadoras]
+                    atleta_selecionada_comp = st.selectbox("Enviar em nome de:", nomes_joga_pag if nomes_joga_pag else [st.session_state.usuario_logado])
+                else:
+                    atleta_selecionada_comp = st.session_state.usuario_logado
+
                 up = st.file_uploader("Enviar Comprovante de Pagamento", type=["png", "jpg", "jpeg"])
                 if st.form_submit_button("Enviar Comprovante para o Admin"):
                     if up:
-                        path = os.path.join(UPLOAD_DIR, f"{st.session_state.usuario_logado}.png")
+                        path = os.path.join(UPLOAD_DIR, f"{atleta_selecionada_comp}.png")
                         with open(path, "wb") as f: f.write(up.getbuffer())
-                        st.session_state.comprovantes.append({"nome": st.session_state.usuario_logado, "arquivo": path, "valor": valor_devido, "tipo": tipo_atual, "conferido": False})
+                        st.session_state.comprovantes.append({"nome": atleta_selecionada_comp, "arquivo": path, "valor": valor_devido, "tipo": tipo_atual, "conferido": False})
                         salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
                         st.success("Comprovante enviado com sucesso para validação do Administrador!")
 
@@ -641,7 +693,6 @@ else:
         st.write("### 📋 Lançamentos Registrados (Mensal / Semanal)")
         for lanc in st.session_state.financeiro:
             cor_st = "🟢 Pago" if lanc.get("status") == "Pago" else "🟠 Pendente"
-            # Linha corrigida para evitar erro de sintaxe
             st.markdown(f'<div class="card-team"><b>[{lanc["tipo"]}]</b> {lanc["descricao"]} — <b>R$ {lanc["valor"]:.2f}</b> | Status: <b>{cor_st}</b> ({lanc.get("data")})</div>', unsafe_allow_html=True)
 
         st.write("### 👥 Acompanhamento de Pagamento das Mensalistas")
@@ -672,3 +723,67 @@ else:
                     salvar_dados(DATA_FILE, st.session_state.jogadoras)
                     st.success("Atleta aprovada com sucesso!")
                     st.rerun()
+
+        st.markdown("---")
+        st.write("### ✏️ Gerenciar / Editar / Excluir Cadastros")
+
+        tab_g1, tab_g2 = st.tabs(["Jogadoras", "Administradores"])
+
+        with tab_g1:
+            for idx, j in enumerate(st.session_state.jogadoras):
+                with st.expander(f"Jogadora: {j['nome']} ({j.get('tipo', 'Avulso')})"):
+                    with st.form(f"form_edit_jog_{idx}"):
+                        novo_nome_j = st.text_input("Nome", value=j["nome"])
+                        novo_tipo_j = st.selectbox("Tipo", ["Avulso", "Mensalista"], index=0 if j.get("tipo") == "Avulso" else 1)
+                        novo_status_j = st.selectbox("Status", ["Ativo", "Pendente", "Inativo"], index=0 if j.get("status") == "Ativo" else (1 if j.get("status") == "Pendente" else 2))
+                        novo_quitado_j = st.selectbox("Quitado", ["Sim", "Não"], index=0 if j.get("quitado") == "Sim" else 1)
+                        novo_login_j = st.text_input("Login", value=j.get("login", ""))
+                        novo_senha_j = st.text_input("Senha", value=j.get("senha", ""))
+
+                        btn_salvar_j = st.form_submit_button("Salvar Alterações da Atleta")
+                        if btn_salvar_j:
+                            j["nome"] = novo_nome_j
+                            j["tipo"] = novo_tipo_j
+                            j["status"] = novo_status_j
+                            j["quitado"] = novo_quitado_j
+                            j["login"] = novo_login_j
+                            j["senha"] = novo_senha_j
+                            salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                            st.success("Atleta atualizada com sucesso!")
+                            st.rerun()
+
+                    if st.button(f"🗑️ Excluir Atleta {j['nome']}", key=f"del_jog_{idx}"):
+                        st.session_state.jogadoras.pop(idx)
+                        salvar_dados(DATA_FILE, st.session_state.jogadoras)
+                        st.success("Atleta excluída com sucesso!")
+                        st.rerun()
+
+        with tab_g2:
+            for idx, adm in enumerate(st.session_state.administradores):
+                # Proteger o Admin Principal / Desenvolvedor se necessário, permitindo exclusão dos demais
+                is_admin_principal = adm.get("login") == "admin"
+                with st.expander(f"Administrador: {adm['nome']} ({adm.get('login')})"):
+                    with st.form(f"form_edit_adm_{idx}"):
+                        novo_nome_a = st.text_input("Nome", value=adm["nome"])
+                        novo_cel_a = st.text_input("Celular", value=adm.get("celular", ""))
+                        novo_login_a = st.text_input("Login", value=adm.get("login", ""))
+                        novo_senha_a = st.text_input("Senha", value=adm.get("senha", ""))
+
+                        btn_salvar_a = st.form_submit_button("Salvar Alterações do Admin")
+                        if btn_salvar_a:
+                            adm["nome"] = novo_nome_a
+                            adm["celular"] = novo_cel_a
+                            adm["login"] = novo_login_a
+                            adm["senha"] = novo_senha_a
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.success("Administrador atualizado com sucesso!")
+                            st.rerun()
+
+                    if not is_admin_principal:
+                        if st.button(f"🗑️ Excluir Administrador {adm['nome']}", key=f"del_adm_{idx}"):
+                            st.session_state.administradores.pop(idx)
+                            salvar_dados(ADMINS_FILE, st.session_state.administradores)
+                            st.success("Administrador excluído com sucesso!")
+                            st.rerun()
+                    else:
+                        st.info("O Administrador Principal padrão não pode ser excluído.")
