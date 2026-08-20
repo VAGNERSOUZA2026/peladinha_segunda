@@ -745,7 +745,7 @@ else:
                         st.rerun()
                 with col_b:
                     if st.button(f"Recusar {j['nome']}", key=f"rec_{j['login']}"):
-                        st.session_state.jogadoras = [item for item in st.session_state.jogadoras if item.get("login"] != j.get("login")]
+                        st.session_state.jogadoras = [item for item in st.session_state.jogadoras if item.get("login") != j.get("login")]
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success(f"Cadastro de {j['nome']} removido.")
                         st.rerun()
