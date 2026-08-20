@@ -617,7 +617,7 @@ else:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
                 nomes_editados = st.multiselect(
                     "Selecione as atletas presentes para o sorteio:", 
-                    [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"], 
+                    [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], 
                     default=nomes_oficiais if nomes_oficiais else None
                 )
                 if st.button("Atualizar Lista Oficial do Sorteio"):
