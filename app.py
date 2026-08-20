@@ -96,23 +96,23 @@ st.markdown("""
         font-weight: 700; 
     }
 
-    div.stButton > button:first-child {
-        background: linear-gradient(135deg, rgba(22, 30, 46, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%);
+    /* BOTÕES GERAIS E DE FORMULÁRIOS COM TEXTO VISÍVEL E BRANCO */
+    div.stButton > button:first-child, div.stFormSubmitButton > button {
+        background: linear-gradient(135deg, rgba(22, 30, 46, 0.95) 0%, rgba(15, 23, 42, 0.95) 100%) !important;
         color: #FFFFFF !important;
-        font-weight: 600;
-        border-radius: 16px;
-        border: 1px solid #EC4899;
-        padding: 18px 20px;
-        width: 100%;
-        box-shadow: 0 0 12px rgba(236, 72, 153, 0.25);
-        transition: all 0.3s ease;
-        text-align: left !important;
+        font-weight: 700 !important;
+        border-radius: 16px !important;
+        border: 1px solid #EC4899 !important;
+        padding: 14px 20px !important;
+        box-shadow: 0 0 12px rgba(236, 72, 153, 0.25) !important;
+        transition: all 0.3s ease !important;
     }
     
-    div.stButton > button:first-child:hover {
-        border-color: #F472B6;
-        box-shadow: 0 0 20px rgba(236, 72, 153, 0.5);
-        background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(22, 30, 46, 0.95) 100%);
+    div.stButton > button:first-child:hover, div.stFormSubmitButton > button:hover {
+        border-color: #F472B6 !important;
+        box-shadow: 0 0 20px rgba(236, 72, 153, 0.5) !important;
+        background: linear-gradient(135deg, rgba(30, 41, 59, 0.95) 0%, rgba(22, 30, 46, 0.95) 100%) !important;
+        color: #FFFFFF !important;
     }
 
     .stTextInput input, .stSelectbox select, .stNumberInput input, .stTextArea textarea {
@@ -617,7 +617,7 @@ else:
             with st.expander("🛠️ Editar Participantes do Sorteio Oficial"):
                 nomes_editados = st.multiselect(
                     "Selecione as atletas presentes para o sorteio:", 
-                    [j["nome"] for j in st.session_state.jogadoras if j.get("status") == "Ativo"], 
+                    [j["nome"] for j in st.session_state.jogadoras if j.get("status"] == "Ativo"], 
                     default=nomes_oficiais if nomes_oficiais else None
                 )
                 if st.button("Atualizar Lista Oficial do Sorteio"):
@@ -670,7 +670,7 @@ else:
                         f.write(arq_comp.getbuffer())
                     
                     st.session_state.comprovantes.append({
-                        "atleta": st.session_state.usuario_logado,
+                        "atleta": st.session_state.usuario_logado or "Anônimo",
                         "descricao": desc_comp,
                         "arquivo": file_path,
                         "data": hoje_dt.strftime("%d/%m/%Y %H:%M"),
@@ -708,10 +708,18 @@ else:
         if st.session_state.comprovantes:
             st.write("### 🔍 Comprovantes Enviados para Análise")
             for idx, comp in enumerate(st.session_state.comprovantes):
-                st.markdown(f'<div class="card-team"><b>Atleta:</b> {comp["atleta"]} <br><b>Descrição:</b> {comp["descricao"]} <br><b>Data:</b> {comp["data"]} <br><b>Status:</b> {comp["status"]}</div>', unsafe_allow_html=True)
-                if os.path.exists(comp["arquivo"]):
-                    st.image(comp["arquivo"], width=250)
-                if comp["status"] == "Pendente":
+                nome_atleta_comp = comp.get("atleta") or comp.get("nome") or "Desconhecido"
+                desc_comp = comp.get("descricao") or "Sem descrição"
+                data_comp = comp.get("data") or "Data não informada"
+                status_comp = comp.get("status") or "Pendente"
+                
+                st.markdown(f'<div class="card-team"><b>Atleta:</b> {nome_atleta_comp} <br><b>Descrição:</b> {desc_comp} <br><b>Data:</b> {data_comp} <br><b>Status:</b> {status_comp}</div>', unsafe_allow_html=True)
+                
+                arq_path = comp.get("arquivo")
+                if arq_path and os.path.exists(arq_path):
+                    st.image(arq_path, width=250)
+                
+                if status_comp == "Pendente":
                     if st.button(f"Aprovar Comprovante {idx}", key=f"apr_comp_{idx}"):
                         st.session_state.comprovantes[idx]["status"] = "Aprovado"
                         salvar_dados(COMPROVANTES_FILE, st.session_state.comprovantes)
@@ -737,7 +745,7 @@ else:
                         st.rerun()
                 with col_b:
                     if st.button(f"Recusar {j['nome']}", key=f"rec_{j['login']}"):
-                        st.session_state.jogadoras = [item for item in st.session_state.jogadoras if item.get("login") != j.get("login")]
+                        st.session_state.jogadoras = [item for item in st.session_state.jogadoras if item.get("login"] != j.get("login")]
                         salvar_dados(DATA_FILE, st.session_state.jogadoras)
                         st.success(f"Cadastro de {j['nome']} removido.")
                         st.rerun()
